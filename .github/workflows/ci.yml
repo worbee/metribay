@@ -1,0 +1,53 @@
+name: Core checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {php: '8.3', database: sqlite}
+          - {php: '8.5', database: sqlite}
+          - {php: '8.5', database: pgsql}
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: metribay_test
+          POSTGRES_USER: metribay
+          POSTGRES_PASSWORD: test-only-password
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U metribay -d metribay_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    defaults:
+      run:
+        working-directory: standalone
+    steps:
+      - uses: actions/checkout@v7
+        with: {persist-credentials: false}
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '${{ matrix.php }}'
+          extensions: curl, mbstring, sqlite3, pdo_sqlite, pdo_pgsql, intl
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist
+      - run: php artisan test
+        env:
+          DB_CONNECTION: '${{ matrix.database }}'
+          DB_DATABASE: '${{ matrix.database == ''pgsql'' && ''metribay_test'' || '':memory:'' }}'
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_USERNAME: metribay
+          DB_PASSWORD: test-only-password
+      - run: composer analyse
+      - run: vendor/bin/pint --test ../src ../tests ../database ../routes ../config app tests
+      - uses: actions/setup-node@v7
+        if: matrix.php == '8.5' && matrix.database == 'sqlite'
+        with: {node-version: '24', cache: npm, cache-dependency-path: package-lock.json}
+      - run: npm ci && npm run build && git diff --exit-code -- dist
+        working-directory: .
+        if: matrix.php == '8.5' && matrix.database == 'sqlite'

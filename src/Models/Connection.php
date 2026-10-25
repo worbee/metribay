@@ -1,0 +1,40 @@
+<?php
+
+namespace Metribay\Core\Models;
+
+use Illuminate\Contracts\Encryption\DecryptException;
+use Illuminate\Database\Eloquent\Model;
+use Metribay\Core\Models\Concerns\BelongsToWorkspace;
+
+/** @property array<string, mixed>|null $encrypted_payload */
+class Connection extends Model
+{
+    use BelongsToWorkspace;
+
+    protected $guarded = [];
+
+    protected $hidden = ['encrypted_payload'];
+
+    /** @return array<string, string> */
+    protected function casts(): array
+    {
+        return ['version' => 'integer', 'encrypted_payload' => 'encrypted:array'];
+    }
+
+    /** @param array<string, mixed> $values */
+    public function storeSecrets(array $values): void
+    {
+        $this->encrypted_payload = ['workspace_id' => (int) $this->workspace_id, 'kind' => $this->kind, 'values' => $values];
+    }
+
+    /** @return array<string, mixed> */
+    public function reveal(): array
+    {
+        $payload = $this->encrypted_payload;
+        if (! is_array($payload) || ($payload['workspace_id'] ?? null) !== (int) $this->workspace_id || ($payload['kind'] ?? null) !== $this->kind || ! is_array($payload['values'] ?? null)) {
+            throw new DecryptException('Connection credentials are unavailable.');
+        }
+
+        return $payload['values'];
+    }
+}

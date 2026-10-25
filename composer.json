@@ -1,0 +1,29 @@
+{
+    "name": "metribay/core",
+    "description": "A self-hostable multi-project metrics dashboard for independent builders.",
+    "type": "library",
+    "license": "Apache-2.0",
+    "require": {
+        "php": "^8.3",
+        "laravel/framework": "^13.17",
+        "laravel/fortify": "^1.0",
+        "livewire/livewire": "^4.0",
+        "google/auth": "^1.0",
+        "firebase/php-jwt": "^7.0",
+        "ext-curl": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "Metribay\\Core\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Metribay\\Core\\Providers\\MetribayServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

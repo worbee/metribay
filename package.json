@@ -1,0 +1,16 @@
+{
+  "name": "@metribay/core-ui",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch"
+  },
+  "dependencies": {
+    "chart.js": "^4.6.1"
+  },
+  "devDependencies": {
+    "vite": "^8.3.5"
+  }
+}
