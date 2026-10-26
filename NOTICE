@@ -1,6 +1,6 @@
 Metribay
 Copyright 2026 Worbee EOOD
 
-Core source is licensed under Apache-2.0. The supplied Metribay name and original light/dark logo remain Worbee EOOD branding; the source license does not grant trademark rights.
+Core source is licensed under Apache-2.0. The Metribay name and logo (the soft tray mark and wordmark in resources/images/ and dist/) remain Worbee EOOD branding; the source license does not grant trademark rights.
 
 Laravel, Livewire, Chart.js and other dependencies retain their own licenses. Bundled frontend license notices are in dist/THIRD_PARTY_LICENSES.txt.

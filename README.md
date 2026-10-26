@@ -49,7 +49,7 @@ php standalone/artisan vendor:publish --tag=metribay-assets --force
 
 The default installer uses bundled assets and needs no Node installation. Use `scripts/setup.sh --build-assets` to rebuild them.
 
-`dist/` is included in release source so installed Composer packages have usable assets. Rebuild it alongside UI changes. Original branding and bundled third-party licenses are preserved. Tests cover provider fixtures, native HTTP transport construction, persistence, workspace isolation, credentials and request flows. Browser checks are recorded separately. Public installs need no private repository or credentials.
+`dist/` is included in release source so installed Composer packages have usable assets. Rebuild it alongside UI changes. Branding (the soft tray lockups, favicon and touch icon in `resources/images/`, copied into `dist/` by the build) and bundled third-party licenses are preserved. Tests cover provider fixtures, native HTTP transport construction, persistence, workspace isolation, credentials and request flows. Browser checks are recorded separately. Public installs need no private repository or credentials.
 
 ## License
 

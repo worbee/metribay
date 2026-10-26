@@ -21,8 +21,8 @@ export default defineConfig({
         closeBundle() {
             const licenses = ['chart.js', '@kurkle/color'].map(name => `${name}\n${readFileSync(resolve(import.meta.dirname, `node_modules/${name}/LICENSE.md`), 'utf8')}`).join('\n\n---\n\n');
             writeFileSync(resolve(import.meta.dirname, 'dist/THIRD_PARTY_LICENSES.txt'), licenses);
-            for (const theme of ['light', 'dark']) {
-                copyFileSync(resolve(import.meta.dirname, `resources/images/metribay-${theme}.svg`), resolve(import.meta.dirname, `dist/metribay-${theme}.svg`));
+            for (const file of ['metribay-lockup-light.svg', 'metribay-lockup-dark.svg', 'metribay-favicon.svg', 'apple-touch-icon.png']) {
+                copyFileSync(resolve(import.meta.dirname, `resources/images/${file}`), resolve(import.meta.dirname, `dist/${file}`));
             }
         },
     }],
