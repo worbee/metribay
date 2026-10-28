@@ -350,3 +350,19 @@ new MutationObserver(queueSync).observe(document.body, { childList: true, subtre
 document.addEventListener('livewire:navigated', initialize);
 document.addEventListener('livewire:init', () => { window.Livewire.hook('morphed', queueSync); });
 initialize();
+
+function setupSourceForms() {
+ document.querySelectorAll('[data-resource-search]').forEach(input => {
+ input.oninput = () => document.querySelectorAll('[data-resource-row]').forEach(row => { row.hidden = !row.textContent.toLowerCase().includes(input.value.toLowerCase()); });
+ });
+ document.querySelectorAll('[data-setup-project]').forEach(select => {
+ const update = () => { const fields = select.form.querySelector('[data-new-project]'); fields.hidden = !!select.value; fields.querySelectorAll('input').forEach(input => { input.disabled = !!select.value; }); };
+ select.onchange = update; update();
+ });
+}
+document.addEventListener('DOMContentLoaded', setupSourceForms);
+document.addEventListener('livewire:navigated', setupSourceForms);
+
+if (document.querySelector('[data-import-pending]')) {
+ setTimeout(() => { if (!document.querySelector('input:focus,textarea:focus')) window.location.reload(); }, 10000);
+}
