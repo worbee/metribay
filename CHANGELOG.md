@@ -1,0 +1,10 @@
+# Changelog
+
+## 0.1.2 — 2026-10-28
+
+- Guide source setup through provider, account, resource selection and project confirmation.
+- Discover provider resources, infer labels/timezones and queue the first import automatically.
+- Support configured Google browser authorization with a shared callback.
+- Resume workspace setup and display import progress without misleading empty charts.
+- Remove groups from everyday navigation while preserving existing configuration data.
+- Separate project/account creation views, support workspace renaming, and expose a shared settings template for hosts.

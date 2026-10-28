@@ -34,9 +34,6 @@ class Dashboard extends Component
 
         return app(WorkspaceContext::class)->run($workspace, function () use ($workspace) {
             $projects = app(DashboardData::class)->projects($this->days);
-            if ($this->selectedGroup !== '') {
-                $projects = array_values(array_filter($projects, fn ($project) => ($project['group'] ?? '') === $this->selectedGroup || ($this->selectedGroup === '__ungrouped' && $project['group'] === null)));
-            }
 
             return view('metribay::components.overview', ['workspace' => $workspace, 'projects' => $projects, 'groups' => ProjectGroup::query()->orderBy('name')->pluck('name')->all(), 'days' => $this->days, 'selectedGroup' => $this->selectedGroup, 'now' => CarbonImmutable::now('UTC')]);
         });

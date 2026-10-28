@@ -6847,3 +6847,21 @@ document.addEventListener("click", (e) => {
 }), document.addEventListener("livewire:navigated", Tc), document.addEventListener("livewire:init", () => {
 	window.Livewire.hook("morphed", Sc);
 }), Tc();
+function Ec() {
+	document.querySelectorAll("[data-resource-search]").forEach((e) => {
+		e.oninput = () => document.querySelectorAll("[data-resource-row]").forEach((t) => {
+			t.hidden = !t.textContent.toLowerCase().includes(e.value.toLowerCase());
+		});
+	}), document.querySelectorAll("[data-setup-project]").forEach((e) => {
+		let t = () => {
+			let t = e.form.querySelector("[data-new-project]");
+			t.hidden = !!e.value, t.querySelectorAll("input").forEach((t) => {
+				t.disabled = !!e.value;
+			});
+		};
+		e.onchange = t, t();
+	});
+}
+document.addEventListener("DOMContentLoaded", Ec), document.addEventListener("livewire:navigated", Ec), document.querySelector("[data-import-pending]") && setTimeout(() => {
+	document.querySelector("input:focus,textarea:focus") || window.location.reload();
+}, 1e4);
