@@ -14,8 +14,8 @@
     <div class="section-intro"><h2 id="password-heading">Password</h2><p>Use a strong, unique password.</p></div>
     <form class="form-stack form-width" method="POST" action="{{ url('/user/password') }}">@csrf @method('PUT')
         <div class="field"><label for="current_password">Current password</label><input id="current_password" name="current_password" type="password" autocomplete="current-password" required></div>
-        <div class="form-grid"><div class="field"><label for="new-password">New password</label><input id="new-password" name="password" type="password" autocomplete="new-password" minlength="12" required></div><div class="field"><label for="password_confirmation">Confirm password</label><input id="password_confirmation" name="password_confirmation" type="password" autocomplete="new-password" minlength="12" required></div></div>
-        <p class="field-hint">At least 12 characters.</p><div><button class="button button-primary" type="submit">Update password</button></div>
+        <div class="form-grid"><div class="field"><label for="new-password">New password</label><input id="new-password" name="password" type="password" autocomplete="new-password" minlength="14" required></div><div class="field"><label for="password_confirmation">Confirm password</label><input id="password_confirmation" name="password_confirmation" type="password" autocomplete="new-password" minlength="14" required></div></div>
+        <p class="field-hint">At least 14 characters.</p><div><button class="button button-primary" type="submit">Update password</button></div>
     </form>
 </section>
 @if (\Illuminate\Support\Facades\Route::has('two-factor.enable'))
