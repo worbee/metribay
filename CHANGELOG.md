@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.7 — 2026-10-30
+
+- Let hosts add managed provider actions to account and resource setup without replacing the shared flow.
+- Allow hosts to extend resource discovery while retaining built-in bring-your-own credentials.
+
 ## 0.1.5 — 2026-10-29
 
 - Keep own credentials and developer-app configuration in Core; let hosts own managed authorization and runtime credentials.
