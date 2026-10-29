@@ -3,12 +3,16 @@
 @section('content')
 @yield('workspace-usage')
 @php
-    $activeTab = in_array($tab ?? 'projects',['projects','sources','connections','general','data']) ? ($tab ?? 'projects') : 'projects';
     $tabs = ['projects'=>'Projects', 'sources'=>'Sources', 'connections'=>'Connections', 'general'=>'Workspace', 'data'=>'Import & export'];
+    if (!config('metribay.account_enabled', true)) $tabs['appearance'] = 'Appearance';
+    $activeTab = array_key_exists($tab ?? 'projects', $tabs) ? ($tab ?? 'projects') : 'projects';
 @endphp
 <header class="page-heading"><div><div class="eyebrow">{{ $workspace->name }}</div><h1>Workspace settings<span class="heading-dot">.</span></h1><p class="page-description">Organize projects and manage where your data comes from.</p></div><a class="button button-secondary" href="{{ route('metribay.dashboard',$workspace->slug) }}">Back to overview @include('metribay::partials/icon',['name'=>'arrow-up-right'])</a></header>
 <div class="settings-layout"><nav class="settings-nav" aria-label="Workspace settings">@foreach($tabs as $key=>$label)<a @class(['is-active'=>$key === $activeTab]) href="{{ route('metribay.settings',['workspace'=>$workspace->slug,'tab'=>$key]) }}" @if($key === $activeTab) aria-current="page" @endif><span>{{ $label }}</span>@if($key === 'projects')<small>{{ $projects->count() }}</small>@elseif($key === 'sources')<small>{{ $sources->count() }}</small>@elseif($key === 'connections')<small>{{ $connections->count() }}</small>@endif</a>@endforeach</nav>
 <div class="settings-content">
+@if($activeTab === 'appearance')
+    @include('metribay::partials/appearance')
+@endif
 @if($activeTab === 'projects')
     <div class="section-heading"><div><h2>Projects</h2><p class="muted">A project brings related sources into one view.</p></div></div>
 @if($canEdit)<p class="section-actions"><a class="button button-secondary" href="{{ route('metribay.settings',['workspace'=>$workspace->slug,'tab'=>'projects','create'=>request()->boolean('create') ? null : 1]) }}">{{ request()->boolean('create') ? '← Back to projects' : 'Add project →' }}</a></p>@endif

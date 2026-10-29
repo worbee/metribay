@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.3 — 2026-10-29
+
+- Let hosts disable account UI and its page while keeping shared appearance controls in Settings.
+
+
 ## 0.1.2 — 2026-10-28
 
 - Guide source setup through provider, account, resource selection and project confirmation.

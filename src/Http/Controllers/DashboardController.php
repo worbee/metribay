@@ -39,6 +39,8 @@ class DashboardController
 
     public function account(Request $request): View
     {
+        abort_unless(config('metribay.account_enabled', true), 404);
+
         return view('metribay::account', ['user' => $request->user()]);
     }
 

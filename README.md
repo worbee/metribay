@@ -54,3 +54,5 @@ The default installer uses bundled assets and needs no Node installation. Use `s
 ## License
 
 Core source: Apache-2.0. Supplied branding belongs to Worbee EOOD. Third-party runtime and bundled asset licenses retain their own terms; see NOTICE and dist/THIRD_PARTY_LICENSES.txt.
+
+Hosts that provide their own local identity can set `metribay.account_enabled` to `false` in host configuration. This hides account navigation and identity controls, returns 404 for the account page, and exposes appearance controls under Workspace settings → Appearance. Hosts remain responsible for disabling any authentication routes they do not use. The default keeps standalone and hosted account behavior enabled.
