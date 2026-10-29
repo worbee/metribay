@@ -15,7 +15,7 @@ class AccountPresentationTest extends TestCase
     {
         $owner = User::factory()->create();
         $this->actingAs($owner)->get('/account')->assertOk()->assertSee('Account &amp; preferences', false)->assertSee('data-number-preference', false)->assertSee('data-density-preference', false);
-        $this->get('/workspaces')->assertSee('Account menu')->assertSee('Sign out');
+        $this->get('/account')->assertSee('Account menu')->assertSee('Sign out')->assertDontSee('Change workspace')->assertDontSee('Workspaces');
     }
 
     public function test_hosts_can_hide_account_and_move_appearance_to_settings(): void
@@ -24,7 +24,7 @@ class AccountPresentationTest extends TestCase
         $owner = User::factory()->create();
         Workspace::create(['owner_id' => $owner->id, 'name' => 'Local', 'slug' => 'local']);
         $this->actingAs($owner)->get('/account')->assertNotFound();
-        $this->get('/workspaces')->assertOk()->assertDontSee('Account menu')->assertDontSee('Account &amp; preferences', false)->assertDontSee('Sign out');
+        $this->get('/w/local')->assertOk()->assertDontSee('Account menu')->assertDontSee('Account &amp; preferences', false)->assertDontSee('Sign out');
         $this->get('/w/local/settings?tab=appearance')->assertOk()->assertSee('Color theme')->assertSee('data-number-preference', false)->assertSee('data-density-preference', false)->assertDontSee('Account menu')->assertSee('data-theme-cycle', false);
     }
 }

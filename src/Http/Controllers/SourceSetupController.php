@@ -87,15 +87,6 @@ class SourceSetupController
         return redirect($target);
     }
 
-    public function rename(Request $request): RedirectResponse
-    {
-        $this->authorize($request, 'manage_access');
-        $values = $request->validate(['name' => ['required', 'string', 'max:120']]);
-        app(WorkspaceContext::class)->current()->update($values);
-
-        return back()->with('status', 'Workspace renamed.');
-    }
-
     public function show(Request $request): View
     {
         $this->authorize($request);
@@ -151,7 +142,7 @@ class SourceSetupController
                     $draft['listed'] = true;
                     unset($draft['discovery_error']);
                 } catch (\Throwable) {
-                    $draft['discovery_error'] = 'Use manual entry below, or ask the workspace owner to list resources and check account access.';
+                    $draft['discovery_error'] = 'Use manual entry below, or ask an owner to list resources and check account access.';
                 }
             } elseif ($action === 'discover') {
                 if ($kind !== 'wporg') {

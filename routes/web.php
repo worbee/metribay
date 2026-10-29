@@ -11,11 +11,9 @@ Route::middleware(['web', 'auth', 'auth.session', 'verified'])->group(function (
     Route::get('/', [DashboardController::class, 'home'])->name('metribay.home');
     Route::get('/integrations/google/callback', [SourceSetupController::class, 'googleReturn'])->name('metribay.google.callback');
     Route::get('/account', [DashboardController::class, 'account'])->name('metribay.account');
-    Route::get('/workspaces', [DashboardController::class, 'workspaces'])->name('metribay.workspaces');
     Route::prefix('w/{workspace}')->middleware(UseWorkspace::class)->group(function (): void {
         Route::get('/', [DashboardController::class, 'index'])->name('metribay.dashboard');
         Route::get('/projects/{project}', [DashboardController::class, 'project'])->name('metribay.projects.show');
-        Route::patch('/workspace', [SourceSetupController::class, 'rename'])->name('metribay.workspace.rename');
         Route::get('/sources/google', [SourceSetupController::class, 'google'])->name('metribay.sources.google');
         Route::get('/sources/google/callback', [SourceSetupController::class, 'googleCallback'])->name('metribay.sources.google.callback');
         Route::get('/sources/new', [SourceSetupController::class, 'show'])->name('metribay.sources.create');
