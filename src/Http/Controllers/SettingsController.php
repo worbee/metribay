@@ -13,7 +13,9 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Metribay\Core\Connectors\ConnectorRegistry;
+use Metribay\Core\Connectors\ProviderRequestLimit;
 use Metribay\Core\Connectors\SourceConfiguration;
+use Metribay\Core\Contracts\ConnectionCredentials;
 use Metribay\Core\Contracts\WorkspaceAccess;
 use Metribay\Core\Jobs\CollectSource;
 use Metribay\Core\Models\Connection;
@@ -184,7 +186,9 @@ class SettingsController
         $this->authorize($request, 'manage_connections');
         $source = Source::query()->whereKey($request->route('source'))->firstOrFail();
         try {
-            $connectors->for($source->kind)->collect(new SourceConfiguration($source->kind, array_merge($source->config, ['days' => 1, 'limit' => 1, 'period_days' => []]), $source->reporting_timezone), $source->connection?->reveal() ?? [], CarbonImmutable::now('UTC'));
+            $connectors->for($source->kind)->collect(new SourceConfiguration($source->kind, array_merge($source->config, ['days' => 1, 'limit' => 1, 'period_days' => []]), $source->reporting_timezone), $source->connection ? app(ConnectionCredentials::class)->resolve($source->connection) : [], CarbonImmutable::now('UTC'));
+        } catch (ProviderRequestLimit $exception) {
+            throw ValidationException::withMessages(['connection_id' => $exception->getMessage()]);
         } catch (\Throwable) {
             throw ValidationException::withMessages(['connection_id' => 'The provider could not confirm access. Check the resource, credentials, and provider permissions.']);
         }

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.5 — 2026-10-29
+
+- Keep own credentials and developer-app configuration in Core; let hosts own managed authorization and runtime credentials.
+- Apply host request policies to every provider request, including discovery and token exchange.
+- Show actionable request-limit messages and reject managed service references in standalone installations.
+
 ## 0.1.4 — 2026-10-29
 
 - Keep workspace selection and management in Cloud; Personal opens its dashboard directly.
