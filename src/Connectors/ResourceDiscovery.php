@@ -7,7 +7,7 @@ namespace Metribay\Core\Connectors;
 use Carbon\CarbonImmutable;
 
 /** Bounded, read-only discovery through the same pinned transport as collection. */
-final class ResourceDiscovery extends AbstractConnector
+class ResourceDiscovery extends AbstractConnector
 {
     /** @param array<string,mixed> $credentials
      * @return list<array{id:string,name:string,domain:string,timezone:string}>
