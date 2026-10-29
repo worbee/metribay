@@ -30,7 +30,7 @@ class InstallCommand extends Command
             $user = $model::create(['name' => $this->option('name'), 'email' => mb_strtolower($email), 'password' => $password, 'email_verified_at' => now()]);
             app(WorkspaceProvisioner::class)->create($user, 'My workspace');
         });
-        $this->info('Owner and workspace created. Sign in at '.config('app.url').'/login');
+        $this->info('Owner created. Sign in at '.config('app.url').'/login');
 
         return self::SUCCESS;
     }

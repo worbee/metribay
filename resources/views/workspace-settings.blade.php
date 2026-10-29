@@ -1,14 +1,15 @@
 @extends('metribay::layouts/app')
-@section('title', 'Workspace settings')
+@section('title', 'Settings')
 @section('content')
 @yield('workspace-usage')
 @php
-    $tabs = ['projects'=>'Projects', 'sources'=>'Sources', 'connections'=>'Connections', 'general'=>'Workspace', 'data'=>'Import & export'];
+    $tabs = ['projects'=>'Projects', 'sources'=>'Sources', 'connections'=>'Connections', 'data'=>'Import & export'];
+    $tabs += config('metribay.settings_tabs', []);
     if (!config('metribay.account_enabled', true)) $tabs['appearance'] = 'Appearance';
     $activeTab = array_key_exists($tab ?? 'projects', $tabs) ? ($tab ?? 'projects') : 'projects';
 @endphp
-<header class="page-heading"><div><div class="eyebrow">{{ $workspace->name }}</div><h1>Workspace settings<span class="heading-dot">.</span></h1><p class="page-description">Organize projects and manage where your data comes from.</p></div><a class="button button-secondary" href="{{ route('metribay.dashboard',$workspace->slug) }}">Back to overview @include('metribay::partials/icon',['name'=>'arrow-up-right'])</a></header>
-<div class="settings-layout"><nav class="settings-nav" aria-label="Workspace settings">@foreach($tabs as $key=>$label)<a @class(['is-active'=>$key === $activeTab]) href="{{ route('metribay.settings',['workspace'=>$workspace->slug,'tab'=>$key]) }}" @if($key === $activeTab) aria-current="page" @endif><span>{{ $label }}</span>@if($key === 'projects')<small>{{ $projects->count() }}</small>@elseif($key === 'sources')<small>{{ $sources->count() }}</small>@elseif($key === 'connections')<small>{{ $connections->count() }}</small>@endif</a>@endforeach</nav>
+<header class="page-heading"><div>@if(\Illuminate\Support\Facades\Route::has('metribay.workspaces'))<div class="eyebrow">{{ $workspace->name }}</div>@endif<h1>Settings<span class="heading-dot">.</span></h1><p class="page-description">Organize projects and manage where your data comes from.</p></div><a class="button button-secondary" href="{{ route('metribay.dashboard',$workspace->slug) }}">Back to overview @include('metribay::partials/icon',['name'=>'arrow-up-right'])</a></header>
+<div class="settings-layout"><nav class="settings-nav" aria-label="Settings">@foreach($tabs as $key=>$label)<a @class(['is-active'=>$key === $activeTab]) href="{{ route('metribay.settings',['workspace'=>$workspace->slug,'tab'=>$key]) }}" @if($key === $activeTab) aria-current="page" @endif><span>{{ $label }}</span>@if($key === 'projects')<small>{{ $projects->count() }}</small>@elseif($key === 'sources')<small>{{ $sources->count() }}</small>@elseif($key === 'connections')<small>{{ $connections->count() }}</small>@endif</a>@endforeach</nav>
 <div class="settings-content">
 @if($activeTab === 'appearance')
     @include('metribay::partials/appearance')
@@ -36,7 +37,7 @@
     @empty<div class="inline-empty">@include('metribay::partials/icon',['name'=>'link'])<span>No sources connected yet.</span></div>@endforelse
     </div>
 @elseif($activeTab === 'connections')
-    <div class="section-heading"><div><h2>Connections</h2><p class="muted">Credentials are encrypted and kept within this workspace.</p></div></div>
+    <div class="section-heading"><div><h2>Connections</h2><p class="muted">Saved credentials are encrypted.</p></div></div>
 @if($canManageConnections)<p class="section-actions"><a class="button button-secondary" href="{{ route('metribay.settings',['workspace'=>$workspace->slug,'tab'=>'connections','create'=>request()->boolean('create') ? null : 1]) }}">{{ request()->boolean('create') ? '← Back to connections' : 'Add connection →' }}</a></p>@endif
     @if(!request()->boolean('create'))
     <div class="settings-list">
@@ -52,13 +53,12 @@
     <form class="form-stack form-width" method="POST" action="{{ route('metribay.connections.store',$workspace->slug) }}" data-provider-form>@csrf<input type="hidden" name="_form" value="new-connection"><div class="form-grid"><div class="field"><label for="new-connection-name">Connection name</label><input id="new-connection-name" name="name" value="{{ old('_form') === 'new-connection' ? old('name') : '' }}" placeholder="e.g. My analytics account" maxlength="120" required></div><div class="field"><label for="new-connection-kind">Provider</label><select id="new-connection-kind" name="kind" data-provider-switch required>@foreach($credentialProviders as $kind=>$provider)<option value="{{ $kind }}" @selected($kind === $initialConnectionKind)>{{ $provider['label'] }}</option>@endforeach</select></div></div>
     @foreach($credentialProviders as $kind=>$provider)<fieldset class="provider-fields" data-provider-panel="{{ $kind }}" @if($kind !== $initialConnectionKind) hidden disabled @endif><legend>{{ $provider['label'] }} credentials</legend>@include('metribay::partials/connection-fields',['provider'=>$provider,'kind'=>$kind,'prefix'=>'new-connection-'.$kind])</fieldset>@endforeach
     <div class="credential-note">@include('metribay::partials/icon',['name'=>'lock'])<p>Saved credentials are encrypted at rest and excluded from configuration exports.</p></div><div><button class="button button-primary" type="submit">@include('metribay::partials/icon',['name'=>'plus']) Add connection</button></div></form></section>@endif
-@elseif($activeTab === 'general')
-<h2>Workspace</h2><p class="muted">Projects and saved accounts are shared with this workspace’s members.</p>
-@if($canManageAccess ?? false)<form class="form-stack form-width" method="POST" action="{{ route('metribay.workspace.rename', $workspace->slug) }}">@csrf @method('PATCH')<div class="field"><label for="workspace-name">Workspace name</label><input id="workspace-name" name="name" maxlength="120" value="{{ $workspace->name }}" required></div><div><button class="button button-primary">Save name</button></div></form>@endif
 @elseif($activeTab === 'data')
-    <section class="data-section"><div class="section-heading"><div><h2>Export configuration</h2><p class="muted">Save a portable copy of your workspace setup.</p></div></div><p class="body-copy">Includes projects and source settings. Legacy group metadata is retained for compatibility. Credentials and metric history are excluded. Reconnect credentials after importing into another workspace.</p>@if($canEdit ?? false)<a class="button button-secondary" href="{{ route('metribay.settings.export',$workspace->slug) }}">@include('metribay::partials/icon',['name'=>'download']) Download JSON</a>@endif</section>
+    <section class="data-section"><div class="section-heading"><div><h2>Export configuration</h2><p class="muted">Save a portable copy of your setup.</p></div></div><p class="body-copy">Includes projects and source settings. Legacy group metadata is retained for compatibility. Credentials and metric history are excluded. Reconnect credentials after importing into another installation.</p>@if($canEdit ?? false)<a class="button button-secondary" href="{{ route('metribay.settings.export',$workspace->slug) }}">@include('metribay::partials/icon',['name'=>'download']) Download JSON</a>@endif</section>
     @if($canEdit ?? false)<section class="new-item-section"><div class="section-heading"><div><h2>Import configuration</h2><p class="muted">Import adds new projects and sources, updates matching settings, and retains metric history.</p></div></div><form class="form-stack form-width" method="POST" action="{{ route('metribay.settings.import',$workspace->slug) }}" enctype="multipart/form-data">@csrf<div class="field"><label for="config-file">Configuration file</label><input id="config-file" type="file" name="file" accept="application/json,.json" required><p class="field-hint">JSON configuration only. Provider connections need credentials added separately.</p></div><div><button class="button button-primary" type="submit">@include('metribay::partials/icon',['name'=>'upload']) Import configuration</button></div></form></section>@endif
+@else
+    @yield('settings-tab')
 @endif
-@if(!($canEdit ?? false))<p class="footnote">You have read-only access to this workspace. Ask an owner or administrator to make changes.</p>@endif
+@if(!($canEdit ?? false))<p class="footnote">You have read-only access. Ask an owner or administrator to make changes.</p>@endif
 </div></div>
 @endsection

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.4 — 2026-10-29
+
+- Keep workspace selection and management in Cloud; Personal opens its dashboard directly.
+- Provide host view and settings hooks while preserving internal data scopes and existing data.
+
 ## 0.1.3 — 2026-10-29
 
 - Let hosts disable account UI and its page while keeping shared appearance controls in Settings.

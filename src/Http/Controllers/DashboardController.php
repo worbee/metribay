@@ -5,7 +5,6 @@ namespace Metribay\Core\Http\Controllers;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Metribay\Core\Contracts\Entitlements;
 use Metribay\Core\Contracts\WorkspaceAccess;
 use Metribay\Core\Models\Annotation;
 use Metribay\Core\Models\Project;
@@ -16,9 +15,9 @@ class DashboardController
 {
     public function home(Request $request): RedirectResponse
     {
-        $workspace = app(WorkspaceAccess::class)->queryFor($request->user())->orderBy('id')->first();
+        $workspace = app(WorkspaceAccess::class)->queryFor($request->user())->orderBy('id')->firstOrFail();
 
-        return $workspace ? redirect()->route('metribay.dashboard', ['workspace' => $workspace->slug]) : redirect()->route('metribay.workspaces');
+        return redirect()->route('metribay.dashboard', ['workspace' => $workspace->slug]);
     }
 
     public function index(Request $request): View
@@ -42,11 +41,6 @@ class DashboardController
         abort_unless(config('metribay.account_enabled', true), 404);
 
         return view('metribay::account', ['user' => $request->user()]);
-    }
-
-    public function workspaces(Request $request): View
-    {
-        return view('metribay::workspaces', ['workspaces' => app(WorkspaceAccess::class)->queryFor($request->user())->orderBy('name')->get(), 'canCreateWorkspace' => app(Entitlements::class)->allows($request->user(), 'multiple_workspaces')]);
     }
 
     private function days(Request $request): int
