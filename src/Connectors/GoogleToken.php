@@ -57,6 +57,8 @@ final readonly class GoogleToken
             }
 
             return $value;
+        } catch (ProviderRequestLimit $exception) {
+            throw $exception;
         } catch (\Throwable) {
             throw new ConnectorException('Google authentication failed. Check the service-account key or OAuth credentials and provider access.');
         }

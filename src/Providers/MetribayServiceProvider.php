@@ -14,11 +14,17 @@ use Metribay\Core\Actions;
 use Metribay\Core\Console\DemoCommand;
 use Metribay\Core\Console\InstallCommand;
 use Metribay\Core\Console\SyncCommand;
+use Metribay\Core\Contracts\ConnectionCredentials;
 use Metribay\Core\Contracts\Entitlements;
+use Metribay\Core\Contracts\GoogleAuthorization;
+use Metribay\Core\Contracts\ProviderRequests;
 use Metribay\Core\Contracts\WorkspaceAccess;
 use Metribay\Core\Livewire\Dashboard;
+use Metribay\Core\Services\OwnConnectionCredentials;
+use Metribay\Core\Services\OwnGoogleAuthorization;
 use Metribay\Core\Services\PersonalEntitlements;
 use Metribay\Core\Services\PersonalWorkspaceAccess;
+use Metribay\Core\Services\UnrestrictedProviderRequests;
 use Metribay\Core\Services\WorkspaceContext;
 
 class MetribayServiceProvider extends ServiceProvider
@@ -29,6 +35,9 @@ class MetribayServiceProvider extends ServiceProvider
         $this->app->scoped(WorkspaceContext::class, fn () => new WorkspaceContext);
         $this->app->bindIf(WorkspaceAccess::class, PersonalWorkspaceAccess::class);
         $this->app->bindIf(Entitlements::class, PersonalEntitlements::class);
+        $this->app->bindIf(GoogleAuthorization::class, OwnGoogleAuthorization::class);
+        $this->app->bindIf(ConnectionCredentials::class, OwnConnectionCredentials::class);
+        $this->app->bindIf(ProviderRequests::class, UnrestrictedProviderRequests::class);
     }
 
     public function boot(): void

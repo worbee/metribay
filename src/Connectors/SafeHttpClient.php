@@ -9,6 +9,7 @@ use GuzzleHttp\Handler\CurlHandler;
 use GuzzleHttp\Psr7\Utils;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
+use Metribay\Core\Contracts\ProviderRequests;
 use Psr\Http\Message\ResponseInterface;
 
 /** Public HTTPS only. Revalidated DNS is pinned at socket creation, with TLS hostname verification. */
@@ -30,6 +31,7 @@ final class SafeHttpClient
      */
     public function request(string $method, string $url, array $options = []): Response
     {
+        app(ProviderRequests::class)->authorize();
         $method = strtoupper($method);
         if (! in_array($method, ['GET', 'POST'], true)
             || array_diff(array_keys($options), ['query', 'json', 'form_params', 'headers']) !== []) {

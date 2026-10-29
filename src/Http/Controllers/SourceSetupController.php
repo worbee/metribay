@@ -9,8 +9,11 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Metribay\Core\Connectors\ProviderRequestLimit;
 use Metribay\Core\Connectors\ResourceDiscovery;
 use Metribay\Core\Connectors\SafeHttpClient;
+use Metribay\Core\Contracts\ConnectionCredentials;
+use Metribay\Core\Contracts\GoogleAuthorization;
 use Metribay\Core\Contracts\WorkspaceAccess;
 use Metribay\Core\Jobs\CollectSource;
 use Metribay\Core\Models\Connection;
@@ -38,17 +41,12 @@ class SourceSetupController
         $this->authorize($request, 'manage_connections');
         $draft = $request->session()->get($this->key($request), []);
         abort_unless(in_array($draft['kind'] ?? '', ['ga4', 'gsc'], true), 409);
-        abort_unless(config('metribay.google.client_id') && config('metribay.google.client_secret'), 422, 'Google authorization is not configured on this installation.');
+        $client = app(GoogleAuthorization::class)->client();
         $state = Str::random(64);
-        $request->session()->put('metribay_google', ['state' => $state, 'user' => $request->user()->getAuthIdentifier(), 'workspace' => app(WorkspaceContext::class)->id(), 'kind' => $draft['kind'], 'expires' => time() + 600]);
+        $request->session()->put('metribay_google', ['state' => $state, 'user' => $request->user()->getAuthIdentifier(), 'workspace' => app(WorkspaceContext::class)->id(), 'kind' => $draft['kind'], 'client_id' => $client['client_id'], 'expires' => time() + 600]);
         $scope = $draft['kind'] === 'ga4' ? 'https://www.googleapis.com/auth/analytics.readonly' : 'https://www.googleapis.com/auth/webmasters.readonly';
 
-        return redirect()->away('https://accounts.google.com/o/oauth2/v2/auth?'.http_build_query(['client_id' => config('metribay.google.client_id'), 'redirect_uri' => $this->googleRedirect(), 'response_type' => 'code', 'scope' => $scope, 'access_type' => 'offline', 'prompt' => 'consent', 'state' => $state]));
-    }
-
-    private function googleRedirect(): string
-    {
-        return config('metribay.google.redirect_uri') ?: route('metribay.google.callback');
+        return redirect()->away('https://accounts.google.com/o/oauth2/v2/auth?'.http_build_query(['client_id' => $client['client_id'], 'redirect_uri' => $client['redirect_uri'], 'response_type' => 'code', 'scope' => $scope, 'access_type' => 'offline', 'prompt' => 'consent', 'state' => $state]));
     }
 
     public function googleReturn(Request $request, SafeHttpClient $http): RedirectResponse
@@ -68,9 +66,12 @@ class SourceSetupController
         if (! $request->filled('code')) {
             return redirect($target)->withErrors(['account' => 'Google access was not granted. Try again or use another account.']);
         }
+        $authorization = app(GoogleAuthorization::class);
+        $client = $authorization->client();
+        abort_unless(($state['client_id'] ?? null) === $client['client_id'], 409, 'Google app configuration changed. Start again.');
         try {
-            $response = $http->request('POST', 'https://oauth2.googleapis.com/token', ['form_params' => ['client_id' => config('metribay.google.client_id'), 'client_secret' => config('metribay.google.client_secret'), 'code' => $request->input('code'), 'redirect_uri' => $this->googleRedirect(), 'grant_type' => 'authorization_code']]);
-            $credentials = ProviderCatalog::credentials($state['kind'], ['client_id' => config('metribay.google.client_id'), 'client_secret' => config('metribay.google.client_secret'), 'refresh_token' => $response->json('refresh_token')]);
+            $response = $http->request('POST', 'https://oauth2.googleapis.com/token', ['form_params' => ['client_id' => $client['client_id'], 'client_secret' => $client['client_secret'], 'code' => $request->input('code'), 'redirect_uri' => $client['redirect_uri'], 'grant_type' => 'authorization_code']]);
+            $credentials = $authorization->credentials((string) $response->json('refresh_token'));
             if (! $response->successful()) {
                 throw new \RuntimeException;
             }
@@ -80,6 +81,8 @@ class SourceSetupController
             $previous = $request->session()->get($this->key($request), []);
             $draft = array_intersect_key($previous, ['project_id' => true]) + ['kind' => $state['kind'], 'connection_id' => $connection->id, 'step' => 'resources', 'expires' => time() + 3600];
             $request->session()->put($this->key($request), $draft);
+        } catch (ProviderRequestLimit $exception) {
+            return redirect($target)->withErrors(['account' => $exception->getMessage()]);
         } catch (\Throwable) {
             return redirect($target)->withErrors(['account' => 'Google could not connect. Try again and allow read access.']);
         }
@@ -101,7 +104,7 @@ class SourceSetupController
         }
         $request->session()->put($this->key($request), $draft);
 
-        return view('metribay::source-setup', ['draft' => $draft, 'providers' => ProviderCatalog::all(), 'projects' => Project::query()->where('archived', false)->orderBy('name')->get(), 'connections' => Connection::query()->where('kind', $draft['kind'] ?? '')->orderBy('name')->get()]);
+        return view('metribay::source-setup', ['draft' => $draft, 'providers' => ProviderCatalog::all(), 'projects' => Project::query()->where('archived', false)->orderBy('name')->get(), 'googleAuthorization' => app(GoogleAuthorization::class), 'connections' => Connection::query()->where('kind', $draft['kind'] ?? '')->orderBy('name')->get()]);
     }
 
     public function update(Request $request, ResourceDiscovery $discovery): RedirectResponse
@@ -138,9 +141,11 @@ class SourceSetupController
                     if (! app(WorkspaceAccess::class)->allows($request->user(), app(WorkspaceContext::class)->current(), 'manage_connections')) {
                         throw new \RuntimeException;
                     }
-                    $draft['resources'] = $discovery->discover($kind, $connection->reveal());
+                    $draft['resources'] = $discovery->discover($kind, app(ConnectionCredentials::class)->resolve($connection));
                     $draft['listed'] = true;
                     unset($draft['discovery_error']);
+                } catch (ProviderRequestLimit $exception) {
+                    $draft['discovery_error'] = $exception->getMessage();
                 } catch (\Throwable) {
                     $draft['discovery_error'] = 'Use manual entry below, or ask an owner to list resources and check account access.';
                 }
@@ -149,12 +154,14 @@ class SourceSetupController
                     $this->authorize($request, 'manage_connections');
                 }
                 $request->validate(['search' => ['nullable', 'string', 'max:120']]);
-                $credentials = $kind === 'wporg' ? [] : Connection::query()->where('kind', $kind)->findOrFail($draft['connection_id'] ?? null)->reveal();
                 try {
+                    $credentials = $kind === 'wporg' ? [] : app(ConnectionCredentials::class)->resolve(Connection::query()->where('kind', $kind)->findOrFail($draft['connection_id'] ?? null));
                     $draft['search'] = (string) $request->input('search', '');
                     $draft['resources'] = $discovery->discover($kind, $credentials, $draft['search']);
                     $draft['listed'] = true;
                     unset($draft['discovery_error']);
+                } catch (ProviderRequestLimit $exception) {
+                    throw ValidationException::withMessages(['resource' => $exception->getMessage()]);
                 } catch (\Throwable) {
                     throw ValidationException::withMessages(['resource' => 'Unable to list resources. Check account access, retry, or use manual entry below.']);
                 }
@@ -166,7 +173,9 @@ class SourceSetupController
                     $this->authorize($request, 'manage_connections');
                     $connection = Connection::query()->where('kind', $kind)->findOrFail($draft['connection_id'] ?? null);
                     try {
-                        $draft['resource']['timezone'] = $discovery->googleTimezone($connection->reveal(), $draft['resource']['id']);
+                        $draft['resource']['timezone'] = $discovery->googleTimezone(app(ConnectionCredentials::class)->resolve($connection), $draft['resource']['id']);
+                    } catch (ProviderRequestLimit $exception) {
+                        throw ValidationException::withMessages(['resource' => $exception->getMessage()]);
                     } catch (\Throwable) {
                         throw ValidationException::withMessages(['resource' => 'Unable to read this property’s reporting timezone. Retry or use manual entry.']);
                     }

@@ -32,6 +32,8 @@ Production should use a process manager and one cron entry for `php artisan sche
 
 Umami, Google Analytics4, Google Search Console, Bing Webmaster Tools, WordPress.org, GitHub and UptimeRobot. Connection credentials are encrypted with APP_KEY and bound to their workspace/provider. HTTP connectors only reach public HTTPS endpoints with pinned DNS, bounded responses and no redirects. Self-hosted analytics on a private network are intentionally unsupported by this transport.
 
+Core and standalone use **your own provider credentials and developer apps**. No Metribay-owned Google/GitHub app credentials or managed service access are included. All collectors, resource discovery, service accounts, personal tokens and own-App credentials remain available. Self-hosted operators can configure their own Google Web OAuth app; see [provider setup](docs/PROVIDERS.md). Metribay Cloud supplies managed authorization and hosting, subject to service access and request limits.
+
 Missing observations stay unknown. Daily unique visitors are never summed into a period total. Reporting timezones, provisional dates, coverage, rolling uptime windows and source health remain visible. See docs/PROVIDERS.md and docs/METRICS.md.
 
 ## Development
