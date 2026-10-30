@@ -6855,10 +6855,12 @@ document.addEventListener("click", (e) => {
 			t.setDatasetVisibility(e, n), r.setAttribute("aria-pressed", String(n)), t.update("none");
 		}
 	}
-	let i = e.target.closest("[data-two-factor-toggle]");
-	if (i) {
-		let e = i.closest("form"), t = e.querySelector("[data-recovery-field]"), n = e.querySelector("[data-authenticator-field]"), r = t.hidden;
-		t.hidden = !r, n.hidden = r, t.querySelector("input").disabled = !r, n.querySelector("input").disabled = r, t.querySelector("input").required = r, n.querySelector("input").required = !r, i.textContent = $(r ? "Use an authenticator code" : "Use a recovery code"), (r ? t : n).querySelector("input").focus();
+	let i = e.target.closest("[data-row-href]");
+	i && !e.target.closest("a, button, input, select, label") && !window.getSelection()?.toString() && (e.metaKey || e.ctrlKey ? window.open(i.dataset.rowHref, "_blank", "noopener") : window.location.assign(i.dataset.rowHref));
+	let a = e.target.closest("[data-two-factor-toggle]");
+	if (a) {
+		let e = a.closest("form"), t = e.querySelector("[data-recovery-field]"), n = e.querySelector("[data-authenticator-field]"), r = t.hidden;
+		t.hidden = !r, n.hidden = r, t.querySelector("input").disabled = !r, n.querySelector("input").disabled = r, t.querySelector("input").required = r, n.querySelector("input").required = !r, a.textContent = $(r ? "Use an authenticator code" : "Use a recovery code"), (r ? t : n).querySelector("input").focus();
 	}
 	document.querySelectorAll(".account-menu[open]").forEach((t) => {
 		t.contains(e.target) || (t.open = !1);

@@ -360,6 +360,12 @@ document.addEventListener('click', event => {
             chart.update('none');
         }
     }
+    // The project name is the real link; the rest of the row is a larger click target for pointer users.
+    const row = event.target.closest('[data-row-href]');
+    if (row && !event.target.closest('a, button, input, select, label') && !window.getSelection()?.toString()) {
+        if (event.metaKey || event.ctrlKey) window.open(row.dataset.rowHref, '_blank', 'noopener');
+        else window.location.assign(row.dataset.rowHref);
+    }
     const twoFactor = event.target.closest('[data-two-factor-toggle]');
     if (twoFactor) {
         const form = twoFactor.closest('form');

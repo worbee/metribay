@@ -12,6 +12,9 @@ use Metribay\Core\Models\Project;
 
 class DashboardData
 {
+    /** Overview columns in display order: provider kinds and the headline metric. */
+    public const CATEGORIES = ['traffic' => [['umami', 'ga4'], 'visits'], 'search' => [['gsc', 'bing'], 'clicks'], 'development' => [['github'], 'commits'], 'downloads' => [['wporg'], 'downloads'], 'uptime' => [['uptimerobot'], 'uptime_24h']];
+
     /** @return list<array<string, mixed>> */
     public function projects(int $days = 30, ?int $projectId = null): array
     {
@@ -66,8 +69,100 @@ class DashboardData
                 return ['id' => $source->id, 'label' => $source->label, 'kind' => $source->kind, 'reporting_timezone' => $source->reporting_timezone, 'enabled' => $source->enabled, 'status' => $status, 'last_success_at' => $source->last_success_at ? $source->last_success_at->utc()->translatedFormat('j M Y, H:i').' UTC' : null, 'latest_date' => $source->latest_data_date, 'error_code' => $source->error_code, 'metrics' => $metrics];
             })->all();
 
-            return ['id' => $project->id, 'name' => $project->name, 'slug' => $project->slug, 'domain' => $project->domain, 'group' => $project->group?->name, 'archived' => $project->archived, 'sources' => $sources];
+            return ['id' => $project->id, 'name' => $project->name, 'slug' => $project->slug, 'domain' => $project->domain, 'group' => $project->group?->name, 'archived' => $project->archived, 'sources' => $sources, 'status' => $this->projectStatus($sources), 'summary' => $this->summary($sources, $days)];
         })->all();
+    }
+
+    /**
+     * One headline value per kind of data, so the overview can show each project on a single row.
+     * Additive metrics are summed across sources; visitors are never summed, so traffic uses visits.
+     *
+     * @param  list<array{label: string, kind: string, enabled: bool, status: string, metrics: list<array<string, mixed>>}>  $sources
+     * @return array<string, array<string, mixed>>
+     */
+    private function summary(array $sources, int $days): array
+    {
+        $summary = [];
+        foreach (self::CATEGORIES as $category => [$kinds, $key]) {
+            $members = array_values(array_filter($sources, fn (array $source): bool => in_array($source['kind'], $kinds, true)));
+            if (! $members) {
+                continue;
+            }
+            $summary[$category] = $category === 'uptime' ? $this->uptime($members) : $this->combine($members, $key, $days);
+            if ($category === 'development') {
+                $summary[$category]['secondary'] = $this->combine($members, 'prs_merged', $days)['value'];
+            }
+        }
+
+        return $summary;
+    }
+
+    /**
+     * Sums one metric across sources. Daily points are aligned by position in each source's own reporting window.
+     *
+     * @param  list<array{label: string, kind: string, enabled: bool, status: string, metrics: list<array<string, mixed>>}>  $sources
+     * @return array<string, mixed>
+     */
+    private function combine(array $sources, string $key, int $days): array
+    {
+        $metrics = [];
+        $parts = [];
+        foreach ($sources as $source) {
+            $metric = $this->metric($source, $key);
+            if ($metric === null) {
+                continue;
+            }
+            $metrics[] = $metric;
+            $parts[] = ['label' => $source['label'], 'value' => $metric['display_value']];
+        }
+        $reported = array_values(array_filter($metrics, fn (array $metric): bool => $metric['value'] !== null));
+        $value = $reported ? (float) array_sum(array_column($reported, 'value')) : null;
+        $previous = $reported && ! in_array(null, array_column($reported, 'previous'), true) ? (float) array_sum(array_column($reported, 'previous')) : null;
+        $series = [];
+        for ($i = 0; $i < $days; $i++) {
+            $day = array_filter(array_map(fn (array $metric): ?float => $metric['series'][$i]['value'] ?? null, $metrics), fn (?float $point): bool => $point !== null);
+            $series[] = $day ? (float) array_sum($day) : null;
+        }
+
+        return ['key' => $key, 'unit' => MetricRegistry::get($key)->unit, 'value' => $value, 'previous' => $previous, 'change' => $value !== null && $previous !== null && $previous > 0 ? 100 * ($value - $previous) / $previous : null, 'partial' => in_array(true, array_column($metrics, 'partial'), true), 'series' => $series, 'parts' => $parts];
+    }
+
+    /**
+     * @param  list<array{label: string, kind: string, enabled: bool, status: string, metrics: list<array<string, mixed>>}>  $sources
+     * @return array<string, mixed>
+     */
+    private function uptime(array $sources): array
+    {
+        $active = array_values(array_filter($sources, fn (array $source): bool => (bool) $source['enabled']));
+        $statuses = array_map(fn (array $source): ?int => ($status = $this->metric($source, 'monitor_status')['value'] ?? null) === null ? null : (int) $status, $active);
+        $uptimes = array_values(array_filter(array_map(fn (array $source): ?float => $this->metric($source, 'uptime_24h')['value'] ?? null, $active), fn (?float $value): bool => $value !== null));
+        $up = count(array_filter($statuses, fn (?int $status): bool => $status === 2));
+        $down = count(array_filter($statuses, fn (?int $status): bool => in_array($status, [8, 9], true)));
+        $parts = array_map(fn (array $source): array => ['label' => $source['label'], 'value' => $this->metric($source, 'monitor_status')['display_value'] ?? '—'], $sources);
+
+        return ['key' => 'uptime_24h', 'unit' => 'percent', 'value' => $uptimes ? min($uptimes) : null, 'up' => $up, 'down' => $down, 'total' => count($active), 'state' => $down ? 'down' : ($active && $up === count($active) ? 'up' : 'unknown'), 'parts' => $parts];
+    }
+
+    /** @param list<array{label: string, kind: string, enabled: bool, status: string, metrics: list<array<string, mixed>>}> $sources */
+    private function projectStatus(array $sources): string
+    {
+        $statuses = array_column($sources, 'status');
+        foreach (['failed', 'delayed', 'pending', 'healthy'] as $status) {
+            if (in_array($status, $statuses, true)) {
+                return $status;
+            }
+        }
+
+        return $statuses ? 'disabled' : 'empty';
+    }
+
+    /**
+     * @param  array{metrics: list<array<string, mixed>>}  $source
+     * @return array<string, mixed>|null
+     */
+    private function metric(array $source, string $key): ?array
+    {
+        return collect($source['metrics'])->firstWhere('key', $key);
     }
 
     /** @param list<array{date: string, value: float|null, partial: bool}> $series

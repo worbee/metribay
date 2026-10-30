@@ -24,6 +24,21 @@ class Dashboard extends Component
     #[Url(as: 'group')]
     public string $selectedGroup = '';
 
+    #[Url]
+    public string $sort = '';
+
+    #[Url(as: 'dir')]
+    public string $direction = 'desc';
+
+    public function sortBy(string $column): void
+    {
+        if (! in_array($column, ['name', ...array_keys(DashboardData::CATEGORIES)], true)) {
+            return;
+        }
+        $this->direction = $this->sort === $column ? ($this->direction === 'asc' ? 'desc' : 'asc') : ($column === 'name' ? 'asc' : 'desc');
+        $this->sort = $column;
+    }
+
     public function render(): View
     {
         abort_unless(auth()->check(), 401);
@@ -33,9 +48,41 @@ class Dashboard extends Component
         request()->attributes->set('metribay.workspace', $workspace);
 
         return app(WorkspaceContext::class)->run($workspace, function () use ($workspace) {
-            $projects = app(DashboardData::class)->projects($this->days);
+            $projects = $this->sorted(app(DashboardData::class)->projects($this->days));
 
-            return view('metribay::components.overview', ['workspace' => $workspace, 'projects' => $projects, 'groups' => ProjectGroup::query()->orderBy('name')->pluck('name')->all(), 'days' => $this->days, 'selectedGroup' => $this->selectedGroup, 'now' => CarbonImmutable::now('UTC')]);
+            return view('metribay::components.overview', ['workspace' => $workspace, 'projects' => $projects, 'groups' => ProjectGroup::query()->orderBy('name')->pluck('name')->all(), 'days' => $this->days, 'selectedGroup' => $this->selectedGroup, 'sort' => $this->sort, 'direction' => $this->direction, 'now' => CarbonImmutable::now('UTC')]);
         });
+    }
+
+    /**
+     * Projects needing attention come first by default; a chosen column sorts by its headline value, unknown values last.
+     *
+     * @param  list<array<string, mixed>>  $projects
+     * @return list<array<string, mixed>>
+     */
+    private function sorted(array $projects): array
+    {
+        $byName = fn (array $a, array $b): int => strnatcasecmp($a['name'], $b['name']);
+        if (! array_key_exists($this->sort, DashboardData::CATEGORIES) && $this->sort !== 'name') {
+            $attention = fn (array $project): int => in_array($project['status'], ['failed', 'delayed'], true) ? 0 : 1;
+            usort($projects, fn (array $a, array $b): int => $attention($a) <=> $attention($b) ?: $byName($a, $b));
+
+            return $projects;
+        }
+        $sign = $this->direction === 'asc' ? 1 : -1;
+        usort($projects, function (array $a, array $b) use ($byName, $sign): int {
+            if ($this->sort === 'name') {
+                return $sign * $byName($a, $b);
+            }
+            $left = $a['summary'][$this->sort]['value'] ?? null;
+            $right = $b['summary'][$this->sort]['value'] ?? null;
+            if ($left === null || $right === null) {
+                return ($left === null) <=> ($right === null) ?: $byName($a, $b);
+            }
+
+            return $sign * ($left <=> $right) ?: $byName($a, $b);
+        });
+
+        return $projects;
     }
 }
