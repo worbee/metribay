@@ -21,7 +21,7 @@ class ConfigurationTransfer
     public function import(mixed $document): void
     {
         if (! is_array($document)) {
-            throw ValidationException::withMessages(['file' => 'Invalid configuration.']);
+            throw ValidationException::withMessages(['file' => __('Invalid configuration.')]);
         }
         Validator::make($document, ['format' => ['required', 'in:metribay'], 'version' => ['required', 'in:1'], 'projects' => ['present', 'array', 'max:100'], 'projects.*.slug' => ['required', 'alpha_dash', 'max:100'], 'projects.*.name' => ['required', 'string', 'max:120'], 'projects.*.domain' => ['nullable', 'string', 'max:253'], 'projects.*.group' => ['nullable', 'string', 'max:120'], 'projects.*.archived' => ['required', 'boolean'], 'projects.*.sources' => ['present', 'array', 'max:100'], 'projects.*.sources.*.kind' => ['required', 'string'], 'projects.*.sources.*.label' => ['required', 'string', 'max:120'], 'projects.*.sources.*.config' => ['required', 'array'], 'projects.*.sources.*.reporting_timezone' => ['required', 'timezone'], 'projects.*.sources.*.enabled' => ['required', 'boolean'], 'projects.*.sources.*.connection' => ['nullable', 'string', 'max:120']])->validate();
         DB::transaction(function () use ($document): void {

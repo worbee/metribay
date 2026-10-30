@@ -16,7 +16,7 @@ class PersonalPresentationTest extends TestCase
         $owner = User::factory()->create();
         $workspace = Workspace::create(['owner_id' => $owner->id, 'name' => 'Hidden personal scope', 'slug' => 'personal']);
         $this->actingAs($owner)->get('/')->assertRedirect('/w/personal');
-        foreach (['/w/personal', '/account', '/w/personal/sources/new', '/w/personal/settings?tab=general', '/w/personal/settings?tab=connections', '/w/personal/settings?tab=data'] as $path) {
+        foreach (['/w/personal', '/profile', '/w/personal/projects/new', '/w/personal/settings?tab=general', '/w/personal/settings?tab=accounts', '/w/personal/settings?tab=data'] as $path) {
             $this->get($path)->assertOk()->assertDontSee('Change workspace')->assertDontSee('Workspace name')->assertDontSee('Hidden personal scope')->assertDontSee('Workspaces');
         }
         $this->get('/workspaces')->assertNotFound();

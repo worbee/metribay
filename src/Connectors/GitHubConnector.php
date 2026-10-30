@@ -190,7 +190,7 @@ GRAPHQL;
                 }
             }
         }
-        $annotations = [];
+        $events = [];
         // Creation order is not publication order: read all releases before reconciliation.
         foreach ($this->pages($graphql, self::RELEASES, $variables, 'releases', $maximumPages) as $nodes) {
             foreach ($nodes as $row) {
@@ -217,7 +217,7 @@ GRAPHQL;
                     || ! str_starts_with(strtolower($parts['path'] ?? ''), '/'.strtolower($repository).'/releases/')) {
                     throw new ConnectorException('GitHub returned an invalid release URL.');
                 }
-                $annotations[] = ['external_id' => $this->text($row['id'] ?? null, 'GitHub release identity', 255),
+                $events[] = ['external_id' => $this->text($row['id'] ?? null, 'GitHub release identity', 255),
                     'title' => mb_substr($title.($row['isPrerelease'] ? ' (prerelease)' : ''), 0, 200),
                     'body' => mb_substr($body, 0, 4000), 'url' => $url, 'occurred_at' => $published->toIso8601String()];
             }
@@ -232,7 +232,7 @@ GRAPHQL;
             $daily[] = $this->daily('open_issues', $today->toDateString(), (float) $issues);
         }
 
-        return new CollectionResult(daily: $daily, annotations: $annotations, authoritativeAnnotations: true,
+        return new CollectionResult(daily: $daily, events: $events, authoritativeEvents: true,
             replaceDailyDates: [$today->toDateString() => ['open_issues']]);
     }
 

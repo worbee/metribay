@@ -25,6 +25,12 @@ class Project extends Model
         return $this->hasMany(Source::class);
     }
 
+    /** @return HasMany<ProjectEvent, $this> */
+    public function events(): HasMany
+    {
+        return $this->hasMany(ProjectEvent::class);
+    }
+
     /** @return BelongsTo<ProjectGroup, $this> */
     public function group(): BelongsTo
     {

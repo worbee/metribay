@@ -19,6 +19,8 @@ use Metribay\Core\Contracts\Entitlements;
 use Metribay\Core\Contracts\GoogleAuthorization;
 use Metribay\Core\Contracts\ProviderRequests;
 use Metribay\Core\Contracts\WorkspaceAccess;
+use Metribay\Core\Http\Middleware\DiscardAbandonedSetup;
+use Metribay\Core\Http\Middleware\SetLocale;
 use Metribay\Core\Livewire\Dashboard;
 use Metribay\Core\Services\OwnConnectionCredentials;
 use Metribay\Core\Services\OwnGoogleAuthorization;
@@ -44,6 +46,12 @@ class MetribayServiceProvider extends ServiceProvider
     {
         $this->loadMigrationsFrom(__DIR__.'/../../database/migrations');
         $this->loadViewsFrom(__DIR__.'/../../resources/views', 'metribay');
+        $this->loadJsonTranslationsFrom(__DIR__.'/../../lang');
+        // Framework validation, auth and password messages are unnamespaced, so add them as a shared path.
+        $this->callAfterResolving('translation.loader', fn ($loader) => $loader->addPath(__DIR__.'/../../lang'));
+        $router = $this->app['router'];
+        $router->pushMiddlewareToGroup('web', SetLocale::class);
+        $router->pushMiddlewareToGroup('web', DiscardAbandonedSetup::class);
         $this->loadRoutesFrom(__DIR__.'/../../routes/web.php');
         $this->publishes([__DIR__.'/../../dist' => public_path('vendor/metribay')], 'metribay-assets');
         Fortify::createUsersUsing(Actions\CreateUser::class);

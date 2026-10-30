@@ -11,6 +11,14 @@ const storage = {
 };
 const media = window.matchMedia('(prefers-color-scheme: dark)');
 let scheduled = false;
+let i18n = {};
+try { i18n = JSON.parse(document.getElementById('metribay-i18n')?.textContent || '{}'); } catch { /* English strings remain. */ }
+// Translates interface text supplied by the server, keyed by its English source; :name placeholders are replaced.
+function t(text, values = {}) {
+    let output = i18n[text] ?? text;
+    for (const [name, value] of Object.entries(values)) output = output.replaceAll(`:${name}`, value);
+    return output;
+}
 
 function themePreference() {
     const value = storage.get('theme', 'system');
@@ -23,8 +31,10 @@ function applyTheme(preference = themePreference(), save = false) {
     document.querySelectorAll('[data-theme-input]').forEach(input => { input.checked = input.value === preference; });
     document.querySelectorAll('[data-theme-cycle]').forEach(button => {
         const next = preference === 'system' ? (root.dataset.theme === 'light' ? 'dark' : 'light') : { light: 'dark', dark: 'system' }[preference];
-        button.title = `Theme: ${preference}. Switch to ${next}.`;
-        button.setAttribute('aria-label', `Theme: ${preference}. Switch to ${next}.`);
+        const names = { light: t('Light'), dark: t('Dark'), system: t('System') };
+        const label = t('Theme: :current. Switch to :next.', { current: names[preference], next: names[next] });
+        button.title = label;
+        button.setAttribute('aria-label', label);
         button.dataset.currentTheme = preference;
     });
     queueSync();
@@ -33,8 +43,8 @@ media.addEventListener('change', () => { if (themePreference() === 'system') app
 
 function finite(value) { return value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value)) ? Number(value) : null; }
 function formatNumber(value, unit = 'count', compact = false) {
-    if (value === null) return 'Unavailable';
-    if (unit === 'status') return ({ 0: 'Paused', 1: 'Not checked yet', 2: 'Up', 8: 'Seems down', 9: 'Down' })[value] ?? String(value);
+    if (value === null) return t('Unavailable');
+    if (unit === 'status') return ({ 0: t('Paused'), 1: t('Not checked yet'), 2: t('Up'), 8: t('Seems down'), 9: t('Down') })[value] ?? String(value);
     const options = { maximumFractionDigits: unit === 'percent' ? 2 : (Number.isInteger(value) ? 0 : 1) };
     if (compact && Math.abs(value) >= 1000 && !['percent', 'ms'].includes(unit)) {
         options.notation = 'compact';
@@ -60,8 +70,45 @@ function syncNumbers() {
 }
 function chartColors() {
     const style = getComputedStyle(root);
-    return Object.fromEntries(['chart-line', 'chart-previous', 'chart-grid', 'text-muted', 'page', 'text'].map(name => [name, style.getPropertyValue(`--${name}`).trim()]));
+    return Object.fromEntries(['chart-line', 'chart-previous', 'chart-grid', 'text-muted', 'page', 'text', 'event-blue', 'event-green', 'event-amber', 'event-violet', 'event-automatic'].map(name => [name, style.getPropertyValue(`--${name}`).trim()]));
 }
+// Draws project events as vertical markers: dots for custom events, diamonds for imported ones.
+const eventMarkers = {
+    id: 'metribayEvents',
+    afterDatasetsDraw(chart, _args, options) {
+        const events = options.events ?? [];
+        if (!events.length) return;
+        const { ctx, chartArea: { top, bottom }, scales: { x } } = chart;
+        ctx.save();
+        for (const event of events) {
+            const index = options.labels.indexOf(event.date);
+            if (index < 0) continue;
+            const position = x.getPixelForValue(index);
+            const color = options.colors[`event-${event.automatic ? 'automatic' : event.color}`] || options.colors['event-blue'];
+            ctx.strokeStyle = color;
+            ctx.fillStyle = color;
+            ctx.lineWidth = 1.4;
+            ctx.setLineDash(event.automatic ? [2, 3] : [4, 3]);
+            ctx.beginPath();
+            ctx.moveTo(position, top + 6);
+            ctx.lineTo(position, bottom);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.beginPath();
+            if (event.automatic) {
+                ctx.moveTo(position, top - 1);
+                ctx.lineTo(position + 4, top + 3);
+                ctx.lineTo(position, top + 7);
+                ctx.lineTo(position - 4, top + 3);
+                ctx.closePath();
+            } else {
+                ctx.arc(position, top + 3, 3.5, 0, Math.PI * 2);
+            }
+            ctx.fill();
+        }
+        ctx.restore();
+    },
+};
 function makeChart(canvas, config, signature) {
     const colors = chartColors();
     const compact = Boolean(config.compact);
@@ -69,8 +116,10 @@ function makeChart(canvas, config, signature) {
     const previous = Array.isArray(config.previous) ? config.previous : [];
     const labels = series.map(point => point.date);
     const hasPrevious = previous.some(point => finite(point.value) !== null);
+    const events = compact || !Array.isArray(config.events) ? [] : config.events.filter(event => labels.includes(event.date));
+    const eventsOn = date => events.filter(event => event.date === date);
     const datasets = [{
-        label: 'Selected period',
+        label: t('Selected period'),
         data: series.map(point => finite(point.value)),
         borderColor: colors['chart-line'],
         backgroundColor: `${colors['chart-line']}0c`,
@@ -86,7 +135,7 @@ function makeChart(canvas, config, signature) {
         stepped: config.unit === 'status',
     }];
     if (hasPrevious) datasets.push({
-        label: 'Previous period',
+        label: t('Previous period'),
         data: labels.map((_, index) => finite(previous[index]?.value)),
         borderColor: colors['chart-previous'],
         backgroundColor: 'transparent',
@@ -106,15 +155,17 @@ function makeChart(canvas, config, signature) {
     const chart = new Chart(canvas, {
         type: 'line',
         data: { labels, datasets },
+        plugins: [eventMarkers],
         options: {
             responsive: true,
             maintainAspectRatio: false,
             animation: false,
             normalized: true,
             interaction: { mode: 'index', intersect: false },
-            layout: { padding: { top: 4, left: compact ? 0 : 2, right: 2, bottom: 0 } },
+            layout: { padding: { top: events.length ? 10 : 4, left: compact ? 0 : 2, right: 2, bottom: 0 } },
             plugins: {
                 legend: { display: false },
+                metribayEvents: { events, labels, colors },
                 tooltip: {
                     enabled: true,
                     backgroundColor: colors.text,
@@ -129,8 +180,11 @@ function makeChart(canvas, config, signature) {
                         label(context) {
                             const point = (context.datasetIndex === 0 ? series : previous)[context.dataIndex];
                             const value = formatNumber(finite(context.raw), config.unit);
-                            const label = context.datasetIndex === 0 ? config.label : `Previous (${formatDate(point?.date ?? '')})`;
-                            return `${label}: ${value}${point?.partial ? ' · partial' : ''}`;
+                            const label = context.datasetIndex === 0 ? config.label : t('Previous (:date)', { date: formatDate(point?.date ?? '') });
+                            return `${label}: ${value}${point?.partial ? ` · ${t('partial')}` : ''}`;
+                        },
+                        afterBody(items) {
+                            return items.length ? eventsOn(series[items[0].dataIndex]?.date).map(event => `${event.automatic ? '◆' : '●'} ${event.title}`) : [];
                         },
                     },
                 },
@@ -176,8 +230,9 @@ function makeChart(canvas, config, signature) {
                 const announcement = canvas.closest('.metric')?.querySelector('[data-chart-announcement]');
                 if (announcement) {
                     const parts = [];
-                    if (current.isDatasetVisible(0)) parts.push(`${formatDate(series[index]?.date ?? '', true)}. ${config.label}: ${formatNumber(finite(series[index]?.value), config.unit)}${series[index]?.partial ? '. Partial date.' : ''}`);
-                    if (hasPrevious && current.isDatasetVisible(1)) parts.push(`Previous period ${formatDate(previous[index]?.date ?? '', true)}: ${formatNumber(finite(previous[index]?.value), config.unit)}${previous[index]?.partial ? '. Partial date.' : ''}`);
+                    if (current.isDatasetVisible(0)) parts.push(`${formatDate(series[index]?.date ?? '', true)}. ${config.label}: ${formatNumber(finite(series[index]?.value), config.unit)}${series[index]?.partial ? `. ${t('Partial date.')}` : ''}`);
+                    if (hasPrevious && current.isDatasetVisible(1)) parts.push(`${t('Previous period')} ${formatDate(previous[index]?.date ?? '', true)}: ${formatNumber(finite(previous[index]?.value), config.unit)}${previous[index]?.partial ? `. ${t('Partial date.')}` : ''}`);
+                    for (const event of eventsOn(series[index]?.date)) parts.push(t('Event: :title', { title: event.title }));
                     announcement.textContent = parts.join('. ');
                 }
                 const active = current.data.datasets.map((dataset, datasetIndex) => ({ datasetIndex, index })).filter(item => current.isDatasetVisible(item.datasetIndex) && finite(current.data.datasets[item.datasetIndex].data[index]) !== null);
@@ -212,7 +267,7 @@ function syncCharts() {
             console.error('A metric chart could not be rendered.', error);
             const message = document.createElement('p');
             message.className = 'field-hint';
-            message.textContent = 'The chart could not load. Daily values remain available below.';
+            message.textContent = t('The chart could not load. Daily values remain available below.');
             canvas.replaceWith(message);
         }
     });
@@ -258,7 +313,7 @@ function syncProviderForm(form, changed = false) {
     if (connection) {
         const optional = selected === 'wporg';
         const empty = connection.querySelector('option[value=""]');
-        if (empty) empty.textContent = optional ? 'No credentials needed' : 'Choose a connection';
+        if (empty) empty.textContent = optional ? t('No credentials needed') : t('Choose a connected account');
         connection.querySelectorAll('[data-provider-kind]').forEach(option => {
             option.hidden = option.dataset.providerKind !== selected;
             option.disabled = option.hidden;
@@ -275,7 +330,7 @@ function syncProviderForm(form, changed = false) {
 
 function announcePreference() {
     const status = document.querySelector('[data-preference-status]');
-    if (status) status.textContent = 'Preference saved in this browser.';
+    if (status) status.textContent = t('Preference saved in this browser.');
 }
 
 function initialize() {
@@ -317,7 +372,7 @@ document.addEventListener('click', event => {
         authenticator.querySelector('input').disabled = useRecovery;
         recovery.querySelector('input').required = useRecovery;
         authenticator.querySelector('input').required = !useRecovery;
-        twoFactor.textContent = useRecovery ? 'Use an authenticator code' : 'Use a recovery code';
+        twoFactor.textContent = useRecovery ? t('Use an authenticator code') : t('Use a recovery code');
         (useRecovery ? recovery : authenticator).querySelector('input').focus();
     }
     document.querySelectorAll('.account-menu[open]').forEach(menu => { if (!menu.contains(event.target)) menu.open = false; });
@@ -354,10 +409,6 @@ initialize();
 function setupSourceForms() {
  document.querySelectorAll('[data-resource-search]').forEach(input => {
  input.oninput = () => document.querySelectorAll('[data-resource-row]').forEach(row => { row.hidden = !row.textContent.toLowerCase().includes(input.value.toLowerCase()); });
- });
- document.querySelectorAll('[data-setup-project]').forEach(select => {
- const update = () => { const fields = select.form.querySelector('[data-new-project]'); fields.hidden = !!select.value; fields.querySelectorAll('input').forEach(input => { input.disabled = !!select.value; }); };
- select.onchange = update; update();
  });
 }
 document.addEventListener('DOMContentLoaded', setupSourceForms);

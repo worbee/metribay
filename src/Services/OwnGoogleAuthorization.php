@@ -20,7 +20,7 @@ class OwnGoogleAuthorization implements GoogleAuthorization
 
     public function client(): array
     {
-        abort_unless($this->available(), 422, 'Configure your own Google OAuth app on this installation, or use your own credentials.');
+        abort_unless($this->available(), 422, __('Configure your own Google OAuth app on this installation, or use your own credentials.'));
 
         return ['client_id' => (string) config('metribay.google.client_id'), 'client_secret' => (string) config('metribay.google.client_secret'), 'redirect_uri' => config('metribay.google.redirect_uri') ?: route('metribay.google.callback')];
     }

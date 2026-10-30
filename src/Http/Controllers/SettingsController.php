@@ -9,7 +9,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Metribay\Core\Connectors\ConnectorRegistry;
@@ -23,7 +22,6 @@ use Metribay\Core\Models\Project;
 use Metribay\Core\Models\ProjectGroup;
 use Metribay\Core\Models\Source;
 use Metribay\Core\Services\ConfigurationTransfer;
-use Metribay\Core\Services\ProjectConfiguration;
 use Metribay\Core\Services\ProviderCatalog;
 use Metribay\Core\Services\WorkspaceContext;
 
@@ -37,49 +35,18 @@ class SettingsController
     private function version(Request $request, Project|Source|Connection $model): void
     {
         $request->validate(['version' => ['required', 'integer', 'min:1']]);
-        abort_if((int) $request->input('version') !== (int) $model->version, 409, 'This item changed. Reload before saving.');
+        abort_if((int) $request->input('version') !== (int) $model->version, 409, __('This item changed. Reload before saving.'));
     }
 
-    public function index(Request $request): View
+    public function index(Request $request): View|RedirectResponse
     {
-        return view('metribay::settings', ['projects' => Project::query()->with('sources')->orderBy('name')->get(), 'groups' => ProjectGroup::query()->orderBy('name')->get(), 'connections' => Connection::query()->orderBy('name')->get(), 'sources' => Source::query()->with(['project', 'connection'])->orderBy('project_id')->get(), 'providers' => ProviderCatalog::all(), 'tab' => $request->query('tab', 'projects')]);
-    }
-
-    public function projectStore(Request $request): RedirectResponse
-    {
-        $this->authorize($request);
-        $values = $this->projectValues($request);
-        $slug = substr(Str::slug($values['name']) ?: 'project', 0, 85);
-        $candidate = $slug;
-        $i = 2;
-        while (Project::query()->where('slug', $candidate)->exists()) {
-            $candidate = $slug.'-'.$i++;
+        // Data sources now live under their project; older links to separate tabs land on the new ones.
+        $legacy = ['sources' => 'projects', 'connections' => 'accounts'];
+        if (array_key_exists((string) $request->query('tab'), $legacy)) {
+            return redirect()->route('metribay.settings', array_filter(['workspace' => app(WorkspaceContext::class)->current()->slug, 'tab' => $legacy[$request->query('tab')], 'create' => $request->query('create')]));
         }
-        Project::create($values + ['slug' => $candidate]);
 
-        return back()->with('status', 'Project added. Connect a source to start collecting metrics.');
-    }
-
-    public function projectUpdate(Request $request): RedirectResponse
-    {
-        $this->authorize($request);
-        $values = $this->projectValues($request);
-        DB::transaction(function () use ($request, $values): void {
-            $project = Project::query()->lockForUpdate()->whereKey($request->route('project'))->firstOrFail();
-            $this->version($request, $project);
-            $project->fill($values + ['archived' => $request->has('archived') ? $request->boolean('archived') : $project->archived, 'version' => $project->version + 1])->save();
-        });
-
-        return back()->with('status', 'Project updated.');
-    }
-
-    /** @return array<string, mixed> */
-    private function projectValues(Request $request): array
-    {
-        $values = $request->validate(['name' => ['required', 'string', 'max:120'], 'domain' => ['nullable', 'string', 'max:253'], 'group_id' => ['nullable', 'integer', Rule::exists('project_groups', 'id')->where('workspace_id', app(WorkspaceContext::class)->id())]]);
-        $values['domain'] = ProjectConfiguration::domain($values['domain'] ?? null);
-
-        return $values;
+        return view('metribay::settings', ['projects' => Project::query()->with('sources')->orderBy('name')->get(), 'groups' => ProjectGroup::query()->orderBy('name')->get(), 'connections' => Connection::query()->orderBy('name')->get(), 'sources' => Source::query()->with(['project', 'connection'])->orderBy('project_id')->get(), 'providers' => ProviderCatalog::all(), 'tab' => $request->query('tab', 'projects')]);
     }
 
     public function groupStore(Request $request): RedirectResponse
@@ -88,7 +55,7 @@ class SettingsController
         $values = $request->validate(['name' => ['required', 'string', 'max:120', Rule::unique('project_groups')->where('workspace_id', app(WorkspaceContext::class)->id())]]);
         ProjectGroup::create($values);
 
-        return back()->with('status', 'Group added.');
+        return back()->with('status', __('Group added.'));
     }
 
     public function connectionStore(Request $request): RedirectResponse
@@ -100,7 +67,7 @@ class SettingsController
         $connection->storeSecrets($credentials);
         $connection->save();
 
-        return back()->with('status', 'Connection saved. Credentials are encrypted and are never returned to the browser.');
+        return back()->with('status', __('Account connected. Credentials are encrypted and are never returned to the browser.'));
     }
 
     public function connectionUpdate(Request $request): RedirectResponse
@@ -117,7 +84,22 @@ class SettingsController
             }$connection->fill(['name' => $values['name'], 'version' => $connection->version + 1])->save();
         });
 
-        return back()->with('status', 'Connection updated.');
+        return back()->with('status', __('Connected account updated.'));
+    }
+
+    public function connectionDestroy(Request $request): RedirectResponse
+    {
+        $this->authorize($request, 'manage_connections');
+        DB::transaction(function () use ($request): void {
+            $connection = Connection::query()->lockForUpdate()->whereKey($request->route('connection'))->firstOrFail();
+            // Removing an account in use would silently stop its data sources; ask for a switch first.
+            if (Source::query()->where('connection_id', $connection->id)->lockForUpdate()->exists()) {
+                throw ValidationException::withMessages(['connection' => __('This account is used by data sources. Switch them to another account first.')]);
+            }
+            $connection->delete();
+        });
+
+        return back()->with('status', __('Connected account removed. Its saved credentials were deleted.'));
     }
 
     public function sourceStore(Request $request): RedirectResponse
@@ -129,7 +111,7 @@ class SettingsController
         if ($values['kind'] !== 'wporg') {
             $connection = Connection::query()->find($values['connection_id'] ?? null);
             if (! $connection || $connection->kind !== $values['kind']) {
-                throw ValidationException::withMessages(['connection_id' => 'Choose a connection for this provider and workspace.']);
+                throw ValidationException::withMessages(['connection_id' => __('Choose a connected account for this provider.')]);
             }
         }
         $identity = $config;
@@ -137,11 +119,11 @@ class SettingsController
         ksort($identity);
         $hash = hash('sha256', json_encode([$values['kind'], $identity, $values['reporting_timezone']], JSON_THROW_ON_ERROR));
         if (Source::query()->where('project_id', $values['project_id'])->where('identity_hash', $hash)->exists()) {
-            throw ValidationException::withMessages(['config' => 'This resource is already connected to this project.']);
+            throw ValidationException::withMessages(['config' => __('This data source is already in this project.')]);
         }
         Source::create(['project_id' => $values['project_id'], 'kind' => $values['kind'], 'label' => $values['label'], 'connection_id' => $values['kind'] === 'wporg' ? null : $values['connection_id'], 'reporting_timezone' => $values['reporting_timezone'], 'config' => $config, 'identity_hash' => $hash]);
 
-        return back()->with('status', 'Source added. Run collection or let the scheduler collect it.');
+        return back()->with('status', __('Data source added. Run collection or let the scheduler collect it.'));
     }
 
     public function sourceUpdate(Request $request): RedirectResponse
@@ -155,12 +137,12 @@ class SettingsController
             if ($request->has('connection_id') && $source->kind !== 'wporg') {
                 $connection = Connection::query()->whereKey($values['connection_id'] ?? null)->where('kind', $source->kind)->first();
                 if (! $connection) {
-                    throw ValidationException::withMessages(['connection_id' => 'Choose a connection for this provider and workspace.']);
+                    throw ValidationException::withMessages(['connection_id' => __('Choose a connected account for this provider.')]);
                 }
                 $connectionId = $connection->id;
             }
             if ($source->kind !== 'wporg' && ($request->has('enabled') ? $request->boolean('enabled') : $source->enabled) && $connectionId === null) {
-                throw ValidationException::withMessages(['connection_id' => 'Connect credentials before enabling collection.']);
+                throw ValidationException::withMessages(['connection_id' => __('Choose a connected account before enabling collection.')]);
             }
             $config = $source->config;
             if (isset($values['days']) && $source->kind !== 'uptimerobot') {
@@ -168,17 +150,17 @@ class SettingsController
             }$source->fill(['connection_id' => $connectionId, 'label' => $values['label'], 'enabled' => $request->has('enabled') ? $request->boolean('enabled') : $source->enabled, 'config' => $config, 'version' => $source->version + 1])->save();
         });
 
-        return back()->with('status', 'Source updated. Existing history is retained.');
+        return back()->with('status', __('Data source updated. Existing history is retained.'));
     }
 
     public function sync(Request $request): RedirectResponse
     {
         $this->authorize($request);
         $source = Source::query()->whereKey($request->route('source'))->firstOrFail();
-        abort_unless($source->enabled && ! $source->project->archived, 422, 'Enable the source and project before collecting.');
+        abort_unless($source->enabled && ! $source->project->archived, 422, __('Enable the data source and project before collecting.'));
         CollectSource::dispatch(app(WorkspaceContext::class)->id(), $source->id, true);
 
-        return back()->with('status', 'Collection queued. Source health updates when the worker finishes.');
+        return back()->with('status', __('Collection queued. The status updates when the import finishes.'));
     }
 
     public function check(Request $request, ConnectorRegistry $connectors): RedirectResponse
@@ -190,10 +172,10 @@ class SettingsController
         } catch (ProviderRequestLimit $exception) {
             throw ValidationException::withMessages(['connection_id' => $exception->getMessage()]);
         } catch (\Throwable) {
-            throw ValidationException::withMessages(['connection_id' => 'The provider could not confirm access. Check the resource, credentials, and provider permissions.']);
+            throw ValidationException::withMessages(['connection_id' => __('The provider could not confirm access. Check the resource, the connected account and provider permissions.')]);
         }
 
-        return back()->with('status', 'Provider access confirmed. This check did not save metrics.');
+        return back()->with('status', __('Provider access confirmed. This check did not save metrics.'));
     }
 
     public function export(Request $request, ConfigurationTransfer $transfer): JsonResponse
@@ -210,10 +192,10 @@ class SettingsController
         try {
             $document = json_decode($request->file('file')->getContent(), true, 32, JSON_THROW_ON_ERROR);
         } catch (\Throwable) {
-            throw ValidationException::withMessages(['file' => 'Choose a valid Metribay configuration JSON file.']);
+            throw ValidationException::withMessages(['file' => __('Choose a valid Metribay configuration JSON file.')]);
         }
         $transfer->import($document);
 
-        return back()->with('status', 'Configuration imported. Sources without an existing matching connection are paused.');
+        return back()->with('status', __('Configuration imported. Data sources without a matching connected account are paused.'));
     }
 }

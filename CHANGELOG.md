@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.0 — 2026-10-30
+
+- Rename Annotations to Events throughout (model `ProjectEvent`, table `project_events`, routes `metribay.events.*`). Custom events can repeat weekly, monthly or yearly and use one of four colors; imported GitHub releases are shown as distinct, read-only automatic events. Events appear as markers on project charts.
+- Make projects the starting point: the overview offers Add project, and data sources are always added from a project. Each Add data source click starts a fresh setup; leaving discards unfinished form state and the Save for later link is gone. Saving an account remains an explicit step.
+- Rename user-facing terms: connections are now connected accounts, sources are data sources. Settings show Projects, Connected accounts (with usage and removal of unused accounts) and Import & export; a new project settings page manages each project's data sources. Older `tab=sources` and `tab=connections` links redirect.
+- Rename the personal Account page to Profile at `/profile`; `/account` redirects.
+- Add English and German interface translations, a language selector on the profile and sign-in pages, locale-aware numbers and dates, and per-user language for notifications. New migration adds `users.locale`.
+- Replace the project index hover arrow with a “View project details” label.
+
 ## 0.1.9 — 2026-10-30
 
 - Require PHP 8.5 or newer; CI now tests only PHP 8.5 on SQLite and PostgreSQL.

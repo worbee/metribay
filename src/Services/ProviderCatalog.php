@@ -34,17 +34,17 @@ class ProviderCatalog
     {
         $provider = self::all()[$kind] ?? null;
         if (! $provider) {
-            throw ValidationException::withMessages(['kind' => 'Choose a supported provider.']);
+            throw ValidationException::withMessages(['kind' => __('Choose a supported provider.')]);
         }
         if (array_diff(array_keys($input), $provider['config'])) {
-            throw ValidationException::withMessages(['config' => 'Unsupported source configuration field.']);
+            throw ValidationException::withMessages(['config' => __('Unsupported data source setting.')]);
         }
         Validator::make(['timezone' => $timezone], ['timezone' => ['required', 'timezone']])->validate();
         if (in_array($kind, ['umami', 'bing', 'github', 'uptimerobot'], true) && ! in_array($timezone, ['UTC', 'Etc/UTC', 'Etc/GMT', 'GMT'], true)) {
-            throw ValidationException::withMessages(['reporting_timezone' => 'This provider reports calendar dates in UTC.']);
+            throw ValidationException::withMessages(['reporting_timezone' => __('This provider reports calendar dates in UTC.')]);
         }
         if ($kind === 'gsc' && $timezone !== 'America/Los_Angeles') {
-            throw ValidationException::withMessages(['reporting_timezone' => 'Search Console reports dates in America/Los_Angeles.']);
+            throw ValidationException::withMessages(['reporting_timezone' => __('Search Console reports dates in America/Los_Angeles.')]);
         }
         $rules = match ($kind) {
             'umami' => ['website_id' => ['required', 'uuid']],
@@ -54,7 +54,7 @@ class ProviderCatalog
             'wporg' => ['slug' => ['required', 'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/D', 'max:100']],
             'github' => ['repository' => ['required', 'regex:~^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$~', 'max:240']],
             'uptimerobot' => ['monitor_id' => ['required', 'regex:/^[0-9]+$/']],
-            default => throw ValidationException::withMessages(['kind' => 'Choose a supported provider.']),
+            default => throw ValidationException::withMessages(['kind' => __('Choose a supported provider.')]),
         };
         $window = $kind === 'wporg' ? 'limit' : 'days';
         if (in_array($window, $provider['config'], true)) {
@@ -71,10 +71,10 @@ class ProviderCatalog
             }
         }
         if ($kind === 'gsc' && ! preg_match('~^(sc-domain:[a-z0-9.-]+|https?://[^\s]+)$~i', $clean['site_url'])) {
-            throw ValidationException::withMessages(['config.site_url' => 'Use a Search Console URL or sc-domain: property.']);
+            throw ValidationException::withMessages(['config.site_url' => __('Use a Search Console URL or sc-domain: property.')]);
         }
         if ($kind === 'github' && array_intersect(explode('/', $clean['repository']), ['.', '..'])) {
-            throw ValidationException::withMessages(['config.repository' => 'Use owner/repository.']);
+            throw ValidationException::withMessages(['config.repository' => __('Use owner/repository.')]);
         }
 
         return $clean;
@@ -87,21 +87,21 @@ class ProviderCatalog
     {
         $provider = self::all()[$kind] ?? null;
         if (! $provider || ! $provider['fields']) {
-            throw ValidationException::withMessages(['kind' => 'This provider does not use a connection.']);
+            throw ValidationException::withMessages(['kind' => __('This provider does not use a connected account.')]);
         }
         if (array_diff(array_keys($values), $provider['fields'])) {
-            throw ValidationException::withMessages(['values' => 'Unsupported connection field.']);
+            throw ValidationException::withMessages(['values' => __('Unsupported account field.')]);
         }
         $values = array_filter($values, fn ($value) => $value !== null && $value !== '');
         foreach ($values as $key => $value) {
             if (! is_string($value) && ! ($key === 'service_account' && is_array($value))) {
-                throw ValidationException::withMessages(['values' => 'Credentials must be text or service account JSON.']);
+                throw ValidationException::withMessages(['values' => __('Credentials must be text or service account JSON.')]);
             }if (is_string($value) && strlen($value) > 64000) {
-                throw ValidationException::withMessages(['values' => 'Connection value is too long.']);
+                throw ValidationException::withMessages(['values' => __('An account value is too long.')]);
             }
         }
         $required = match ($kind) {
-            'umami' => ['base_url', 'username', 'password'],'bing','uptimerobot' => ['api_key'],'github' => isset($values['token']) ? ['token'] : ['client_id', 'installation_id', 'private_key'],'gsc','ga4' => isset($values['service_account']) ? ['service_account'] : ['client_id', 'client_secret', 'refresh_token'],default => throw ValidationException::withMessages(['kind' => 'Choose a supported provider.'])
+            'umami' => ['base_url', 'username', 'password'],'bing','uptimerobot' => ['api_key'],'github' => isset($values['token']) ? ['token'] : ['client_id', 'installation_id', 'private_key'],'gsc','ga4' => isset($values['service_account']) ? ['service_account'] : ['client_id', 'client_secret', 'refresh_token'],default => throw ValidationException::withMessages(['kind' => __('Choose a supported provider.')])
         };
         foreach ($required as $key) {
             if (empty($values[$key])) {
@@ -115,13 +115,13 @@ class ProviderCatalog
                     throw new \RuntimeException;
                 }$values['service_account'] = $account;
             } catch (\Throwable) {
-                throw ValidationException::withMessages(['values.service_account' => 'Provide a valid service account JSON key.']);
+                throw ValidationException::withMessages(['values.service_account' => __('Provide a valid service account JSON key.')]);
             }
         }
         if (isset($values['base_url'])) {
             $url = parse_url($values['base_url']);
             if (! $url || ($url['scheme'] ?? null) !== 'https' || ! isset($url['host']) || isset($url['user']) || isset($url['pass']) || ($url['port'] ?? 443) !== 443 || isset($url['query']) || isset($url['fragment'])) {
-                throw ValidationException::withMessages(['values.base_url' => 'Use a public HTTPS server URL on port 443.']);
+                throw ValidationException::withMessages(['values.base_url' => __('Use a public HTTPS server URL on port 443.')]);
             }
         }
 

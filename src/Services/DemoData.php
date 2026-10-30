@@ -5,8 +5,8 @@ namespace Metribay\Core\Services;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
 use Metribay\Core\Connectors\CollectionResult;
-use Metribay\Core\Models\Annotation;
 use Metribay\Core\Models\Project;
+use Metribay\Core\Models\ProjectEvent;
 use Metribay\Core\Models\Source;
 use Metribay\Core\Models\Workspace;
 
@@ -31,7 +31,7 @@ class DemoData
                     $rows[] = ['metric' => 'downloads', 'date' => $today->subDays($i)->toDateString(), 'value' => (float) (40 + $index * 25 + ($i * 17 + $index * 11) % 60), 'is_partial' => $i === 0];
                 }app(MetricStore::class)->persist($source, new CollectionResult($rows), CarbonImmutable::now('UTC'));
                 $source->forceFill(['last_success_at' => now()])->save();
-                Annotation::query()->firstOrCreate(['project_id' => $project->id, 'title' => 'Demo release'], ['date' => $today->subDays(5)->toDateString(), 'body' => 'Synthetic example data for exploring Metribay.', 'origin' => 'manual']);
+                ProjectEvent::query()->firstOrCreate(['project_id' => $project->id, 'title' => 'Demo release'], ['date' => $today->subDays(5)->toDateString(), 'body' => 'Synthetic example data for exploring Metribay.', 'origin' => 'manual']);
             }
         });
         $command->info('Synthetic demo projects added; collection is disabled for these sources.');

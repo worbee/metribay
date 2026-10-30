@@ -4,6 +4,7 @@ namespace Metribay\Core\Services;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Number;
 use Metribay\Core\Metrics\MetricRegistry;
 use Metribay\Core\Models\DailyMetric;
 use Metribay\Core\Models\PeriodMetric;
@@ -54,7 +55,7 @@ class DashboardData
                     $partial = $definition->aggregation === 'period' ? ($period ? (bool) $period->is_partial : true) : (! $definition->snapshot && ($known < $days || count(array_filter($series, fn ($p) => $p['partial'])) > 0));
                     $last = array_values(array_filter($series, fn ($point) => $point['value'] !== null));
                     $observedDate = $last ? end($last)['date'] : null;
-                    $metrics[] = ['key' => $key, 'label' => $definition->label, 'unit' => $definition->unit, 'value' => $value, 'display_value' => $this->format($key, $value), 'previous' => $prior, 'change' => ! $definition->snapshot && $prior !== null && $prior > 0 && $value !== null ? 100 * ($value - $prior) / $prior : null, 'partial' => $partial, 'series' => $series, 'previous_series' => $previous, 'coverage' => ['known' => $known, 'total' => $days], 'observed_date' => $observedDate, 'start_date' => $start->toDateString(), 'end_date' => $end->toDateString(), 'timezone' => $source->reporting_timezone];
+                    $metrics[] = ['key' => $key, 'label' => __($definition->label), 'unit' => $definition->unit, 'value' => $value, 'display_value' => $this->format($key, $value), 'previous' => $prior, 'change' => ! $definition->snapshot && $prior !== null && $prior > 0 && $value !== null ? 100 * ($value - $prior) / $prior : null, 'partial' => $partial, 'series' => $series, 'previous_series' => $previous, 'coverage' => ['known' => $known, 'total' => $days], 'observed_date' => $observedDate, 'start_date' => $start->toDateString(), 'end_date' => $end->toDateString(), 'timezone' => $source->reporting_timezone];
                 }
                 $status = ! $source->enabled ? 'disabled' : ($source->consecutive_failures > 0 ? 'failed' : (! $source->last_success_at ? 'pending' : ($source->last_success_at->lt($now->subHours($source->kind === 'uptimerobot' ? 2 : 8)) ? 'failed' : (($source->latest_data_date && $source->latest_data_date < $end->subDays(3)->toDateString()) ? 'delayed' : 'healthy'))));
                 $monitor = collect($metrics)->firstWhere('key', 'monitor_status');
@@ -62,7 +63,7 @@ class DashboardData
                     $status = 'failed';
                 }
 
-                return ['id' => $source->id, 'label' => $source->label, 'kind' => $source->kind, 'reporting_timezone' => $source->reporting_timezone, 'enabled' => $source->enabled, 'status' => $status, 'last_success_at' => $source->last_success_at ? $source->last_success_at->format('d M Y, H:i').' UTC' : null, 'latest_date' => $source->latest_data_date, 'error_code' => $source->error_code, 'metrics' => $metrics];
+                return ['id' => $source->id, 'label' => $source->label, 'kind' => $source->kind, 'reporting_timezone' => $source->reporting_timezone, 'enabled' => $source->enabled, 'status' => $status, 'last_success_at' => $source->last_success_at ? $source->last_success_at->utc()->translatedFormat('j M Y, H:i').' UTC' : null, 'latest_date' => $source->latest_data_date, 'error_code' => $source->error_code, 'metrics' => $metrics];
             })->all();
 
             return ['id' => $project->id, 'name' => $project->name, 'slug' => $project->slug, 'domain' => $project->domain, 'group' => $project->group?->name, 'archived' => $project->archived, 'sources' => $sources];
@@ -92,11 +93,11 @@ class DashboardData
         if ($value === null) {
             return '—';
         }if ($metric === 'monitor_status') {
-            return [0 => 'Paused', 1 => 'Not checked yet', 2 => 'Up', 8 => 'Seems down', 9 => 'Down'][(int) $value] ?? 'Unknown';
+            return [0 => __('Paused'), 1 => __('Not checked yet'), 2 => __('Up'), 8 => __('Seems down'), 9 => __('Down')][(int) $value] ?? __('Unknown');
         }
 
         return match (MetricRegistry::get($metric)->unit) {
-            'percent' => number_format($value, 2).'%', 'ms' => number_format($value, 1).' ms',default => number_format($value, 0)
+            'percent' => Number::format($value, 2, locale: app()->getLocale()).'%', 'ms' => Number::format($value, 1, locale: app()->getLocale()).' ms',default => Number::format($value, 0, locale: app()->getLocale())
         };
     }
 }

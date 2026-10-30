@@ -118,7 +118,7 @@ class WorkspaceBoundaryTest extends TestCase
         $this->post('/register', [])->assertNotFound();
     }
 
-    public function test_annotation_foreign_source_cannot_be_attached(): void
+    public function test_event_foreign_source_cannot_be_attached(): void
     {
         $project = $this->scoped($this->workspace, fn () => Project::create(['name' => 'Own', 'slug' => 'own']));
         $source = $this->scoped($this->foreign, function () {
@@ -126,7 +126,7 @@ class WorkspaceBoundaryTest extends TestCase
 
             return Source::create(['project_id' => $p->id, 'kind' => 'wporg', 'label' => 'Downloads', 'identity_hash' => str_repeat('a', 64), 'config' => ['slug' => 'example'], 'reporting_timezone' => 'UTC']);
         });
-        $this->actingAs($this->owner)->postJson('/w/first/projects/'.$project->id.'/annotations', ['date' => '2026-10-25', 'title' => 'Note', 'source_id' => $source->id])->assertUnprocessable();
+        $this->actingAs($this->owner)->postJson('/w/first/projects/'.$project->id.'/events', ['date' => '2026-10-25', 'title' => 'Note', 'source_id' => $source->id])->assertUnprocessable();
     }
 
     public function test_queued_payload_contains_ids_instead_of_models_or_secrets(): void

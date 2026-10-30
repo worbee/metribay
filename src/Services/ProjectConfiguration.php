@@ -13,7 +13,7 @@ final class ProjectConfiguration
         }
         $domain = rtrim(preg_replace('~^https?://~i', '', $value), '/');
         if (! filter_var($domain, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) || str_contains($domain, '/')) {
-            throw ValidationException::withMessages(['domain' => 'Use a hostname such as example.com.']);
+            throw ValidationException::withMessages(['domain' => __('Use a hostname such as example.com.')]);
         }
 
         return mb_strtolower($domain);

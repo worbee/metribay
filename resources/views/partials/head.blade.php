@@ -3,7 +3,7 @@
 <meta name="color-scheme" content="light dark">
 <meta name="csrf-token" content="{{ csrf_token() }}">
 <meta name="robots" content="noindex,nofollow">
-<title>@yield('title', 'Dashboard') · Metribay</title>
+<title>@yield('title', __('Dashboard')) · Metribay</title>
 <script>
 try { var mbTheme = localStorage.getItem('metribay.theme') || 'system'; document.documentElement.dataset.theme = mbTheme === 'system' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : mbTheme; document.documentElement.dataset.density = localStorage.getItem('metribay.density') || 'comfortable'; } catch (_) {}
 </script>

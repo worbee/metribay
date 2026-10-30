@@ -33,7 +33,7 @@ final class GitHubConnectorTest extends FixtureTestCase
             $this->assertSame($row['metric'] !== 'open_issues' && $row['date'] === '2026-10-25', $row['is_partial']);
         }
         $this->assertSame(['2026-10-25' => ['open_issues']], $result->replaceDailyDates);
-        $this->assertTrue($result->authoritativeAnnotations);
+        $this->assertTrue($result->authoritativeEvents);
         Http::assertSentCount(6);
     }
 
@@ -74,12 +74,12 @@ final class GitHubConnectorTest extends FixtureTestCase
         $this->githubFake(releases: ['' => $this->page([$draft, $prerelease], true, 'older-created'),
             'older-created' => $this->page([$this->release('released-today', '2026-10-25T08:00:00Z')])]);
         $result = $this->collect();
-        $this->assertCount(2, $result->annotations);
-        $this->assertSame('Release preview (prerelease)', $result->annotations[0]['title']);
-        $this->assertSame('released-today', $result->annotations[1]['external_id']);
-        $this->assertSame('2026-10-25T08:00:00+00:00', $result->annotations[1]['occurred_at']);
-        $this->assertSame('Synthetic release notes', $result->annotations[1]['body']);
-        $this->assertTrue($result->authoritativeAnnotations);
+        $this->assertCount(2, $result->events);
+        $this->assertSame('Release preview (prerelease)', $result->events[0]['title']);
+        $this->assertSame('released-today', $result->events[1]['external_id']);
+        $this->assertSame('2026-10-25T08:00:00+00:00', $result->events[1]['occurred_at']);
+        $this->assertSame('Synthetic release notes', $result->events[1]['body']);
+        $this->assertTrue($result->authoritativeEvents);
     }
 
     public static function paginationFaults(): array

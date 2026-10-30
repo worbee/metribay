@@ -18,22 +18,65 @@ class SourceSetupTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_setup_resumes_and_creates_project_only_on_confirmation(): void
+    private function projectIn(Workspace $workspace, string $name = 'Example'): Project
+    {
+        return app(WorkspaceContext::class)->run($workspace, fn () => Project::create(['name' => $name, 'slug' => strtolower($name)]));
+    }
+
+    public function test_setup_adds_a_data_source_to_the_chosen_project_only_on_confirmation(): void
     {
         Queue::fake();
         $owner = User::factory()->create();
         $workspace = Workspace::create(['owner_id' => $owner->id, 'name' => 'Setup', 'slug' => 'setup']);
-        $this->actingAs($owner)->post('/w/setup/sources/setup', ['action' => 'provider', 'kind' => 'wporg'])->assertRedirect('/w/setup/sources/new');
+        $project = $this->projectIn($workspace);
+        $this->actingAs($owner)->get('/w/setup/sources/new?project='.$project->id)->assertOk()->assertSee('Where is the data?')->assertDontSee('Save for later');
+        $this->post('/w/setup/sources/setup', ['action' => 'provider', 'kind' => 'wporg'])->assertRedirect('/w/setup/sources/new');
         $this->get('/w/setup/sources/new')->assertOk()->assertSee('Search plugins');
         $this->post('/w/setup/sources/setup', ['action' => 'manual', 'resource_id' => 'synthetic-plugin', 'timezone' => 'UTC'])->assertSessionHasNoErrors();
-        $this->assertDatabaseCount('projects', 0);
-        $this->get('/w/setup/sources/new')->assertOk()->assertSee('Connect and start import');
-        $this->post('/w/setup/sources/setup', ['action' => 'finish', 'name' => 'Example', 'domain' => 'example.com', 'days' => 180])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertDatabaseCount('sources', 0);
+        $this->get('/w/setup/sources/new')->assertOk()->assertSee('Add and start import')->assertSee('Example');
+        $this->post('/w/setup/sources/setup', ['action' => 'finish', 'days' => 180])->assertRedirect('/w/setup/projects/'.$project->id)->assertSessionHasNoErrors();
         $this->assertDatabaseCount('projects', 1);
-        $this->assertDatabaseHas('sources', ['kind' => 'wporg', 'workspace_id' => $workspace->id, 'enabled' => true]);
+        $this->assertDatabaseHas('sources', ['kind' => 'wporg', 'workspace_id' => $workspace->id, 'project_id' => $project->id, 'enabled' => true]);
         Queue::assertPushed(CollectSource::class, fn ($job) => $job->workspaceId === $workspace->id && $job->full);
-        $this->post('/w/setup/sources/setup', ['action' => 'finish', 'name' => 'Duplicate', 'days' => 180])->assertStatus(409);
-        $this->assertDatabaseCount('projects', 1);
+        $this->post('/w/setup/sources/setup', ['action' => 'finish', 'days' => 180])->assertStatus(409);
+        $this->assertDatabaseCount('sources', 1);
+    }
+
+    public function test_setup_is_never_resumed_after_leaving_and_each_click_starts_fresh(): void
+    {
+        $owner = User::factory()->create();
+        $workspace = Workspace::create(['owner_id' => $owner->id, 'name' => 'Setup', 'slug' => 'setup']);
+        $project = $this->projectIn($workspace);
+        $this->actingAs($owner)->get('/w/setup/sources/new?project='.$project->id);
+        $this->post('/w/setup/sources/setup', ['action' => 'provider', 'kind' => 'wporg']);
+        $this->post('/w/setup/sources/setup', ['action' => 'manual', 'resource_id' => 'synthetic-plugin', 'timezone' => 'UTC']);
+        $this->get('/w/setup/sources/new?project='.$project->id)->assertOk()->assertSee('Where is the data?')->assertDontSee('Add and start import');
+        $this->post('/w/setup/sources/setup', ['action' => 'provider', 'kind' => 'wporg']);
+        $this->get('/w/setup/projects/'.$project->id)->assertOk();
+        $this->assertNull(session('source_setup'));
+        $this->get('/w/setup/sources/new')->assertRedirect('/w/setup');
+        $this->post('/w/setup/sources/setup', ['action' => 'manual', 'resource_id' => 'synthetic-plugin', 'timezone' => 'UTC'])->assertStatus(409);
+        $this->assertDatabaseCount('sources', 0);
+        $this->assertDatabaseCount('connections', 0);
+    }
+
+    public function test_saving_an_account_is_an_explicit_choice_kept_after_leaving(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake(['*/api/auth/login' => Http::response(['password' => 'private-provider-body'], 401)]);
+        $this->app->instance(SafeHttpClient::class, new SafeHttpClient(fn () => ['93.184.216.34']));
+        $owner = User::factory()->create();
+        $workspace = Workspace::create(['owner_id' => $owner->id, 'name' => 'Setup', 'slug' => 'setup']);
+        $project = $this->projectIn($workspace);
+        $this->actingAs($owner)->get('/w/setup/sources/new?project='.$project->id);
+        $this->post('/w/setup/sources/setup', ['action' => 'provider', 'kind' => 'umami']);
+        $this->get('/w/setup/sources/new')->assertSee('Save account and continue')->assertSee('Settings → Connected accounts');
+        $this->post('/w/setup/sources/setup', ['action' => 'account', 'values' => ['base_url' => 'https://analytics.example.com', 'username' => 'fixture', 'password' => 'fixture-secret']]);
+        $this->get('/w/setup')->assertOk();
+        $this->assertDatabaseCount('connections', 1);
+        $this->assertDatabaseCount('sources', 0);
+        $this->get('/w/setup/settings?tab=accounts')->assertOk()->assertSee('Not used yet')->assertDontSee('fixture-secret');
     }
 
     public function test_discovery_uses_saved_account_and_server_listed_resources(): void
@@ -50,13 +93,15 @@ class SourceSetupTest extends TestCase
 
             return $connection;
         });
-        $this->actingAs($owner)->post('/w/setup/sources/setup', ['action' => 'provider', 'kind' => 'umami']);
+        $project = $this->projectIn($workspace);
+        $this->actingAs($owner)->get('/w/setup/sources/new?project='.$project->id);
+        $this->post('/w/setup/sources/setup', ['action' => 'provider', 'kind' => 'umami']);
         $this->post('/w/setup/sources/setup', ['action' => 'account', 'connection_id' => $connection->id]);
         $this->post('/w/setup/sources/setup', ['action' => 'discover'])->assertSessionHasNoErrors();
         $this->get('/w/setup/sources/new')->assertOk()->assertSee('example.com')->assertDontSee('fixture-secret');
         $this->post('/w/setup/sources/setup', ['action' => 'resource', 'resource' => 99])->assertUnprocessable();
         $this->post('/w/setup/sources/setup', ['action' => 'resource', 'resource' => 0])->assertSessionHasNoErrors();
-        $this->get('/w/setup/sources/new')->assertOk()->assertSee('Connect and start import');
+        $this->get('/w/setup/sources/new')->assertOk()->assertSee('Add and start import');
         Http::assertSentCount(6);
     }
 
@@ -66,11 +111,12 @@ class SourceSetupTest extends TestCase
         Http::fake(['*/api/auth/login' => Http::response(['password' => 'private-provider-body'], 401)]);
         $this->app->instance(SafeHttpClient::class, new SafeHttpClient(fn () => ['93.184.216.34']));
         $owner = User::factory()->create();
-        Workspace::create(['owner_id' => $owner->id, 'name' => 'Setup', 'slug' => 'setup']);
-        $this->actingAs($owner)->post('/w/setup/sources/setup', ['action' => 'provider', 'kind' => 'umami']);
+        $project = $this->projectIn(Workspace::create(['owner_id' => $owner->id, 'name' => 'Setup', 'slug' => 'setup']));
+        $this->actingAs($owner)->get('/w/setup/sources/new?project='.$project->id);
+        $this->post('/w/setup/sources/setup', ['action' => 'provider', 'kind' => 'umami']);
         $this->post('/w/setup/sources/setup', ['action' => 'account', 'values' => ['base_url' => 'https://analytics.example.com', 'username' => 'fixture', 'password' => 'fixture-secret']]);
         $this->get('/w/setup/sources/new')->assertOk()->assertSee('Umami sign-in failed')->assertDontSee('private-provider-body');
-        $this->post('/w/setup/sources/setup', ['action' => 'discover'])->assertSessionHasErrors(['resource' => 'Umami sign-in failed. Check the saved account’s username and password. (HTTP 401)']);
+        $this->post('/w/setup/sources/setup', ['action' => 'discover'])->assertSessionHasErrors(['resource' => 'Umami sign-in failed. Check the connected account’s username and password. (HTTP 401)']);
         $this->get('/w/setup/sources/new')->assertOk()->assertSee('Umami sign-in failed')->assertDontSee('private-provider-body');
     }
 
@@ -78,12 +124,14 @@ class SourceSetupTest extends TestCase
     {
         $owner = User::factory()->create();
         $other = User::factory()->create();
-        Workspace::create(['owner_id' => $owner->id, 'name' => 'Setup', 'slug' => 'setup']);
-        Workspace::create(['owner_id' => $other->id, 'name' => 'Other', 'slug' => 'other']);
-        $this->actingAs($owner)->get('/w/other/sources/new')->assertNotFound();
+        $project = $this->projectIn(Workspace::create(['owner_id' => $owner->id, 'name' => 'Setup', 'slug' => 'setup']));
+        $foreign = $this->projectIn(Workspace::create(['owner_id' => $other->id, 'name' => 'Other', 'slug' => 'other']), 'Foreign');
+        $this->actingAs($owner)->get('/w/other/sources/new?project='.$foreign->id)->assertNotFound();
+        $this->get('/w/setup/sources/new?project='.$foreign->id)->assertNotFound();
+        $this->get('/w/setup/sources/new?project='.$project->id)->assertOk();
         $this->post('/w/setup/sources/setup', ['action' => 'provider', 'kind' => 'umami']);
         $this->post('/w/setup/sources/setup', ['action' => 'account', 'connection_id' => 999])->assertNotFound();
-        $this->assertDatabaseCount('projects', 0);
+        $this->assertDatabaseCount('sources', 0);
     }
 
     public function test_google_callback_rejects_unbound_state(): void
@@ -94,17 +142,6 @@ class SourceSetupTest extends TestCase
         $this->assertDatabaseCount('connections', 0);
     }
 
-    public function test_existing_project_context_survives_first_provider_selection(): void
-    {
-        $owner = User::factory()->create();
-        $workspace = Workspace::create(['owner_id' => $owner->id, 'name' => 'Setup', 'slug' => 'setup']);
-        $project = app(WorkspaceContext::class)->run($workspace, fn () => Project::create(['name' => 'Existing', 'slug' => 'existing']));
-        $this->actingAs($owner)->get('/w/setup/sources/new?project='.$project->id)->assertOk();
-        $this->post('/w/setup/sources/setup', ['action' => 'provider', 'kind' => 'wporg']);
-        $this->post('/w/setup/sources/setup', ['action' => 'manual', 'resource_id' => 'synthetic-plugin', 'timezone' => 'UTC']);
-        $this->get('/w/setup/sources/new')->assertOk()->assertSee('value="'.$project->id.'" selected', false);
-    }
-
     public function test_google_browser_authorization_binds_and_consumes_state(): void
     {
         config(['metribay.google.client_id' => 'fixture-id', 'metribay.google.client_secret' => 'fixture-secret']);
@@ -113,10 +150,13 @@ class SourceSetupTest extends TestCase
         $this->app->instance(SafeHttpClient::class, new SafeHttpClient(fn () => ['93.184.216.34']));
         $owner = User::factory()->create();
         $workspace = Workspace::create(['owner_id' => $owner->id, 'name' => 'Setup', 'slug' => 'setup']);
-        $this->actingAs($owner)->post('/w/setup/sources/setup', ['action' => 'provider', 'kind' => 'ga4']);
+        $project = $this->projectIn($workspace);
+        $this->actingAs($owner)->get('/w/setup/sources/new?project='.$project->id);
+        $this->post('/w/setup/sources/setup', ['action' => 'provider', 'kind' => 'ga4']);
         $this->get('/w/setup/sources/google')->assertRedirectContains('https://accounts.google.com/');
         $state = session('metribay_google.state');
         $this->get('/integrations/google/callback?state='.$state.'&code=fixture-code')->assertRedirect('/w/setup/sources/new');
+        $this->get('/w/setup/sources/new')->assertOk()->assertSee('Select what to track');
         $this->assertDatabaseCount('connections', 1);
         app(WorkspaceContext::class)->run($workspace, function () {
             $this->assertSame('fixture-refresh', Connection::first()->reveal()['refresh_token']);
@@ -124,17 +164,17 @@ class SourceSetupTest extends TestCase
         $this->get('/w/setup/sources/google/callback?state='.$state.'&code=fixture-code')->assertForbidden();
     }
 
-    public function test_validation_preserves_explicit_new_project_choice(): void
+    public function test_finish_validation_keeps_the_setup_open(): void
     {
         $owner = User::factory()->create();
         $workspace = Workspace::create(['owner_id' => $owner->id, 'name' => 'Setup', 'slug' => 'setup']);
-        $project = app(WorkspaceContext::class)->run($workspace, fn () => Project::create(['name' => 'Existing', 'slug' => 'existing']));
+        $project = $this->projectIn($workspace, 'Existing');
         $this->actingAs($owner)->get('/w/setup/sources/new?project='.$project->id);
         $this->post('/w/setup/sources/setup', ['action' => 'provider', 'kind' => 'wporg']);
         $this->post('/w/setup/sources/setup', ['action' => 'manual', 'resource_id' => 'synthetic-plugin', 'timezone' => 'UTC']);
-        $this->from('/w/setup/sources/new')->post('/w/setup/sources/setup', ['action' => 'finish', 'project_id' => '', 'name' => 'New project', 'domain' => 'example.com/path', 'days' => 180])->assertSessionHasErrors('domain');
-        $this->get('/w/setup/sources/new')->assertOk()->assertDontSee('value="'.$project->id.'" selected', false)->assertSee('value="New project"', false);
-        $this->assertDatabaseCount('projects', 1);
+        $this->from('/w/setup/sources/new')->post('/w/setup/sources/setup', ['action' => 'finish', 'days' => 0])->assertSessionHasErrors('days');
+        $this->get('/w/setup/sources/new')->assertOk()->assertSee('Add and start import')->assertSee('Existing');
+        $this->assertDatabaseCount('sources', 0);
     }
 
     public function test_archived_project_has_no_add_source_cta(): void

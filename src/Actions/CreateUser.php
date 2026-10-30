@@ -22,8 +22,8 @@ class CreateUser implements CreatesNewUsers
 
         return DB::transaction(function () use ($input): User {
             $model = config('auth.providers.users.model');
-            $user = $model::create(['name' => $input['name'], 'email' => mb_strtolower($input['email']), 'password' => $input['password']]);
-            app(WorkspaceProvisioner::class)->create($user, 'My workspace');
+            $user = $model::create(['name' => $input['name'], 'email' => mb_strtolower($input['email']), 'password' => $input['password'], 'locale' => app()->getLocale()]);
+            app(WorkspaceProvisioner::class)->create($user, __('My workspace'));
 
             return $user;
         });

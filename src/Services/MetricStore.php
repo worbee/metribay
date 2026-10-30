@@ -7,9 +7,9 @@ use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use Metribay\Core\Connectors\CollectionResult;
 use Metribay\Core\Metrics\MetricRegistry;
-use Metribay\Core\Models\Annotation;
 use Metribay\Core\Models\DailyMetric;
 use Metribay\Core\Models\PeriodMetric;
+use Metribay\Core\Models\ProjectEvent;
 use Metribay\Core\Models\Source;
 
 class MetricStore
@@ -83,22 +83,22 @@ class MetricStore
             foreach ($result->periods as $row) {
                 PeriodMetric::query()->updateOrCreate(['source_id' => $source->id, 'metric' => $row['metric'], 'start_date' => $row['start_date'], 'end_date' => $row['end_date']], ['value' => $row['value'], 'is_partial' => $row['is_partial'], 'collected_at' => $now]);
             }
-            foreach ($result->annotations as $event) {
+            foreach ($result->events as $event) {
                 if (strlen($event['title']) > 200) {
-                    throw new InvalidArgumentException('Invalid provider annotation.');
+                    throw new InvalidArgumentException('Invalid provider event.');
                 }
                 $url = $event['url'];
                 if ($url) {
                     $parts = parse_url($url);
                     if (! $parts || ! in_array($parts['scheme'] ?? '', ['http', 'https'], true) || isset($parts['user']) || isset($parts['pass'])) {
-                        throw new InvalidArgumentException('Invalid provider annotation URL.');
+                        throw new InvalidArgumentException('Invalid provider event URL.');
                     }
                 }
                 $at = CarbonImmutable::parse($event['occurred_at'])->utc();
-                Annotation::query()->updateOrCreate(['source_id' => $source->id, 'origin' => 'github_release', 'external_id' => (string) $event['external_id']], ['project_id' => $source->project_id, 'date' => $at->toDateString(), 'occurred_at' => $at, 'title' => $event['title'], 'body' => $event['body'] ?? '', 'url' => $event['url']]);
+                ProjectEvent::query()->updateOrCreate(['source_id' => $source->id, 'origin' => 'github_release', 'external_id' => (string) $event['external_id']], ['project_id' => $source->project_id, 'date' => $at->toDateString(), 'occurred_at' => $at, 'title' => $event['title'], 'body' => $event['body'] ?? '', 'url' => $event['url']]);
             }
-            if ($result->authoritativeAnnotations) {
-                Annotation::query()->where('source_id', $source->id)->where('origin', 'github_release')->whereNotIn('external_id', array_column($result->annotations, 'external_id'))->delete();
+            if ($result->authoritativeEvents) {
+                ProjectEvent::query()->where('source_id', $source->id)->where('origin', 'github_release')->whereNotIn('external_id', array_column($result->events, 'external_id'))->delete();
             }
             $observed = DailyMetric::query()->where('source_id', $source->id)->max('date');
             $finalized = DailyMetric::query()->where('source_id', $source->id)->where('is_partial', false)->whereNotIn('metric', ['monitor_status', 'uptime_24h', 'response_time_24h', 'open_issues'])->max('date');
