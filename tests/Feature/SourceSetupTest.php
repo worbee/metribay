@@ -39,7 +39,7 @@ class SourceSetupTest extends TestCase
     public function test_discovery_uses_saved_account_and_server_listed_resources(): void
     {
         Http::preventStrayRequests();
-        Http::fake(['*/api/auth/login' => Http::response(['token' => 'fixture']), '*/api/websites*' => Http::response(['data' => [['id' => '11111111-1111-4111-8111-111111111111', 'name' => 'Example', 'domain' => 'example.com']], 'count' => 1])]);
+        Http::fake(['*/api/me/teams*' => Http::response(['data' => [], 'count' => 0]), '*/api/auth/login' => Http::response(['token' => 'fixture']), '*/api/websites*' => Http::response(['data' => [['id' => '11111111-1111-4111-8111-111111111111', 'name' => 'Example', 'domain' => 'example.com']], 'count' => 1])]);
         $this->app->instance(SafeHttpClient::class, new SafeHttpClient(fn () => ['93.184.216.34']));
         $owner = User::factory()->create();
         $workspace = Workspace::create(['owner_id' => $owner->id, 'name' => 'Setup', 'slug' => 'setup']);
@@ -57,7 +57,21 @@ class SourceSetupTest extends TestCase
         $this->post('/w/setup/sources/setup', ['action' => 'resource', 'resource' => 99])->assertUnprocessable();
         $this->post('/w/setup/sources/setup', ['action' => 'resource', 'resource' => 0])->assertSessionHasNoErrors();
         $this->get('/w/setup/sources/new')->assertOk()->assertSee('Connect and start import');
-        Http::assertSentCount(4);
+        Http::assertSentCount(6);
+    }
+
+    public function test_umami_discovery_errors_are_actionable_without_exposing_provider_bodies(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake(['*/api/auth/login' => Http::response(['password' => 'private-provider-body'], 401)]);
+        $this->app->instance(SafeHttpClient::class, new SafeHttpClient(fn () => ['93.184.216.34']));
+        $owner = User::factory()->create();
+        Workspace::create(['owner_id' => $owner->id, 'name' => 'Setup', 'slug' => 'setup']);
+        $this->actingAs($owner)->post('/w/setup/sources/setup', ['action' => 'provider', 'kind' => 'umami']);
+        $this->post('/w/setup/sources/setup', ['action' => 'account', 'values' => ['base_url' => 'https://analytics.example.com', 'username' => 'fixture', 'password' => 'fixture-secret']]);
+        $this->get('/w/setup/sources/new')->assertOk()->assertSee('Umami sign-in failed')->assertDontSee('private-provider-body');
+        $this->post('/w/setup/sources/setup', ['action' => 'discover'])->assertSessionHasErrors(['resource' => 'Umami sign-in failed. Check the saved account’s username and password. (HTTP 401)']);
+        $this->get('/w/setup/sources/new')->assertOk()->assertSee('Umami sign-in failed')->assertDontSee('private-provider-body');
     }
 
     public function test_workspace_boundary_is_enforced(): void

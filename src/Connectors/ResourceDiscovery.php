@@ -14,12 +14,11 @@ class ResourceDiscovery extends AbstractConnector
      */
     public function discover(string $kind, array $credentials, string $search = ''): array
     {
-        $base = rtrim((string) ($credentials['base_url'] ?? ''), '/');
-        $headers = [];
         if ($kind === 'umami') {
-            $login = $this->json($this->http->request('POST', $base.'/api/auth/login', ['json' => ['username' => $credentials['username'] ?? '', 'password' => $credentials['password'] ?? '']]), 'Umami');
-            $headers = ['Authorization' => 'Bearer '.$this->text($login['token'] ?? null, 'Umami token')];
-        } elseif (in_array($kind, ['ga4', 'gsc'], true)) {
+            return (new UmamiResourceDiscovery($this->http))->discover($credentials);
+        }
+        $headers = [];
+        if (in_array($kind, ['ga4', 'gsc'], true)) {
             $scope = $kind === 'ga4' ? 'https://www.googleapis.com/auth/analytics.readonly' : 'https://www.googleapis.com/auth/webmasters.readonly';
             $headers = ['Authorization' => 'Bearer '.(new GoogleToken($this->http))->fetch($credentials, $scope)];
         } elseif ($kind === 'github') {
@@ -33,7 +32,6 @@ class ResourceDiscovery extends AbstractConnector
         for ($page = 1; $page <= 20; $page++) {
             $options = ['headers' => $headers];
             $url = match ($kind) {
-                'umami' => $base.'/api/websites',
                 'ga4' => 'https://analyticsadmin.googleapis.com/v1beta/accountSummaries',
                 'gsc' => 'https://www.googleapis.com/webmasters/v3/sites',
                 'github' => 'https://api.github.com/user/repos',
@@ -43,7 +41,6 @@ class ResourceDiscovery extends AbstractConnector
                 default => throw new ConnectorException('Unsupported provider.'),
             };
             $options['query'] = match ($kind) {
-                'umami' => ['page' => $page, 'pageSize' => 100],
                 'ga4' => ['pageSize' => 200, 'pageToken' => $cursor],
                 'github' => ['per_page' => 100, 'page' => $page, 'sort' => 'full_name'],
                 'bing' => ['apikey' => $credentials['api_key'] ?? ''],
@@ -67,7 +64,7 @@ class ResourceDiscovery extends AbstractConnector
                 throw new ConnectorException('The provider could not confirm account access.');
             }
             $rows = match ($kind) {
-                'umami' => $data['data'] ?? [], 'ga4' => $data['accountSummaries'] ?? [],
+                'ga4' => $data['accountSummaries'] ?? [],
                 'gsc' => $data['siteEntry'] ?? [], 'github' => $data, 'bing' => $data['d'] ?? [],
                 'uptimerobot' => $data['monitors'] ?? [], 'wporg' => $data['plugins'] ?? [],
             };
@@ -90,7 +87,7 @@ class ResourceDiscovery extends AbstractConnector
                     continue;
                 }
                 $id = (string) match ($kind) {
-                    'umami' => $row['id'] ?? '', 'gsc' => $row['siteUrl'] ?? '', 'github' => $row['full_name'] ?? '',
+                    'gsc' => $row['siteUrl'] ?? '', 'github' => $row['full_name'] ?? '',
                     'bing' => $row['Url'] ?? '', 'uptimerobot' => $row['id'] ?? '', 'wporg' => $row['slug'] ?? '',
                 };
                 if ($id === '') {
@@ -104,7 +101,7 @@ class ResourceDiscovery extends AbstractConnector
             }
             $cursor = (string) ($data['nextPageToken'] ?? '');
             $more = match ($kind) {
-                'umami' => $page * 100 < (int) ($data['count'] ?? 0), 'ga4' => $cursor !== '',
+                'ga4' => $cursor !== '',
                 'github' => count($rows) === 100, 'uptimerobot' => $page * 50 < (int) ($data['pagination']['total'] ?? 0),
                 default => false,
             };

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.8 — 2026-10-30
+
+- Discover Umami websites shared through teams as well as personal websites.
+- Show actionable Umami sign-in, access, connection and response errors during source setup and refresh.
+
 ## 0.1.7 — 2026-10-30
 
 - Let hosts add managed provider actions to account and resource setup without replacing the shared flow.
