@@ -164,6 +164,26 @@ class SourceSetupTest extends TestCase
         $this->get('/w/setup/sources/google/callback?state='.$state.'&code=fixture-code')->assertForbidden();
     }
 
+    public function test_connecting_another_account_is_secondary_once_one_is_saved(): void
+    {
+        config(['metribay.google.client_id' => 'fixture-id', 'metribay.google.client_secret' => 'fixture-secret']);
+        $owner = User::factory()->create();
+        $workspace = Workspace::create(['owner_id' => $owner->id, 'name' => 'Setup', 'slug' => 'setup']);
+        $project = $this->projectIn($workspace);
+        $this->actingAs($owner)->get('/w/setup/sources/new?project='.$project->id);
+        $this->post('/w/setup/sources/setup', ['action' => 'provider', 'kind' => 'gsc']);
+        $this->get('/w/setup/sources/new')->assertOk()->assertSee('button button-primary" href="'.route('metribay.sources.google', 'setup'), false)->assertDontSee('Or connect another account')->assertDontSee('Use a connected account');
+        app(WorkspaceContext::class)->run($workspace, function (): void {
+            $connection = new Connection(['workspace_id' => app(WorkspaceContext::class)->id(), 'kind' => 'gsc', 'name' => 'Example Google']);
+            $connection->storeSecrets(['client_id' => 'fixture-id', 'client_secret' => 'fixture-secret', 'refresh_token' => 'fixture-refresh']);
+            $connection->save();
+        });
+        $this->get('/w/setup/sources/new')->assertOk()
+            ->assertSeeInOrder(['Use a connected account', 'Example Google', 'Continue', 'Or connect another account', 'Connect with your Google app', 'Connect an account with your own credentials'])
+            ->assertSee('button button-secondary" href="'.route('metribay.sources.google', 'setup'), false)
+            ->assertDontSee('fixture-refresh');
+    }
+
     public function test_finish_validation_keeps_the_setup_open(): void
     {
         $owner = User::factory()->create();

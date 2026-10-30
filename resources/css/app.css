@@ -594,6 +594,11 @@
 .provider-choice:hover { border-color: currentColor; }
 .provider-choice small { display: block; margin-top: .25rem; }
 .resource-choices { display: grid; gap: .5rem; }
+.setup-connect > * + * { margin-top: 1.5rem; }
+.setup-connect-other { border-top: 1px solid var(--border); padding-top: 1.5rem; }
+.setup-connect-other > h3 { color: var(--text-secondary); }
+.setup-connect-other > * + * { margin-top: 1rem; }
+.setup-connect-other > .advanced-fields { border-top: 0; padding-top: 0; }
 .setup-body [hidden], [data-resource-row][hidden] { display: none; }
 @media(max-width: 540px) { .provider-choices { grid-template-columns: 1fr; } }
 @media(prefers-reduced-motion: reduce) { .provider-choice { transition: none; } }

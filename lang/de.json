@@ -420,6 +420,7 @@
     "Use a GitHub App instead": "Stattdessen eine GitHub-App verwenden",
     "Use a Search Console URL or sc-domain: property.": "Verwende eine Search-Console-URL oder eine sc-domain:-Property.",
     "Use a connected account": "Verbundenes Konto verwenden",
+    "Or connect another account": "Oder ein anderes Konto verbinden",
     "Use a hostname such as example.com.": "Verwende einen Hostnamen wie example.com.",
     "Use a public HTTP or HTTPS URL without credentials.": "Verwende eine öffentliche HTTP- oder HTTPS-URL ohne Zugangsdaten.",
     "Use a public HTTPS server URL on port 443.": "Verwende eine öffentliche HTTPS-Server-URL auf Port 443.",
