@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "44e34f18da85fd5239b5f5f2eee60c00",
+    "content-hash": "22527bbcca8648bea85aa676be48f411",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -2550,7 +2550,7 @@
             "dist": {
                 "type": "path",
                 "url": "..",
-                "reference": "3f4a9ac0d4fd2c286ae8e882feb8542b100ebdc5"
+                "reference": "c6611aaed878557d3f98906f39bfa7d3476a5b67"
             },
             "require": {
                 "ext-curl": "*",
@@ -2559,7 +2559,7 @@
                 "laravel/fortify": "^1.0",
                 "laravel/framework": "^13.17",
                 "livewire/livewire": "^4.0",
-                "php": "^8.3"
+                "php": "^8.5"
             },
             "type": "library",
             "extra": {
@@ -10924,11 +10924,11 @@
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {
-        "php": "^8.3"
+        "php": "^8.5"
     },
     "platform-dev": {},
     "platform-overrides": {
-        "php": "8.3.0"
+        "php": "8.5.0"
     },
     "plugin-api-version": "2.9.0"
 }

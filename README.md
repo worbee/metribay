@@ -6,7 +6,7 @@ This repository contains Composer package `metribay/core` and a complete self-ho
 
 ## Requirements
 
-PHP8.3+ with cURL, OpenSSL, PDO SQLite/PostgreSQL, intl and mbstring; Composer 2; Node 24 only when rebuilding frontend assets. Laravel13.38.0 was the latest stable release at initial setup on 2026-10-25. Composer lockfiles simulate the PHP8.3 baseline.
+PHP8.5+ with cURL, OpenSSL, PDO SQLite/PostgreSQL, intl and mbstring; Composer 2; Node 24 only when rebuilding frontend assets. Laravel13.38.0 was the latest stable release at initial setup on 2026-10-25. Composer lockfiles simulate the PHP8.5 baseline.
 
 ## Install
 

@@ -4,7 +4,7 @@
     "type": "library",
     "license": "Apache-2.0",
     "require": {
-        "php": "^8.3",
+        "php": "^8.5",
         "laravel/framework": "^13.17",
         "laravel/fortify": "^1.0",
         "livewire/livewire": "^4.0",
