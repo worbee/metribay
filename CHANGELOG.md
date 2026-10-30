@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.9 — 2026-10-30
+
+- Require PHP 8.5 or newer; CI now tests only PHP 8.5 on SQLite and PostgreSQL.
+
 ## 0.1.8 — 2026-10-30
 
 - Discover Umami websites shared through teams as well as personal websites.

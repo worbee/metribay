@@ -8,10 +8,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - {php: '8.3', database: sqlite}
-          - {php: '8.5', database: sqlite}
-          - {php: '8.5', database: pgsql}
+        database: [sqlite, pgsql]
     services:
       postgres:
         image: postgres:17-alpine
@@ -31,7 +28,7 @@ jobs:
         with: {persist-credentials: false}
       - uses: shivammathur/setup-php@v2
         with:
-          php-version: '${{ matrix.php }}'
+          php-version: '8.5'
           extensions: curl, mbstring, sqlite3, pdo_sqlite, pdo_pgsql, intl
           coverage: none
       - run: composer install --no-interaction --prefer-dist
@@ -46,8 +43,8 @@ jobs:
       - run: composer analyse
       - run: vendor/bin/pint --test ../src ../tests ../database ../routes ../config app tests
       - uses: actions/setup-node@v7
-        if: matrix.php == '8.5' && matrix.database == 'sqlite'
+        if: matrix.database == 'sqlite'
         with: {node-version: '24', cache: npm, cache-dependency-path: package-lock.json}
       - run: npm ci && npm run build && git diff --exit-code -- dist
         working-directory: .
-        if: matrix.php == '8.5' && matrix.database == 'sqlite'
+        if: matrix.database == 'sqlite'
