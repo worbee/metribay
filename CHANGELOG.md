@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.5 — 2026-11-02
+
+- Add a sortable **Open issues** column to the project overview, with a daily sparkline, repository breakdown and totals across projects. It uses the existing GitHub issues-only snapshots and sums each repository's latest count, rather than adding counts across days. Snapshot metrics have no percentage change; missing observations stay unknown, and combined snapshot charts require every source to have reported that day.
+- Match overview columns by metric capability so future providers can supply open issues without changing the dashboard. The project chart now explains that snapshots accumulate from collection and cannot be backfilled from GitHub's current count, in all twelve interface languages.
+
 ## 0.2.4 — 2026-11-02
 
 - Guests arriving with `?lang={code}` (one of `metribay.locales`, such as from the marketing site) get that language for the rest of the session, ahead of the browser's preference. A signed-in user's saved language always wins and the parameter does not change it.

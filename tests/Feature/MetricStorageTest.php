@@ -134,4 +134,24 @@ class MetricStorageTest extends TestCase
             $this->assertSame('failed', app(DashboardData::class)->projects(7)[0]['sources'][0]['status']);
         });
     }
+
+    public function test_issue_snapshots_update_today_without_overwriting_history_or_filling_gaps(): void
+    {
+        $this->runScoped(function () {
+            $source = $this->source('github');
+            $now = CarbonImmutable::now('UTC')->startOfDay()->addHours(12);
+            $store = app(MetricStore::class);
+            foreach ([[$now->subDays(2), 7.0], [$now, 4.0], [$now->addMinute(), 0.0]] as [$observed, $count]) {
+                $date = $observed->toDateString();
+                $store->persist($source, new CollectionResult(daily: [['metric' => 'open_issues', 'date' => $date, 'value' => $count, 'is_partial' => false]], replaceDailyDates: [$date => ['open_issues']]), $observed);
+            }
+            $this->assertSame(2, DailyMetric::count());
+            $metric = collect(app(DashboardData::class)->projects(7)[0]['sources'][0]['metrics'])->firstWhere('key', 'open_issues');
+            $this->assertSame(0.0, $metric['value']);
+            $this->assertSame([null, null, null, null, 7.0, null, 0.0], array_column($metric['series'], 'value'));
+            $this->assertNull($metric['change']);
+            $this->assertFalse($metric['partial']);
+            $this->assertSame($now->toDateString(), $metric['observed_date']);
+        });
+    }
 }

@@ -494,5 +494,6 @@
     "{0} Not used yet|{1} Used by :count data source|[2,*] Used by :count data sources": "{0} Še ni v uporabi|{1} Uporablja :count vir podatkov|[2,*] Uporabljajo :count virov podatkov",
     "{1} :count data source needs attention|[2,*] :count data sources need attention": "{1} :count vir podatkov potrebuje pozornost|[2,*] :count virov podatkov potrebuje pozornost",
     "{1} :count event|[2,*] :count events": "{1} :count dogodek|[2,*] :count dogodkov",
-    "{1} <strong>:count</strong> project|[2,*] <strong>:count</strong> projects": "{1} <strong>:count</strong> projekt|[2,*] <strong>:count</strong> projektov"
+    "{1} <strong>:count</strong> project|[2,*] <strong>:count</strong> projects": "{1} <strong>:count</strong> projekt|[2,*] <strong>:count</strong> projektov",
+    "Daily snapshots · no historical backfill": "Dnevni posnetki · brez preteklih podatkov"
 }

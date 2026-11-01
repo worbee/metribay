@@ -494,5 +494,6 @@
     "{0} Not used yet|{1} Used by :count data source|[2,*] Used by :count data sources": "{0} Zatím nepoužito|{1} Používá :count datový zdroj|[2,*] Používá :count datové zdroje",
     "{1} :count data source needs attention|[2,*] :count data sources need attention": "{1} :count datový zdroj vyžaduje pozornost|[2,*] :count datové zdroje vyžadují pozornost",
     "{1} :count event|[2,*] :count events": "{1} :count událost|[2,*] :count událostí",
-    "{1} <strong>:count</strong> project|[2,*] <strong>:count</strong> projects": "{1} <strong>:count</strong> projekt|[2,*] <strong>:count</strong> projekty"
+    "{1} <strong>:count</strong> project|[2,*] <strong>:count</strong> projects": "{1} <strong>:count</strong> projekt|[2,*] <strong>:count</strong> projekty",
+    "Daily snapshots · no historical backfill": "Denní snímky · bez historických dat"
 }

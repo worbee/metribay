@@ -12,8 +12,8 @@ use Metribay\Core\Models\Project;
 
 class DashboardData
 {
-    /** Overview columns in display order: provider kinds and the headline metric. */
-    public const CATEGORIES = ['traffic' => [['umami', 'ga4'], 'visits'], 'search' => [['gsc', 'bing'], 'clicks'], 'development' => [['github'], 'commits'], 'downloads' => [['wporg'], 'downloads'], 'uptime' => [['uptimerobot'], 'uptime_24h']];
+    /** Overview columns in display order, matched by metric capability rather than provider. */
+    public const CATEGORIES = ['traffic' => 'visits', 'search' => 'clicks', 'development' => 'commits', 'issues' => 'open_issues', 'downloads' => 'downloads', 'uptime' => 'uptime_24h'];
 
     /** @return list<array<string, mixed>> */
     public function projects(int $days = 30, ?int $projectId = null): array
@@ -83,8 +83,8 @@ class DashboardData
     private function summary(array $sources, int $days): array
     {
         $summary = [];
-        foreach (self::CATEGORIES as $category => [$kinds, $key]) {
-            $members = array_values(array_filter($sources, fn (array $source): bool => in_array($source['kind'], $kinds, true)));
+        foreach (self::CATEGORIES as $category => $key) {
+            $members = array_values(array_filter($sources, fn (array $source): bool => $this->metric($source, $key) !== null));
             if (! $members) {
                 continue;
             }
@@ -116,15 +116,18 @@ class DashboardData
             $parts[] = ['label' => $source['label'], 'value' => $metric['display_value']];
         }
         $reported = array_values(array_filter($metrics, fn (array $metric): bool => $metric['value'] !== null));
+        $snapshot = MetricRegistry::get($key)->snapshot;
         $value = $reported ? (float) array_sum(array_column($reported, 'value')) : null;
         $previous = $reported && ! in_array(null, array_column($reported, 'previous'), true) ? (float) array_sum(array_column($reported, 'previous')) : null;
         $series = [];
         for ($i = 0; $i < $days; $i++) {
             $day = array_filter(array_map(fn (array $metric): ?float => $metric['series'][$i]['value'] ?? null, $metrics), fn (?float $point): bool => $point !== null);
-            $series[] = $day ? (float) array_sum($day) : null;
+            // A snapshot total needs an observation from every source on that date.
+            // Otherwise it would suggest an artificial rise/fall as sources report.
+            $series[] = $day && (! $snapshot || count($day) === count($metrics)) ? (float) array_sum($day) : null;
         }
 
-        return ['key' => $key, 'unit' => MetricRegistry::get($key)->unit, 'value' => $value, 'previous' => $previous, 'change' => $value !== null && $previous !== null && $previous > 0 ? 100 * ($value - $previous) / $previous : null, 'partial' => in_array(true, array_column($metrics, 'partial'), true), 'series' => $series, 'parts' => $parts];
+        return ['key' => $key, 'unit' => MetricRegistry::get($key)->unit, 'value' => $value, 'previous' => $previous, 'change' => ! $snapshot && $value !== null && $previous !== null && $previous > 0 ? 100 * ($value - $previous) / $previous : null, 'partial' => in_array(true, array_column($metrics, 'partial'), true), 'series' => $series, 'parts' => $parts];
     }
 
     /**

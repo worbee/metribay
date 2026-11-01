@@ -4,7 +4,7 @@
         $sourceList = $visibleProjects->flatMap(fn($item) => $item['sources'] ?? []);
         $attentionCount = $sourceList->filter(fn($source) => in_array($source['status'], ['failed','delayed']))->count();
         $activeSources = $sourceList->filter(fn($source) => $source['enabled'] ?? false)->count();
-        $columnLabels = ['traffic'=>__('Visits'),'search'=>__('Search clicks'),'development'=>__('Commits · PRs'),'downloads'=>__('Downloads'),'uptime'=>__('Uptime · 24h')];
+        $columnLabels = ['traffic'=>__('Visits'),'search'=>__('Search clicks'),'development'=>__('Commits · PRs'),'issues'=>__('Open issues'),'downloads'=>__('Downloads'),'uptime'=>__('Uptime · 24h')];
         $columns = array_values(array_filter(array_keys(\Metribay\Core\Services\DashboardData::CATEGORIES), fn ($column) => $visibleProjects->contains(fn ($project) => isset($project['summary'][$column]))));
         $statusLabels = ['healthy'=>__('Up to date'),'delayed'=>__('Delayed'),'failed'=>__('Needs attention'),'pending'=>__('Awaiting first sync'),'disabled'=>__('Paused'),'empty'=>__('No data sources yet.')];
         $totals = [];
@@ -17,7 +17,7 @@
             $reported = $cells->filter(fn ($cell) => $cell['value'] !== null);
             $previous = $reported->isNotEmpty() && $reported->every(fn ($cell) => $cell['previous'] !== null) ? $reported->sum('previous') : null;
             $value = $reported->isNotEmpty() ? $reported->sum('value') : null;
-            $totals[$column] = ['value' => $value, 'secondary' => $column === 'development' ? $reported->sum('secondary') : null, 'change' => $value !== null && $previous > 0 ? 100 * ($value - $previous) / $previous : null, 'unit' => $cells->first()['unit'] ?? 'count'];
+            $totals[$column] = ['value' => $value, 'secondary' => $column === 'development' ? $reported->sum('secondary') : null, 'change' => ! \Metribay\Core\Metrics\MetricRegistry::get(\Metribay\Core\Services\DashboardData::CATEGORIES[$column])->snapshot && $value !== null && $previous > 0 ? 100 * ($value - $previous) / $previous : null, 'unit' => $cells->first()['unit'] ?? 'count'];
         }
     @endphp
     <header class="page-heading">

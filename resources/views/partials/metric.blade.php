@@ -43,6 +43,7 @@
     @endif
     @unless($compact ?? false)<span>{{ match($metricUnit) {'percent'=>__('Percent (%)'), 'ms'=>__('Milliseconds'), 'lines'=>__('Lines'), 'status'=>__('Provider status'), default=>__('Count')} }}</span>@endunless
     </div>
+    @if($metric['key'] === 'open_issues' && !($compact ?? false))<p class="field-hint">{{ __('Daily snapshots · no historical backfill') }}</p>@endif
     @unless($compact ?? false)
     @if($hasData)
     <div class="chart-legend" aria-label="{{ __('Chart series') }}"><button type="button" data-chart-toggle="0" aria-pressed="true"><span class="legend-swatch"></span>{{ __('Selected period') }}</button>@if(collect($previousSeries)->contains(fn($point) => ($point['value'] ?? null) !== null))<button type="button" data-chart-toggle="1" aria-pressed="true"><span class="legend-swatch legend-swatch-previous"></span>{{ __('Previous period') }}</button>@endif @if(!empty($chartConfig['events']))<span class="legend-events"><span class="legend-swatch legend-swatch-event"></span>{{ trans_choice('{1} :count event|[2,*] :count events', count($chartConfig['events']), ['count' => count($chartConfig['events'])]) }}</span>@endif</div>

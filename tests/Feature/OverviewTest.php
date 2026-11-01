@@ -76,7 +76,7 @@ class OverviewTest extends TestCase
         $this->assertCount(7, $busy['traffic']['series']);
         $this->assertSame(14.0, $busy['traffic']['series'][5]);
         $this->assertNull($busy['traffic']['series'][0]);
-        $this->assertSame(['Website', 'Application'], array_column($busy['traffic']['parts'], 'label'));
+        $this->assertEqualsCanonicalizing(['Website', 'Application'], array_column($busy['traffic']['parts'], 'label'));
         $this->assertSame(9.0, $busy['search']['value']);
         $this->assertSame(12.0, $busy['development']['value']);
         $this->assertSame(3.0, $busy['development']['secondary']);
@@ -109,5 +109,56 @@ class OverviewTest extends TestCase
         $component->call('sortBy', 'traffic')->assertSet('direction', 'asc')->assertSeeInOrder(['>Busy<', '>Quiet<', '>Empty<'], false);
         $component->call('sortBy', 'name')->assertSet('direction', 'asc')->assertSeeInOrder(['>Busy<', '>Empty<', '>Quiet<'], false);
         $component->call('sortBy', 'unknown')->assertSet('sort', 'name');
+    }
+
+    public function test_open_issues_sum_latest_repository_counts_and_chart_only_complete_daily_snapshots(): void
+    {
+        $project = $this->scoped(function () {
+            $project = Project::create(['name' => 'Issues', 'slug' => 'issues']);
+            $this->source($project, 'github', 'App', [['open_issues', 0, 3.0], ['open_issues', 1, 5.0], ['open_issues', 3, 9.0], ['open_issues', 9, 10.0]]);
+            $this->source($project, 'github', 'Library', [['open_issues', 0, 0.0], ['open_issues', 3, 2.0], ['open_issues', 9, 4.0]]);
+
+            return $project;
+        });
+        $data = $this->scoped(fn () => app(DashboardData::class)->projects(7))[0];
+        $issues = $data['summary']['issues'];
+        $this->assertSame('open_issues', $issues['key']);
+        $this->assertSame(3.0, $issues['value']);
+        $this->assertSame(14.0, $issues['previous']);
+        $this->assertNull($issues['change']);
+        $this->assertSame([null, null, null, 11.0, null, null, 3.0], $issues['series']);
+        $this->assertEqualsCanonicalizing([['label' => 'App', 'value' => '3'], ['label' => 'Library', 'value' => '0']], $issues['parts']);
+
+        $this->actingAs($this->owner)->get('/w/overview?days=7')->assertOk()
+            ->assertSee('Open issues')->assertSee('sortBy(\'issues\')', false)->assertSee('class="sparkline"', false)
+            ->assertDontSee('class="cell-change', false);
+        $response = $this->get('/w/overview/projects/'.$project->id.'?days=7')->assertOk()
+            ->assertSee('Open issues')->assertSee('Daily snapshots · no historical backfill')->assertSee('Observed '.CarbonImmutable::now('UTC')->toDateString());
+        $this->assertStringContainsString('chart-'.$data['sources'][0]['id'].'-open_issues-label', $response->getContent());
+    }
+
+    public function test_issue_sorting_keeps_unknown_counts_last_and_totals_do_not_compare_snapshots(): void
+    {
+        $this->scoped(function () {
+            foreach (['Unknown' => [], 'Zero' => [['open_issues', 0, 0.0], ['open_issues', 9, 20.0]], 'Busy' => [['open_issues', 0, 8.0], ['open_issues', 9, 5.0]]] as $name => $rows) {
+                $project = Project::create(['name' => $name, 'slug' => strtolower($name)]);
+                $this->source($project, 'github', $name, $rows);
+            }
+        });
+        $this->actingAs($this->owner)->get('/w/overview?days=7')->assertOk()
+            ->assertSee('Open issues')->assertSee('Totals across all projects')->assertSee('data-metric-number="8"', false)
+            ->assertDontSee('class="cell-change', false);
+        $component = Livewire::test(Dashboard::class, ['workspaceId' => $this->workspace->id])->set('days', 7)->call('sortBy', 'issues');
+        $component->assertSet('sort', 'issues')->assertSeeInOrder(['>Busy<', '>Zero<', '>Unknown<'], false);
+        $component->call('sortBy', 'issues')->assertSeeInOrder(['>Zero<', '>Busy<', '>Unknown<'], false);
+    }
+
+    public function test_overview_omits_issues_when_no_connected_source_supports_them(): void
+    {
+        $this->scoped(function () {
+            $project = Project::create(['name' => 'Website', 'slug' => 'website']);
+            $this->source($project, 'umami', 'Traffic', [['visits', 0, 1.0]]);
+        });
+        $this->actingAs($this->owner)->get('/w/overview')->assertOk()->assertDontSee('Open issues');
     }
 }

@@ -494,5 +494,6 @@
     "{0} Not used yet|{1} Used by :count data source|[2,*] Used by :count data sources": "{0} Non ancora usato|{1} Usato da :count fonte dati|[2,*] Usato da :count fonti dati",
     "{1} :count data source needs attention|[2,*] :count data sources need attention": "{1} :count fonte dati richiede attenzione|[2,*] :count fonti dati richiedono attenzione",
     "{1} :count event|[2,*] :count events": "{1} :count evento|[2,*] :count eventi",
-    "{1} <strong>:count</strong> project|[2,*] <strong>:count</strong> projects": "{1} <strong>:count</strong> progetto|[2,*] <strong>:count</strong> progetti"
+    "{1} <strong>:count</strong> project|[2,*] <strong>:count</strong> projects": "{1} <strong>:count</strong> progetto|[2,*] <strong>:count</strong> progetti",
+    "Daily snapshots · no historical backfill": "Rilevazioni giornaliere · senza dati storici"
 }

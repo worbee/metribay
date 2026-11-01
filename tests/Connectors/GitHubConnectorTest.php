@@ -46,6 +46,15 @@ final class GitHubConnectorTest extends FixtureTestCase
         $this->assertSame(1.0, $this->valuesOn($this->collect()->daily, '2026-10-24')['prs_merged']);
     }
 
+    public function test_open_issue_count_is_an_issues_only_current_snapshot_and_zero_is_recorded(): void
+    {
+        $this->githubFake(info: ['issues' => ['totalCount' => 0]], pulls: ['' => $this->page([$this->pull('merged', '2026-10-24T08:00:00Z', '2026-10-25T09:45:00Z')])]);
+        $result = $this->collect();
+        $issues = array_values(array_filter($result->daily, fn (array $row): bool => $row['metric'] === 'open_issues'));
+        $this->assertSame([['metric' => 'open_issues', 'date' => '2026-10-25', 'value' => 0.0, 'is_partial' => false]], $issues);
+        Http::assertSent(fn (Request $request): bool => str_contains($request['query'], 'issues(first: 1, states: OPEN) { totalCount }'));
+    }
+
     public function test_imported_commit_history_can_predate_github_repository_creation_and_from_is_not_an_incremental_cutoff(): void
     {
         $this->githubFake(info: ['createdAt' => '2026-10-25T08:00:00Z'], commits: ['' => $this->page([$this->commit('imported', '2026-10-23T12:00:00Z')])]);
