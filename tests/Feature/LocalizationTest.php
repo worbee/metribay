@@ -9,6 +9,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Number;
 use Metribay\Core\Models\Workspace;
+use Metribay\Core\Services\Locales;
 use Tests\TestCase;
 
 class LocalizationTest extends TestCase
@@ -69,7 +70,7 @@ class LocalizationTest extends TestCase
         ];
 
         foreach ($expected as $locale => $events) {
-            $this->assertArrayHasKey($locale, \Metribay\Core\Services\Locales::all());
+            $this->assertArrayHasKey($locale, Locales::all());
             app()->setLocale($locale);
             $this->assertSame($events, __('Events'));
             $this->assertNotSame('Language', __('Language'));
