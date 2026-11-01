@@ -1,8 +1,9 @@
 # Changelog
 
-## Unreleased
+## 0.2.3 — 2026-11-01
 
 - Add interface translations for Bulgarian (`bg`), Serbian Latin (`sr`), Polish (`pl`), Spanish (`es`), Italian (`it`), French (`fr`), Dutch (`nl`), Czech (`cs`), Slovenian (`sl`) and Slovak (`sk`), including language-selector entries and Laravel auth/validation/pagination/password files. English remains the fallback for missing strings.
+- Move **Add event** on the project page to a secondary button beside **Add data source**; the Events section stays at the bottom.
 
 ## 0.2.2 — 2026-10-31
 

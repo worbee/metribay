@@ -53,6 +53,16 @@ class ProjectEventTest extends TestCase
         $this->get('/w/events/projects/'.$this->project->id)->assertOk()->assertSee('Events')->assertSee('Monthly newsletter')->assertSee('Repeats monthly')->assertSee('Upcoming')->assertDontSee('Annotation');
     }
 
+    public function test_add_event_sits_beside_add_data_source(): void
+    {
+        $html = $this->actingAs($this->owner)->get('/w/events/projects/'.$this->project->id)->assertOk()->getContent();
+        $this->assertSame(1, substr_count($html, 'data-dialog-open="new-event"'));
+        $heading = substr($html, strpos($html, 'class="heading-actions"'), strpos($html, '</header>', strpos($html, 'class="heading-actions"')) - strpos($html, 'class="heading-actions"'));
+        $this->assertStringContainsString('Add data source', $heading);
+        $this->assertStringContainsString('data-dialog-open="new-event"', $heading);
+        $this->assertStringContainsString('id="events-heading"', $html);
+    }
+
     public function test_occurrences_expand_within_a_window_without_drifting(): void
     {
         $monthly = $this->event(['date' => '2026-01-31', 'recurrence' => 'monthly']);
