@@ -36,6 +36,8 @@ Core and standalone use **your own provider credentials and developer apps**. No
 
 Missing observations stay unknown. Daily unique visitors are never summed into a period total. Reporting timezones, provisional dates, coverage, rolling uptime windows and source health remain visible. See docs/PROVIDERS.md and docs/METRICS.md.
 
+The project overview includes a sortable **Open issues** column with a daily trend, per-source breakdown and totals across projects. Connect a GitHub repository to supply its open issue count; its project page shows the full daily chart. Counts use the latest recorded observation from each source, with no percentage change. See [metric rules](docs/METRICS.md) for history and missing dates.
+
 ## Development
 
 ```sh
