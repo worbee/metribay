@@ -8,7 +8,20 @@ return [
     'google' => ['enabled' => true, 'client_id' => env('METRIBAY_GOOGLE_CLIENT_ID'), 'client_secret' => env('METRIBAY_GOOGLE_CLIENT_SECRET'), 'redirect_uri' => env('METRIBAY_GOOGLE_REDIRECT_URI')],
     'security' => ['form_action_hosts' => []],
     // Interface languages offered in the language selector. English is the fallback for missing strings.
-    'locales' => ['en' => 'English', 'de' => 'Deutsch'],
+    'locales' => [
+        'en' => 'English',
+        'bg' => 'Български',
+        'cs' => 'Čeština',
+        'de' => 'Deutsch',
+        'es' => 'Español',
+        'fr' => 'Français',
+        'it' => 'Italiano',
+        'nl' => 'Nederlands',
+        'pl' => 'Polski',
+        'sk' => 'Slovenčina',
+        'sl' => 'Slovenščina',
+        'sr' => 'Srpski',
+    ],
     // Extra route names (patterns allowed) that keep unfinished data source setup, such as host sign-in round trips.
     'source_setup' => ['routes' => []],
     'collection' => ['revision_overlap_days' => 7, 'days' => 180, 'period_days' => [7, 30, 90]],
