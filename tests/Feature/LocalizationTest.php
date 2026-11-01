@@ -27,6 +27,22 @@ class LocalizationTest extends TestCase
         $this->get('/login')->assertOk()->assertSee('lang="fr"', false)->assertSee('Bon retour.');
     }
 
+    public function test_guests_arriving_with_a_language_keep_it_for_the_session(): void
+    {
+        $this->withHeader('Accept-Language', 'en')->get('/login?lang=fr')->assertOk()->assertSee('lang="fr"', false)->assertSessionHas(Locales::SESSION_KEY, 'fr');
+        $this->withHeader('Accept-Language', 'en')->get('/login')->assertSee('lang="fr"', false);
+        $this->get('/login?lang=ja')->assertSee('lang="fr"', false);
+        $this->get('/login?lang=pl')->assertSee('lang="pl"', false);
+    }
+
+    public function test_query_language_does_not_override_a_signed_in_users_choice(): void
+    {
+        $owner = User::factory()->create(['locale' => 'de']);
+        Workspace::create(['owner_id' => $owner->id, 'name' => 'Local', 'slug' => 'local']);
+        $this->actingAs($owner)->get('/w/local?lang=fr')->assertOk()->assertSee('lang="de"', false)->assertSessionMissing(Locales::SESSION_KEY);
+        $this->assertSame('de', $owner->fresh()->locale);
+    }
+
     public function test_signed_in_users_keep_their_language_across_sessions_and_mail(): void
     {
         Notification::fake();
