@@ -21,18 +21,22 @@
             $totals[$column] = ['value' => $value, 'secondary' => $column === 'development' ? $reported->sum('secondary') : null, 'change' => ! \Metribay\Core\Metrics\MetricRegistry::get(\Metribay\Core\Services\DashboardData::CATEGORIES[$column])->snapshot && $value !== null && $previous > 0 ? 100 * ($value - $previous) / $previous : null, 'unit' => $cells->first()['unit'] ?? 'count'];
         }
     @endphp
-    <header class="page-heading">
-        <div>@if(\Illuminate\Support\Facades\Route::has('metribay.workspaces'))<div class="eyebrow">{{ $workspace->name }}</div>@endif<h1>{{ __('Project overview') }}<span class="heading-dot">.</span></h1><p class="page-description">{{ __('The last :days days, compared with the preceding :days.', ['days' => $days]) }}</p></div>
+    <header class="page-heading overview-heading">
+        <div class="overview-title"><h1>{{ __('Projects') }}</h1>@if(count($projects))<span class="overview-project-count">{{ $visibleProjects->count() }}</span>@endif</div>
         <div class="heading-actions"><label class="sr-only" for="overview-period">{{ __('Reporting period') }}</label><select class="period-select" id="overview-period" wire:model.live="days">@foreach([7, 30, 90] as $option)<option value="{{ $option }}">{{ __('Last :days days', ['days' => $option]) }}</option>@endforeach</select>@if($canEdit ?? false)<a class="button button-primary" href="{{ route('metribay.projects.create', $workspace->slug) }}">@include('metribay::partials/icon', ['name'=>'plus']) {{ __('Add project') }}</a>@endif</div>
     </header>
     @if(($canEdit ?? false) && $activeSources && !collect($projects)->flatMap(fn($project) => $project['sources'])->contains(fn($source) => $source['last_success_at']))
     <section class="setup-checklist" aria-label="{{ __('Dashboard setup') }}"><h2>{{ __('Your first dashboard') }}</h2><ol><li>✓ {{ __('Project created and data source added') }}</li><li>{{ $attentionCount ? __('First import needs attention — review the data source below') : __('First import queued or running') }}</li><li>{{ __('View your metrics when the import finishes') }}</li></ol><p class="field-hint">{{ __('You can leave this page. Importing continues in the background.') }}</p></section>
     @endif
     @if(count($projects))
-    <div class="overview-summary"><div class="summary-count">{!! trans_choice('{1} <strong>:count</strong> project|[2,*] <strong>:count</strong> projects', $visibleProjects->count(), ['count' => $visibleProjects->count()]) !!}<span class="summary-separator">/</span>{!! trans_choice('{0} <strong>:count</strong> active data sources|{1} <strong>:count</strong> active data source|[2,*] <strong>:count</strong> active data sources', $activeSources, ['count' => $activeSources]) !!}</div><div class="overview-freshness">@if($attentionCount)<span class="attention-dot" aria-hidden="true"></span>{{ trans_choice('{1} :count data source needs attention|[2,*] :count data sources need attention', $attentionCount, ['count' => $attentionCount]) }} @else<span @class(['status-dot','dot-neutral'=>!$activeSources]) aria-hidden="true"></span>{{ $activeSources ? __('Data source health looks clear') : ($sourceList->isNotEmpty() ? __('Automatic collection is paused') : __('Ready for your first data source')) }}@endif <span class="refresh-state" wire:loading>@include('metribay::partials/icon', ['name'=>'refresh']) {{ __('Updating') }}</span></div></div>
-    <div class="overview-toolbar"><div class="filter-search">@include('metribay::partials/icon', ['name'=>'eye'])<label class="sr-only" for="project-search">{{ __('Find a project') }}</label><input id="project-search" type="search" placeholder="{{ __('Find a project…') }}" data-project-search autocomplete="off"></div><div class="toolbar-note">{{ __('Dates follow each data source’s timezone') }}</div></div>
+    <div class="overview-toolbar">
+        <div class="filter-search">@include('metribay::partials/icon', ['name'=>'eye'])<label class="sr-only" for="project-search">{{ __('Find a project') }}</label><input id="project-search" type="search" placeholder="{{ __('Find a project…') }}" data-project-search autocomplete="off"></div>
+        <div class="overview-freshness">@if($attentionCount)<span class="attention-dot" aria-hidden="true"></span>{{ trans_choice('{1} :count data source needs attention|[2,*] :count data sources need attention', $attentionCount, ['count' => $attentionCount]) }}@else<span @class(['status-dot','dot-neutral'=>!$activeSources]) aria-hidden="true"></span>{{ $activeSources ? __('Data source health looks clear') : ($sourceList->isNotEmpty() ? __('Automatic collection is paused') : __('Ready for your first data source')) }}@endif<span class="refresh-state" wire:loading>@include('metribay::partials/icon', ['name'=>'refresh']) {{ __('Updating') }}</span></div>
+    </div>
     @if($visibleProjects->count() > 1 && $totals)
-    <dl class="overview-totals" aria-label="{{ __('Totals across all projects') }}">
+    <section class="overview-totals-section" aria-labelledby="overview-totals-heading">
+    <h2 id="overview-totals-heading">{{ __('Totals across all projects') }}</h2>
+    <dl class="overview-totals">
         @foreach($totals as $column => $total)
         <div class="overview-total"><dt>{{ $column === 'uptime' ? __('Monitors up') : $columnLabels[$column] }}</dt><dd>
             @if($column === 'uptime')<strong @class(['uptime-down' => $total['down']])>{{ $total['up'] }}/{{ $total['total'] }}</strong>
@@ -41,6 +45,7 @@
         </dd></div>
         @endforeach
     </dl>
+    </section>
     @endif
     @endif
     <div class="project-index" wire:loading.class="is-updating">

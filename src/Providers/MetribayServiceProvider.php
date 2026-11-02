@@ -22,6 +22,7 @@ use Metribay\Core\Contracts\ProviderRequests;
 use Metribay\Core\Contracts\WorkspaceAccess;
 use Metribay\Core\Http\Middleware\DiscardAbandonedSetup;
 use Metribay\Core\Http\Middleware\SetLocale;
+use Metribay\Core\Http\Middleware\UseWorkspace;
 use Metribay\Core\Livewire\Dashboard;
 use Metribay\Core\Services\OwnConnectionCredentials;
 use Metribay\Core\Services\OwnGoogleAuthorization;
@@ -71,6 +72,18 @@ class MetribayServiceProvider extends ServiceProvider
         RateLimiter::for('login', fn (Request $request) => Limit::perMinute(5)->by(Str::lower((string) $request->input('email')).'|'.$request->ip()));
         RateLimiter::for('two-factor', fn (Request $request) => Limit::perMinute(5)->by((string) $request->session()->get('login.id')));
         Livewire::component('metribay-dashboard', Dashboard::class);
+        View::composer('metribay::layouts.app', function ($view): void {
+            $request = request();
+            $navigationWorkspace = $request->attributes->get('metribay.workspace');
+            if (! $navigationWorkspace && $request->user()) {
+                $accessible = app(WorkspaceAccess::class)->queryFor($request->user());
+                $remembered = $request->hasSession() ? $request->session()->get(UseWorkspace::NAVIGATION_SESSION_KEY) : null;
+                $navigationWorkspace = $remembered ? (clone $accessible)->whereKey($remembered)->first() : null;
+                $navigationWorkspace ??= $accessible->orderBy('id')->first();
+            }
+            // Navigation never establishes a data scope on account-level pages.
+            $view->with('navigationWorkspace', $navigationWorkspace);
+        });
         View::composer('metribay::*', function ($view): void {
             $workspace = request()->attributes->get('metribay.workspace');
             $user = request()->user();

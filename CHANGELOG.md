@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.1 — 2026-11-02
+
+- Compact the signed-in header to one row and move navigation into the profile menu. Keep the last accessible workspace’s links available on account pages, rechecking access; hosts without account controls retain an Overview/Settings menu.
+- Replace the overview’s repeated title and description with a short Projects heading, keep period/search/add/health controls, visibly label totals across all projects, and add metric column dividers.
+
 ## 0.3.0 — 2026-11-02
 
 - Add Page speed sources: URL/device setup, daily Lighthouse score/LCP/CLS/TBT snapshots, separate CrUX page/site p75 LCP/INP/CLS windows and up to40 weeks of available history. Own-key connections remain in Core; a host contract supports managed Cloud keys.

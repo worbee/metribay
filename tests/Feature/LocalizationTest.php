@@ -52,7 +52,7 @@ class LocalizationTest extends TestCase
         $this->assertSame('de', $owner->fresh()->locale);
         $this->assertSame('de', $owner->fresh()->preferredLocale());
         $this->flushSession();
-        $this->actingAs($owner->fresh())->withHeader('Accept-Language', 'en')->get('/w/local')->assertOk()->assertSee('Projektübersicht')->assertSee('Erstelle dein erstes Projekt');
+        $this->actingAs($owner->fresh())->withHeader('Accept-Language', 'en')->get('/w/local')->assertOk()->assertSee('Projekte')->assertSee('Erstelle dein erstes Projekt');
         $this->get('/w/local/settings')->assertOk()->assertSee('Verbundene Konten');
         $this->post('/w/local/projects', ['name' => ''])->assertSessionHasErrors(['name' => 'Name ist erforderlich.']);
         $owner->fresh()->notify(new ResetPassword('synthetic-token'));

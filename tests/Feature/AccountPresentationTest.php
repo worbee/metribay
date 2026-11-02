@@ -25,7 +25,7 @@ class AccountPresentationTest extends TestCase
         $owner = User::factory()->create();
         Workspace::create(['owner_id' => $owner->id, 'name' => 'Local', 'slug' => 'local']);
         $this->actingAs($owner)->get('/profile')->assertNotFound();
-        $this->get('/w/local')->assertOk()->assertDontSee('Profile menu')->assertDontSee('Profile &amp; preferences', false)->assertDontSee('Sign out');
+        $this->get('/w/local')->assertOk()->assertDontSee('Profile menu')->assertDontSee('Profile &amp; preferences', false)->assertDontSee('Sign out')->assertSee('aria-label="Main navigation"', false)->assertSee('href="'.url('/w/local/settings').'"', false);
         $this->get('/w/local/settings?tab=appearance')->assertOk()->assertSee('Color theme')->assertSee('data-number-preference', false)->assertSee('data-density-preference', false)->assertDontSee('Profile menu')->assertSee('data-theme-cycle', false);
     }
 }

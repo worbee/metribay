@@ -10,6 +10,8 @@ use Metribay\Core\Services\WorkspaceContext;
 
 class UseWorkspace
 {
+    public const NAVIGATION_SESSION_KEY = 'metribay.navigation_workspace_id';
+
     public function handle(Request $request, Closure $next): mixed
     {
         $workspace = $request->route('workspace');
@@ -19,6 +21,9 @@ class UseWorkspace
         }
         abort_unless(app(WorkspaceAccess::class)->allows($request->user(), $workspace, 'view'), 404);
         $request->attributes->set('metribay.workspace', $workspace);
+        if ($request->hasSession()) {
+            $request->session()->put(self::NAVIGATION_SESSION_KEY, $workspace->id);
+        }
 
         return app(WorkspaceContext::class)->run($workspace, fn () => $next($request));
     }

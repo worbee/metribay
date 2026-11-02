@@ -406,7 +406,8 @@ document.addEventListener('submit', event => {
         queueMicrotask(() => { if (!event.defaultPrevented) button.disabled = true; });
     }
 });
-document.addEventListener('keydown', event => { if (event.key === 'Escape') document.querySelectorAll('.account-menu[open]').forEach(menu => { menu.open = false; }); });
+document.addEventListener('keydown', event => { if (event.key === 'Escape') document.querySelectorAll('.account-menu[open]').forEach(menu => { menu.open = false; menu.querySelector('summary')?.focus(); }); });
+document.addEventListener('focusin', event => { document.querySelectorAll('.account-menu[open]').forEach(menu => { if (!menu.contains(event.target)) menu.open = false; }); });
 window.addEventListener('pageshow', () => {
     document.querySelectorAll('button[aria-busy="true"]').forEach(button => { button.disabled = false; button.removeAttribute('aria-busy'); });
 });

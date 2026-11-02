@@ -6889,7 +6889,11 @@ document.addEventListener("click", (e) => {
 	}));
 }), document.addEventListener("keydown", (e) => {
 	e.key === "Escape" && document.querySelectorAll(".account-menu[open]").forEach((e) => {
-		e.open = !1;
+		e.open = !1, e.querySelector("summary")?.focus();
+	});
+}), document.addEventListener("focusin", (e) => {
+	document.querySelectorAll(".account-menu[open]").forEach((t) => {
+		t.contains(e.target) || (t.open = !1);
 	});
 }), window.addEventListener("pageshow", () => {
 	document.querySelectorAll("button[aria-busy=\"true\"]").forEach((e) => {
