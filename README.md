@@ -6,7 +6,7 @@ This repository contains Composer package `metribay/core` and a complete self-ho
 
 ## Requirements
 
-PHP8.5+ with cURL, OpenSSL, PDO SQLite/PostgreSQL, intl and mbstring; Composer 2; Node 24 only when rebuilding frontend assets. Laravel13.38.0 was the latest stable release at initial setup on 2026-10-25. Composer lockfiles simulate the PHP8.5 baseline.
+PHP8.5+ with cURL, DOM, OpenSSL, PDO SQLite/PostgreSQL, intl and mbstring; Composer 2; Node 24 only when rebuilding frontend assets. Laravel13.38.0 was the latest stable release at initial setup on 2026-10-25. Composer lockfiles simulate the PHP8.5 baseline.
 
 ## Install
 
@@ -38,6 +38,8 @@ Missing observations stay unknown. Daily unique visitors are never summed into a
 
 The project overview includes a sortable **Open issues** column with a daily trend, per-source breakdown and totals across projects. Connect a GitHub repository to supply its open issue count; its project page shows the full daily chart. Counts use the latest recorded observation from each source, with no percentage change. See [metric rules](docs/METRICS.md) for history and missing dates.
 
+The overview and project charts refresh stored data hourly without reloading the page. Hidden tabs catch up when shown if an hour has passed; this display refresh also applies while the first import runs and does not trigger provider collection. Projects with a domain show its cached favicon beside their name, with a neutral icon when none is available.
+
 ## Development
 
 ```sh
@@ -47,6 +49,7 @@ composer analyse
 vendor/bin/pint ../src ../tests ../database ../routes ../config app tests
 cd ..
 npm ci
+npm test
 npm run build
 php standalone/artisan vendor:publish --tag=metribay-assets --force
 ```

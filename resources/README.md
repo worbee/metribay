@@ -8,6 +8,7 @@ From `core/`:
 
 ```sh
 npm ci
+npm test
 npm run build
 php standalone/artisan vendor:publish --tag=metribay-assets --force
 php ../cloud/artisan vendor:publish --tag=metribay-assets --force
@@ -23,10 +24,13 @@ Vite and Chart.js versions are locked in `package-lock.json`. Chart.js provides 
 - Fortify supplies login, reset, registration (cloud), email verification, password confirmation, and two-factor challenge endpoints.
 - Account MFA secrets and recovery codes are only rendered after recent password confirmation.
 - `components/overview` is the view for the PHP Livewire dashboard component. Date and group filters update server state; project-name filtering runs locally.
+- `components/project-charts` is a separate Livewire component for the project's source charts. Both components refresh stored data hourly through `hourly-refresh.js`, catch up when an overdue tab becomes visible, and keep event forms outside the chart refresh. Chart canvases, legend choices and expanded daily-value tables survive Livewire updates.
+- Projects with a domain show a lazy-loaded 20px favicon from the app's scoped project-favicon route. Icons are fetched on the server and cached for seven days; missing icons use a neutral fallback and are retried after one day. The browser never contacts project websites for these icons.
 - The overview offers Add project; each project page offers Add data source and Project settings. Project detail contains data source health, daily charts with event markers, comparison controls and event create/edit/delete forms.
 - Events (`ProjectEvent`, table `project_events`) are custom (one-off or weekly/monthly/yearly with an optional end date and one of four colors) or automatic (provider-imported, such as GitHub releases, drawn in a neutral color with a tag icon and read-only). Recurrences expand per request within the visible date range.
 - Terminology: a *connected account* (`Connection`) is a reusable workspace login at a provider; a *data source* (`Source`) is one tracked resource attached to one project through a connected account. Settings show Projects, Connected accounts and Import & export; data sources are managed in each project's settings.
 - Interface text uses Laravel translations: Core ships JSON packs plus validation, auth, password and pagination files under `lang/` for each offered locale (English is the source/fallback; other locales include `de`, `bg`, `sr`, `pl`, `es`, `it`, `fr`, `nl`, `cs`, `sl` and `sk`). `metribay.locales` lists the offered languages; the user's choice is stored in `users.locale`, guests use the session or browser language, and notifications use `HasLocalePreference`. Hosts add their own JSON translations, which override Core's.
+- Resource pickers gray out and disable sources already added to the current project, including paused sources. Selection, manual entry and confirmation recheck the resource on the server; the same resource may still be added to a different project.
 - Settings use the server's provider metadata, with credentials separated from resource configuration. Credential fields are never repopulated. Connection editing retains all saved credentials only when every field is blank; otherwise the server validates one complete replacement authentication method.
 - The workspace-creation link is a host extension configured through `metribay.workspace_creation_route`; the public package does not depend on private route names. It also requires a positive entitlement from `canCreateWorkspace`.
 - Every mutation includes CSRF, and updates include the backend version where required. Template visibility follows `canEdit`, `canManageConnections`, and navigation extensions; authorization remains server enforced.
