@@ -1,6 +1,6 @@
 # Metribay
 
-A dashboard for the projects you run. Collect website traffic, search visibility, plugin downloads, repository activity and uptime into one place. Metribay reads stored observations; opening the dashboard never calls providers.
+A dashboard for the projects you run. Collect website traffic, search visibility, plugin downloads, repository activity, page speed and uptime into one place. Metribay reads stored observations; opening the dashboard never calls providers.
 
 This repository contains Composer package `metribay/core` and a complete self-hosted Laravel application in `standalone/`. The personal edition has one administrator with multiple projects and sources. Workspace selection and management belong to Cloud. Core retains one internal data scope per personal owner for queries, jobs and encrypted credentials; it is not exposed as a workspace feature.
 
@@ -60,3 +60,5 @@ The default installer uses bundled assets and needs no Node installation. Use `s
 Core source: Apache-2.0. Supplied branding belongs to Worbee EOOD. Third-party runtime and bundled asset licenses retain their own terms; see NOTICE and dist/THIRD_PARTY_LICENSES.txt.
 
 Hosts that provide their own local identity can set `metribay.account_enabled` to `false` in host configuration. This hides account navigation and identity controls, returns 404 for the account page, and exposes appearance controls under Settings → Appearance. Hosts remain responsible for disabling any authentication routes they do not use. The default keeps standalone and hosted account behavior enabled.
+
+Page speed sources collect daily Lighthouse tests and separate real-user CrUX windows. The overview shows the lowest lab score per project; scores are never summed. See [Page speed setup and measurement rules](docs/PAGESPEED.md).

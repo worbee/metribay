@@ -9,7 +9,7 @@
 @else
 <span class="overview-cell" title="{{ $breakdown }}">
     @if($cell['value'] === null)<span class="missing-value" aria-label="{{ __('No period total available') }}">—</span>
-    @else<strong class="cell-value" data-metric-number="{{ $cell['value'] }}" data-unit="{{ $cell['unit'] }}">{{ \Illuminate\Support\Number::format($cell['value'], 0, locale: app()->getLocale()) }}</strong>@if($column === 'development' && $cell['secondary'] !== null)<span class="cell-secondary">·&#8239;{{ \Illuminate\Support\Number::format($cell['secondary'], 0, locale: app()->getLocale()) }}</span>@endif
+    @else<strong class="cell-value" data-metric-number="{{ $cell['value'] }}" data-unit="{{ $cell['unit'] }}">{{ \Illuminate\Support\Number::format($cell['value'], 0, locale: app()->getLocale()) }}{{ $cell['unit'] === 'score' ? '/100' : '' }}</strong>@if($column === 'development' && $cell['secondary'] !== null)<span class="cell-secondary">·&#8239;{{ \Illuminate\Support\Number::format($cell['secondary'], 0, locale: app()->getLocale()) }}</span>@endif
     @include('metribay::partials/overview-change', ['change' => $cell['change'], 'days' => $days])@endif
     @include('metribay::partials/sparkline', ['series' => $cell['series']])
 </span>

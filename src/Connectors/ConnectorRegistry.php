@@ -11,7 +11,7 @@ final readonly class ConnectorRegistry
     /** @return list<string> */
     public function kinds(): array
     {
-        return ['umami', 'ga4', 'gsc', 'bing', 'wporg', 'github', 'uptimerobot'];
+        return ['umami', 'ga4', 'gsc', 'bing', 'wporg', 'github', 'uptimerobot', 'pagespeed'];
     }
 
     public function for(string $kind): Connector
@@ -24,6 +24,7 @@ final readonly class ConnectorRegistry
             'wporg' => new WpOrgConnector($this->http),
             'github' => new GitHubConnector($this->http),
             'uptimerobot' => new UptimeRobotConnector($this->http),
+            'pagespeed' => new PageSpeedConnector($this->http),
             default => throw new ConnectorException('Unsupported source provider.'),
         };
     }

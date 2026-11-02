@@ -37,7 +37,7 @@ class ConfigurationTransfer
                     $hash = hash('sha256', json_encode([$entry['kind'], $identity, $entry['reporting_timezone']], JSON_THROW_ON_ERROR));
                     $connection = ! empty($entry['connection']) ? Connection::query()->where('name', $entry['connection'])->where('kind', $entry['kind'])->first() : null;
                     $source = Source::query()->firstOrNew(['project_id' => $project->id, 'identity_hash' => $hash]);
-                    $source->fill(['kind' => $entry['kind'], 'label' => $entry['label'], 'config' => $config, 'reporting_timezone' => $entry['reporting_timezone'], 'enabled' => $entry['enabled'] && ($entry['kind'] === 'wporg' || $connection !== null), 'connection_id' => $connection?->id, 'version' => ($source->version ?? 0) + 1])->save();
+                    $source->fill(['kind' => $entry['kind'], 'label' => $entry['label'], 'config' => $config, 'reporting_timezone' => $entry['reporting_timezone'], 'enabled' => $entry['enabled'] && (! ProviderCatalog::requiresConnection($entry['kind']) || $connection !== null), 'connection_id' => $connection?->id, 'version' => ($source->version ?? 0) + 1])->save();
                 }
             }
         });

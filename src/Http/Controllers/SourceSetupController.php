@@ -15,6 +15,7 @@ use Metribay\Core\Connectors\SafeHttpClient;
 use Metribay\Core\Connectors\UmamiDiscoveryException;
 use Metribay\Core\Contracts\ConnectionCredentials;
 use Metribay\Core\Contracts\GoogleAuthorization;
+use Metribay\Core\Contracts\PageSpeedCredentials;
 use Metribay\Core\Contracts\WorkspaceAccess;
 use Metribay\Core\Jobs\CollectSource;
 use Metribay\Core\Models\Connection;
@@ -130,7 +131,7 @@ class SourceSetupController
             $draft = array_intersect_key($draft, ['project_id' => true]);
         } elseif ($action === 'provider') {
             $values = $request->validate(['kind' => ['required', Rule::in(array_keys(ProviderCatalog::all()))]]);
-            $draft = array_intersect_key($draft, ['project_id' => true]) + ['kind' => $values['kind'], 'step' => $values['kind'] === 'wporg' ? 'resources' : 'account'];
+            $draft = array_intersect_key($draft, ['project_id' => true]) + ['kind' => $values['kind'], 'step' => ! ProviderCatalog::requiresConnection($values['kind']) ? 'resources' : 'account'];
         } else {
             abort_unless(isset($draft['kind'], $draft['project_id']), 409, __('Setup expired. Open the project and choose Add data source again.'));
             $kind = $draft['kind'];
@@ -151,7 +152,7 @@ class SourceSetupController
                     if (! app(WorkspaceAccess::class)->allows($request->user(), app(WorkspaceContext::class)->current(), 'manage_connections')) {
                         throw new \RuntimeException;
                     }
-                    $draft['resources'] = $discovery->discover($kind, app(ConnectionCredentials::class)->resolve($connection));
+                    $draft['resources'] = $kind === 'pagespeed' ? [] : $discovery->discover($kind, app(ConnectionCredentials::class)->resolve($connection));
                     $draft['listed'] = true;
                     unset($draft['discovery_error']);
                 } catch (UmamiDiscoveryException $exception) {
@@ -181,6 +182,7 @@ class SourceSetupController
                 }
             } elseif ($action === 'resource') {
                 $request->validate(['resource' => ['required', 'integer', 'min:0']]);
+                abort_if($kind === 'pagespeed', 422);
                 $draft['resource'] = $draft['resources'][$request->integer('resource')] ?? null;
                 abort_unless($draft['resource'], 422);
                 if ($kind === 'ga4') {
@@ -195,21 +197,39 @@ class SourceSetupController
                     }
                 }
                 $draft['step'] = 'confirm';
+            } elseif ($action === 'page_speed') {
+                abort_unless($kind === 'pagespeed', 422);
+                if (! ProviderCatalog::requiresConnection($kind)) {
+                    if (! app(PageSpeedCredentials::class)->available()) {
+                        throw ValidationException::withMessages(['resource' => __('Page speed is temporarily unavailable. Please try again later.')]);
+                    }
+                } else {
+                    Connection::query()->where('kind', $kind)->findOrFail($draft['connection_id'] ?? null);
+                }
+                $values = $request->validate(['url' => ['required', 'string', 'max:500'], 'strategy' => ['required', 'in:mobile,desktop']]);
+                $config = ProviderCatalog::source($kind, $values, 'UTC');
+                unset($draft['discovery_error']);
+                $draft['resource'] = ['id' => $config['url'], 'name' => $config['url'], 'domain' => '', 'timezone' => 'UTC', 'strategy' => $config['strategy']];
+                $draft['step'] = 'confirm';
             } elseif ($action === 'manual') {
+                abort_if($kind === 'pagespeed', 422);
                 $values = $request->validate(['resource_id' => ['required', 'string', 'max:500'], 'timezone' => ['required', 'timezone']]);
                 $draft['resource'] = ['id' => $values['resource_id'], 'name' => $values['resource_id'], 'domain' => '', 'timezone' => $kind === 'ga4' ? $values['timezone'] : ProviderCatalog::all()[$kind]['default_timezone']];
                 $draft['step'] = 'confirm';
             } elseif ($action === 'back') {
-                $draft['step'] = $request->input('step') === 'account' && $kind !== 'wporg' ? 'account' : 'resources';
+                $draft['step'] = $request->input('step') === 'account' && ProviderCatalog::requiresConnection($kind) ? 'account' : 'resources';
             } elseif ($action === 'finish') {
                 abort_unless(isset($draft['resource']), 409);
                 $values = $request->validate(['label' => ['nullable', 'string', 'max:120'], 'days' => ['required', 'integer', 'min:1', 'max:366']]);
-                $field = ['umami' => 'website_id', 'ga4' => 'property_id', 'gsc' => 'site_url', 'bing' => 'site_url', 'github' => 'repository', 'uptimerobot' => 'monitor_id', 'wporg' => 'slug'][$kind];
-                $config = ProviderCatalog::source($kind, [$field => $draft['resource']['id']] + ($kind === 'uptimerobot' ? [] : [($kind === 'wporg' ? 'limit' : 'days') => $values['days']]), $draft['resource']['timezone']);
-                if ($kind === 'wporg') {
+                $field = ['umami' => 'website_id', 'ga4' => 'property_id', 'gsc' => 'site_url', 'bing' => 'site_url', 'github' => 'repository', 'uptimerobot' => 'monitor_id', 'wporg' => 'slug', 'pagespeed' => 'url'][$kind];
+                $config = ProviderCatalog::source($kind, [$field => $draft['resource']['id']] + ($kind === 'pagespeed' ? ['strategy' => $draft['resource']['strategy']] : []) + (in_array($kind, ['uptimerobot', 'pagespeed'], true) ? [] : [($kind === 'wporg' ? 'limit' : 'days') => $values['days']]), $draft['resource']['timezone']);
+                if (! ProviderCatalog::requiresConnection($kind)) {
+                    if ($kind === 'pagespeed' && ! app(PageSpeedCredentials::class)->available()) {
+                        throw ValidationException::withMessages(['resource' => __('Page speed is temporarily unavailable. Please try again later.')]);
+                    }
                     unset($draft['connection_id']);
                 }
-                if ($kind !== 'wporg') {
+                if (ProviderCatalog::requiresConnection($kind)) {
                     Connection::query()->where('kind', $kind)->findOrFail($draft['connection_id'] ?? null);
                 }
                 $source = DB::transaction(function () use ($values, $draft, $kind, $config) {

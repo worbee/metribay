@@ -4,6 +4,9 @@ namespace Metribay\Core\Services;
 
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
+use Metribay\Core\Connectors\ConnectorException;
+use Metribay\Core\Connectors\PageSpeedUrl;
+use Metribay\Core\Contracts\PageSpeedCredentials;
 
 class ProviderCatalog
 {
@@ -15,6 +18,7 @@ class ProviderCatalog
             'ga4' => ['Google Analytics 4', ['service_account', 'client_id', 'client_secret', 'refresh_token'], ['service_account', 'client_secret', 'refresh_token'], ['property_id', 'days'], 'UTC'],
             'gsc' => ['Google Search Console', ['service_account', 'client_id', 'client_secret', 'refresh_token'], ['service_account', 'client_secret', 'refresh_token'], ['site_url', 'days'], 'America/Los_Angeles'],
             'bing' => ['Bing Webmaster Tools', ['api_key'], ['api_key'], ['site_url', 'days'], 'UTC'],
+            'pagespeed' => ['Page speed', ['api_key'], ['api_key'], ['url', 'strategy'], 'UTC'],
             'wporg' => ['WordPress.org', [], [], ['slug', 'limit'], 'UTC'],
             'github' => ['GitHub', ['token', 'client_id', 'installation_id', 'private_key'], ['token', 'private_key'], ['repository', 'days'], 'UTC'],
             'uptimerobot' => ['UptimeRobot', ['api_key'], ['api_key'], ['monitor_id'], 'UTC'],
@@ -40,7 +44,7 @@ class ProviderCatalog
             throw ValidationException::withMessages(['config' => __('Unsupported data source setting.')]);
         }
         Validator::make(['timezone' => $timezone], ['timezone' => ['required', 'timezone']])->validate();
-        if (in_array($kind, ['umami', 'bing', 'github', 'uptimerobot'], true) && ! in_array($timezone, ['UTC', 'Etc/UTC', 'Etc/GMT', 'GMT'], true)) {
+        if (in_array($kind, ['umami', 'bing', 'github', 'uptimerobot', 'pagespeed'], true) && ! in_array($timezone, ['UTC', 'Etc/UTC', 'Etc/GMT', 'GMT'], true)) {
             throw ValidationException::withMessages(['reporting_timezone' => __('This provider reports calendar dates in UTC.')]);
         }
         if ($kind === 'gsc' && $timezone !== 'America/Los_Angeles') {
@@ -54,8 +58,12 @@ class ProviderCatalog
             'wporg' => ['slug' => ['required', 'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/D', 'max:100']],
             'github' => ['repository' => ['required', 'regex:~^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$~', 'max:240']],
             'uptimerobot' => ['monitor_id' => ['required', 'regex:/^[0-9]+$/']],
+            'pagespeed' => ['url' => ['required', 'string', 'max:500'], 'strategy' => ['required', 'in:mobile,desktop']],
             default => throw ValidationException::withMessages(['kind' => __('Choose a supported provider.')]),
         };
+        if ($kind === 'pagespeed') {
+            $input['strategy'] ??= 'mobile';
+        }
         $window = $kind === 'wporg' ? 'limit' : 'days';
         if (in_array($window, $provider['config'], true)) {
             $input[$window] = $input[$window] ?? 180;
@@ -75,6 +83,14 @@ class ProviderCatalog
         }
         if ($kind === 'github' && array_intersect(explode('/', $clean['repository']), ['.', '..'])) {
             throw ValidationException::withMessages(['config.repository' => __('Use owner/repository.')]);
+        }
+
+        if ($kind === 'pagespeed') {
+            try {
+                $clean['url'] = PageSpeedUrl::normalize($clean['url']);
+            } catch (ConnectorException $exception) {
+                throw ValidationException::withMessages(['config.url' => __($exception->getMessage())]);
+            }
         }
 
         return $clean;
@@ -101,12 +117,16 @@ class ProviderCatalog
             }
         }
         $required = match ($kind) {
-            'umami' => ['base_url', 'username', 'password'],'bing','uptimerobot' => ['api_key'],'github' => isset($values['token']) ? ['token'] : ['client_id', 'installation_id', 'private_key'],'gsc','ga4' => isset($values['service_account']) ? ['service_account'] : ['client_id', 'client_secret', 'refresh_token'],default => throw ValidationException::withMessages(['kind' => __('Choose a supported provider.')])
+            'umami' => ['base_url', 'username', 'password'],'bing','uptimerobot','pagespeed' => ['api_key'],'github' => isset($values['token']) ? ['token'] : ['client_id', 'installation_id', 'private_key'],'gsc','ga4' => isset($values['service_account']) ? ['service_account'] : ['client_id', 'client_secret', 'refresh_token'],default => throw ValidationException::withMessages(['kind' => __('Choose a supported provider.')])
         };
         foreach ($required as $key) {
             if (empty($values[$key])) {
                 throw ValidationException::withMessages(['values.'.$key => 'Complete the required connection fields.']);
             }
+        }
+        if ($kind === 'pagespeed') {
+            Validator::make($values, ['api_key' => ['required', 'string', 'max:200']])->validate();
+            $values['api_key'] = trim($values['api_key']);
         }
         if (isset($values['service_account'])) {
             try {
@@ -128,11 +148,16 @@ class ProviderCatalog
         return $values;
     }
 
+    public static function requiresConnection(string $kind): bool
+    {
+        return $kind !== 'wporg' && ! ($kind === 'pagespeed' && app(PageSpeedCredentials::class)->managed());
+    }
+
     /** @return list<string> */
     public static function metricKeys(string $kind): array
     {
         return match ($kind) {
-            'umami','ga4' => ['visitors', 'visits', 'pageviews'],'gsc' => ['impressions', 'clicks'],'bing' => ['impressions', 'clicks', 'indexed_pages'],'wporg' => ['downloads'],'github' => ['commits', 'prs_merged', 'loc_changed', 'open_issues'],'uptimerobot' => ['monitor_status', 'uptime_24h', 'response_time_24h'],default => []
+            'umami','ga4' => ['visitors', 'visits', 'pageviews'],'gsc' => ['impressions', 'clicks'],'bing' => ['impressions', 'clicks', 'indexed_pages'],'wporg' => ['downloads'],'github' => ['commits', 'prs_merged', 'loc_changed', 'open_issues'],'uptimerobot' => ['monitor_status', 'uptime_24h', 'response_time_24h'],'pagespeed' => ['lab_score', 'lab_lcp', 'lab_cls', 'lab_tbt', 'crux_lcp', 'crux_inp', 'crux_cls', 'crux_origin_lcp', 'crux_origin_inp', 'crux_origin_cls'],default => []
         };
     }
 }

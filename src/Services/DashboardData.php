@@ -13,7 +13,7 @@ use Metribay\Core\Models\Project;
 class DashboardData
 {
     /** Overview columns in display order, matched by metric capability rather than provider. */
-    public const CATEGORIES = ['traffic' => 'visits', 'search' => 'clicks', 'development' => 'commits', 'issues' => 'open_issues', 'downloads' => 'downloads', 'uptime' => 'uptime_24h'];
+    public const CATEGORIES = ['traffic' => 'visits', 'search' => 'clicks', 'development' => 'commits', 'issues' => 'open_issues', 'downloads' => 'downloads', 'uptime' => 'uptime_24h', 'speed' => 'lab_score'];
 
     /** @return list<array<string, mixed>> */
     public function projects(int $days = 30, ?int $projectId = null): array
@@ -43,7 +43,7 @@ class DashboardData
                         foreach ([['start' => $start, 'previous' => false], ['start' => $previousStart, 'previous' => true]] as $window) {
                             $date = $window['start']->addDays($i)->toDateString();
                             $row = $byDate->get($date);
-                            $point = ['date' => $date, 'value' => $row?->value, 'partial' => ($row === null ? false : (bool) $row->is_partial)];
+                            $point = ['date' => $date, 'value' => $row?->value, 'partial' => ($row === null ? false : (bool) $row->is_partial), 'context' => $row->context ?? []];
                             if ($window['previous']) {
                                 $previous[] = $point;
                             } else {
@@ -58,15 +58,15 @@ class DashboardData
                     $partial = $definition->aggregation === 'period' ? ($period ? (bool) $period->is_partial : true) : (! $definition->snapshot && ($known < $days || count(array_filter($series, fn ($p) => $p['partial'])) > 0));
                     $last = array_values(array_filter($series, fn ($point) => $point['value'] !== null));
                     $observedDate = $last ? end($last)['date'] : null;
-                    $metrics[] = ['key' => $key, 'label' => __($definition->label), 'unit' => $definition->unit, 'value' => $value, 'display_value' => $this->format($key, $value), 'previous' => $prior, 'change' => ! $definition->snapshot && $prior !== null && $prior > 0 && $value !== null ? 100 * ($value - $prior) / $prior : null, 'partial' => $partial, 'series' => $series, 'previous_series' => $previous, 'coverage' => ['known' => $known, 'total' => $days], 'observed_date' => $observedDate, 'start_date' => $start->toDateString(), 'end_date' => $end->toDateString(), 'timezone' => $source->reporting_timezone];
+                    $metrics[] = ['key' => $key, 'label' => __($definition->label), 'unit' => $definition->unit, 'value' => $value, 'display_value' => $this->format($key, $value), 'previous' => $prior, 'change' => ! $definition->snapshot && $prior !== null && $prior > 0 && $value !== null ? 100 * ($value - $prior) / $prior : null, 'partial' => $partial, 'series' => $series, 'previous_series' => $previous, 'coverage' => ['known' => $known, 'total' => $days], 'observed_date' => $observedDate, 'start_date' => $start->toDateString(), 'end_date' => $end->toDateString(), 'timezone' => $source->reporting_timezone, 'snapshot' => $definition->snapshot, 'context' => $observedDate ? ($byDate->get($observedDate)->context ?? []) : []];
                 }
-                $status = ! $source->enabled ? 'disabled' : ($source->consecutive_failures > 0 ? 'failed' : (! $source->last_success_at ? 'pending' : ($source->last_success_at->lt($now->subHours($source->kind === 'uptimerobot' ? 2 : 8)) ? 'failed' : (($source->latest_data_date && $source->latest_data_date < $end->subDays(3)->toDateString()) ? 'delayed' : 'healthy'))));
+                $status = ! $source->enabled ? 'disabled' : ($source->consecutive_failures > 0 ? 'failed' : (! $source->last_success_at ? 'pending' : ($source->last_success_at->lt($now->subHours($source->kind === 'pagespeed' ? 36 : ($source->kind === 'uptimerobot' ? 2 : 8))) ? 'failed' : (($source->latest_data_date && $source->latest_data_date < $end->subDays(3)->toDateString()) ? 'delayed' : 'healthy'))));
                 $monitor = collect($metrics)->firstWhere('key', 'monitor_status');
                 if ($source->enabled && in_array($monitor['value'] ?? null, [8, 9, 8.0, 9.0], true)) {
                     $status = 'failed';
                 }
 
-                return ['id' => $source->id, 'label' => $source->label, 'kind' => $source->kind, 'reporting_timezone' => $source->reporting_timezone, 'enabled' => $source->enabled, 'status' => $status, 'last_success_at' => $source->last_success_at ? $source->last_success_at->utc()->translatedFormat('j M Y, H:i').' UTC' : null, 'latest_date' => $source->latest_data_date, 'error_code' => $source->error_code, 'metrics' => $metrics];
+                return ['id' => $source->id, 'label' => $source->label, 'kind' => $source->kind, 'reporting_timezone' => $source->reporting_timezone, 'enabled' => $source->enabled, 'status' => $status, 'last_success_at' => $source->last_success_at ? $source->last_success_at->utc()->translatedFormat('j M Y, H:i').' UTC' : null, 'latest_date' => $source->latest_data_date, 'error_code' => $source->error_code, 'metrics' => $metrics, 'page_speed' => $source->kind === 'pagespeed' ? $source->config : null];
             })->all();
 
             return ['id' => $project->id, 'name' => $project->name, 'slug' => $project->slug, 'domain' => $project->domain, 'group' => $project->group?->name, 'archived' => $project->archived, 'sources' => $sources, 'status' => $this->projectStatus($sources), 'summary' => $this->summary($sources, $days)];
@@ -88,13 +88,33 @@ class DashboardData
             if (! $members) {
                 continue;
             }
-            $summary[$category] = $category === 'uptime' ? $this->uptime($members) : $this->combine($members, $key, $days);
+            $summary[$category] = match ($category) {
+                'uptime' => $this->uptime($members), 'speed' => $this->speed($members, $days), default => $this->combine($members, $key, $days)
+            };
             if ($category === 'development') {
                 $summary[$category]['secondary'] = $this->combine($members, 'prs_merged', $days)['value'];
             }
         }
 
         return $summary;
+    }
+
+    /** @param list<array<string,mixed>> $sources
+     * @return array<string,mixed>
+     */
+    private function speed(array $sources, int $days): array
+    {
+        $metrics = array_map(fn (array $source): array => $this->metric($source, 'lab_score'), $sources);
+        $values = array_values(array_filter(array_column($metrics, 'value'), fn ($value) => $value !== null));
+        $series = [];
+        for ($i = 0; $i < $days; $i++) {
+            $points = array_values(array_filter(array_map(fn (array $metric) => $metric['series'][$i]['value'] ?? null, $metrics), fn ($value) => $value !== null));
+            $series[] = count($points) === count($metrics) ? min($points) : null;
+        }
+
+        return ['key' => 'lab_score', 'unit' => 'score', 'value' => $values ? min($values) : null, 'previous' => null, 'change' => null,
+            'partial' => count($values) !== count($metrics), 'series' => $series,
+            'parts' => array_map(fn (array $source): array => ['label' => $source['label'].' · '.__(($source['page_speed']['strategy'] ?? 'mobile') === 'desktop' ? 'Desktop' : 'Mobile'), 'value' => $this->metric($source, 'lab_score')['display_value']], $sources)];
     }
 
     /**
@@ -195,7 +215,7 @@ class DashboardData
         }
 
         return match (MetricRegistry::get($metric)->unit) {
-            'percent' => Number::format($value, 2, locale: app()->getLocale()).'%', 'ms' => Number::format($value, 1, locale: app()->getLocale()).' ms',default => Number::format($value, 0, locale: app()->getLocale())
+            'ratio' => Number::format($value, 3, locale: app()->getLocale()), 'score' => Number::format($value, 0, locale: app()->getLocale()).'/100', 'percent' => Number::format($value, 2, locale: app()->getLocale()).'%', 'ms' => Number::format($value, 1, locale: app()->getLocale()).' ms',default => Number::format($value, 0, locale: app()->getLocale())
         };
     }
 }

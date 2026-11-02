@@ -4,11 +4,12 @@
         $sourceList = $visibleProjects->flatMap(fn($item) => $item['sources'] ?? []);
         $attentionCount = $sourceList->filter(fn($source) => in_array($source['status'], ['failed','delayed']))->count();
         $activeSources = $sourceList->filter(fn($source) => $source['enabled'] ?? false)->count();
-        $columnLabels = ['traffic'=>__('Visits'),'search'=>__('Search clicks'),'development'=>__('Commits · PRs'),'issues'=>__('Open issues'),'downloads'=>__('Downloads'),'uptime'=>__('Uptime · 24h')];
+        $columnLabels = ['traffic'=>__('Visits'),'search'=>__('Search clicks'),'development'=>__('Commits · PRs'),'issues'=>__('Open issues'),'downloads'=>__('Downloads'),'uptime'=>__('Uptime · 24h'),'speed'=>__('Page speed · lowest')];
         $columns = array_values(array_filter(array_keys(\Metribay\Core\Services\DashboardData::CATEGORIES), fn ($column) => $visibleProjects->contains(fn ($project) => isset($project['summary'][$column]))));
         $statusLabels = ['healthy'=>__('Up to date'),'delayed'=>__('Delayed'),'failed'=>__('Needs attention'),'pending'=>__('Awaiting first sync'),'disabled'=>__('Paused'),'empty'=>__('No data sources yet.')];
         $totals = [];
         foreach ($columns as $column) {
+            if ($column === 'speed') continue;
             $cells = $visibleProjects->map(fn ($project) => $project['summary'][$column] ?? null)->filter();
             if ($column === 'uptime') {
                 $totals[$column] = ['up' => $cells->sum('up'), 'total' => $cells->sum('total'), 'down' => $cells->sum('down')];
@@ -86,5 +87,5 @@
     @endif
     </div>
     <div class="search-empty empty-state" data-search-empty hidden><h2>{{ __('No matching projects') }}</h2><p>{{ __('Try another project name or domain.') }}</p></div>
-    @if(count($projects))<div class="data-note">@include('metribay::partials/icon',['name'=>'info'])<p>{{ __('Each column adds up a project’s data sources of that kind; visits are added, unique visitors never are. A dot means none is connected, a dash means unavailable, not zero. Gaps show missing daily data.') }}</p></div>@endif
+    @if(count($projects))<div class="data-note">@include('metribay::partials/icon',['name'=>'info'])<p>{{ __('Counts are summed; unique visitors never are. Page speed shows the lowest score. A dot means no source, a dash means unavailable. Gaps show missing data.') }}</p></div>@endif
 </div>

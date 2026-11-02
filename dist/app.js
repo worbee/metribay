@@ -6535,10 +6535,15 @@ function mc(e, t = "count", n = !1) {
 		8: $("Seems down"),
 		9: $("Down")
 	}[e] ?? String(e);
-	let r = { maximumFractionDigits: t === "percent" ? 2 : +!Number.isInteger(e) };
-	n && Math.abs(e) >= 1e3 && !["percent", "ms"].includes(t) && (r.notation = "compact", r.maximumFractionDigits = 1);
+	let r = { maximumFractionDigits: t === "score" ? 0 : t === "ratio" ? 3 : t === "percent" ? 2 : +!Number.isInteger(e) };
+	n && Math.abs(e) >= 1e3 && ![
+		"percent",
+		"ms",
+		"score",
+		"ratio"
+	].includes(t) && (r.notation = "compact", r.maximumFractionDigits = 1);
 	let i = new Intl.NumberFormat(document.documentElement.lang || "en", r).format(e);
-	return t === "percent" ? `${i}%` : t === "ms" ? `${i} ms` : i;
+	return t === "percent" ? `${i}%` : t === "ms" ? `${i} ms` : t === "score" ? `${i}/100` : i;
 }
 function hc(e, t = !1) {
 	let n = /* @__PURE__ */ new Date(`${e}T12:00:00Z`);
@@ -6678,7 +6683,9 @@ function yc(e, t, n) {
 							return `${e.datasetIndex === 0 ? t.label : $("Previous (:date)", { date: hc(n?.date ?? "") })}: ${r}${n?.partial ? ` · ${$("partial")}` : ""}`;
 						},
 						afterBody(e) {
-							return e.length ? u(a[e[0].dataIndex]?.date).map((e) => `${e.automatic ? "◆" : "●"} ${e.title}`) : [];
+							if (!e.length) return [];
+							let t = (e[0].datasetIndex === 0 ? a : o)[e[0].dataIndex];
+							return [...t?.context?.collection_start ? [`${t.context.collection_start} – ${t.context.collection_end}`] : [], ...u(a[e[0].dataIndex]?.date).map((e) => `${e.automatic ? "◆" : "●"} ${e.title}`)];
 						}
 					}
 				}
@@ -6707,8 +6714,8 @@ function yc(e, t, n) {
 				},
 				y: {
 					display: !i,
-					beginAtZero: t.unit !== "percent",
-					suggestedMax: t.unit === "percent" ? 100 : void 0,
+					beginAtZero: !["percent", "score"].includes(t.unit),
+					suggestedMax: ["percent", "score"].includes(t.unit) ? 100 : void 0,
 					grid: {
 						color: r["chart-grid"],
 						drawTicks: !1

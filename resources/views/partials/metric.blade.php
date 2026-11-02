@@ -34,20 +34,21 @@
         <div @class(['chart-empty', 'chart-empty-compact'=>$compact ?? false])><span>{{ __('No data for this period') }}</span><span class="chart-empty-line" aria-hidden="true"></span></div>
     @endif
     <div class="metric-footnote">
-    @if (in_array($metric['key'], ['monitor_status','uptime_24h','response_time_24h','open_issues','indexed_pages']))
+    @if (($metric['snapshot'] ?? false) || in_array($metric['key'], ['monitor_status','uptime_24h','response_time_24h','open_issues','indexed_pages']))
         <span>{{ !empty($metric['observed_date']) ? __('Observed :date', ['date' => $metric['observed_date']]) : __('Latest observation') }}</span>
     @elseif ($metricValue === null && $hasData)
         <span>{{ __('Daily data available · period total unavailable') }}</span>
     @else
         <span>{{ __(':known/:total days recorded', ['known' => $known, 'total' => $total]) }}</span>
     @endif
-    @unless($compact ?? false)<span>{{ match($metricUnit) {'percent'=>__('Percent (%)'), 'ms'=>__('Milliseconds'), 'lines'=>__('Lines'), 'status'=>__('Provider status'), default=>__('Count')} }}</span>@endunless
+    @unless($compact ?? false)<span>{{ match($metricUnit) {'percent'=>__('Percent (%)'), 'ms'=>__('Milliseconds'), 'lines'=>__('Lines'), 'status'=>__('Provider status'), 'score'=>__('Score (0–100)'), 'ratio'=>__('Layout shift score'), default=>__('Count')} }}</span>@endunless
     </div>
+    @if(!empty($metric['context']['collection_start']) && !($compact ?? false))<p class="field-hint">{{ __('Collection window: :start – :end', ['start' => $metric['context']['collection_start'], 'end' => $metric['context']['collection_end']]) }}</p>@endif
     @if($metric['key'] === 'open_issues' && !($compact ?? false))<p class="field-hint">{{ __('Daily snapshots · no historical backfill') }}</p>@endif
     @unless($compact ?? false)
     @if($hasData)
     <div class="chart-legend" aria-label="{{ __('Chart series') }}"><button type="button" data-chart-toggle="0" aria-pressed="true"><span class="legend-swatch"></span>{{ __('Selected period') }}</button>@if(collect($previousSeries)->contains(fn($point) => ($point['value'] ?? null) !== null))<button type="button" data-chart-toggle="1" aria-pressed="true"><span class="legend-swatch legend-swatch-previous"></span>{{ __('Previous period') }}</button>@endif @if(!empty($chartConfig['events']))<span class="legend-events"><span class="legend-swatch legend-swatch-event"></span>{{ trans_choice('{1} :count event|[2,*] :count events', count($chartConfig['events']), ['count' => count($chartConfig['events'])]) }}</span>@endif</div>
-    <details class="chart-table"><summary>{{ __('View daily values') }}</summary><div class="table-scroll"><table><caption class="sr-only">{{ __(':metric daily values in the data source’s reporting timezone', ['metric' => $metricLabel]) }}</caption><thead><tr><th>{{ __('Date') }}</th><th class="number">{{ __('Value') }}</th><th>{{ __('Coverage') }}</th></tr></thead><tbody>@foreach ($series as $point)<tr><th scope="row">{{ $point['date'] }}</th><td class="number">{{ $point['value'] === null ? '—' : \Illuminate\Support\Number::format((float)$point['value'], $metricUnit === 'percent' ? 2 : (fmod((float)$point['value'], 1) !== 0.0 ? 2 : 0), locale: app()->getLocale()) }}@if($point['value'] !== null && $metricUnit === 'percent')%@elseif($point['value'] !== null && $metricUnit === 'ms') ms @endif</td><td>{{ $point['value'] === null ? __('Missing') : (!empty($point['partial']) ? __('Partial') : __('Recorded')) }}</td></tr>@endforeach</tbody></table></div></details>
+    <details class="chart-table"><summary>{{ __('View daily values') }}</summary><div class="table-scroll"><table><caption class="sr-only">{{ __(':metric daily values in the data source’s reporting timezone', ['metric' => $metricLabel]) }}</caption><thead><tr><th>{{ __('Date') }}</th><th class="number">{{ __('Value') }}</th><th>{{ __('Coverage') }}</th></tr></thead><tbody>@foreach ($series as $point)<tr><th scope="row">{{ $point['date'] }}@if(!empty($point['context']['collection_start']))<small class="field-hint"> · {{ $point['context']['collection_start'] }} – {{ $point['context']['collection_end'] }}</small>@endif</th><td class="number">{{ $point['value'] === null ? '—' : \Illuminate\Support\Number::format((float)$point['value'], in_array($metricUnit, ['percent', 'ratio']) ? 3 : (fmod((float)$point['value'], 1) !== 0.0 ? 2 : 0), locale: app()->getLocale()) }}@if($point['value'] !== null && $metricUnit === 'percent')%@elseif($point['value'] !== null && $metricUnit === 'ms') ms @endif</td><td>{{ $point['value'] === null ? __('Missing') : (!empty($point['partial']) ? __('Partial') : __('Recorded')) }}</td></tr>@endforeach</tbody></table></div></details>
     @endif
     @endunless
 </section>

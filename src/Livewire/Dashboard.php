@@ -35,7 +35,7 @@ class Dashboard extends Component
         if (! in_array($column, ['name', ...array_keys(DashboardData::CATEGORIES)], true)) {
             return;
         }
-        $this->direction = $this->sort === $column ? ($this->direction === 'asc' ? 'desc' : 'asc') : ($column === 'name' ? 'asc' : 'desc');
+        $this->direction = $this->sort === $column ? ($this->direction === 'asc' ? 'desc' : 'asc') : (in_array($column, ['name', 'speed'], true) ? 'asc' : 'desc');
         $this->sort = $column;
     }
 

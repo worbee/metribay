@@ -45,13 +45,13 @@ function finite(value) { return value !== null && value !== undefined && value !
 function formatNumber(value, unit = 'count', compact = false) {
     if (value === null) return t('Unavailable');
     if (unit === 'status') return ({ 0: t('Paused'), 1: t('Not checked yet'), 2: t('Up'), 8: t('Seems down'), 9: t('Down') })[value] ?? String(value);
-    const options = { maximumFractionDigits: unit === 'percent' ? 2 : (Number.isInteger(value) ? 0 : 1) };
-    if (compact && Math.abs(value) >= 1000 && !['percent', 'ms'].includes(unit)) {
+    const options = { maximumFractionDigits: unit === 'score' ? 0 : (unit === 'ratio' ? 3 : (unit === 'percent' ? 2 : (Number.isInteger(value) ? 0 : 1))) };
+    if (compact && Math.abs(value) >= 1000 && !['percent', 'ms', 'score', 'ratio'].includes(unit)) {
         options.notation = 'compact';
         options.maximumFractionDigits = 1;
     }
     const formatted = new Intl.NumberFormat(document.documentElement.lang || 'en', options).format(value);
-    return unit === 'percent' ? `${formatted}%` : unit === 'ms' ? `${formatted} ms` : formatted;
+    return unit === 'percent' ? `${formatted}%` : unit === 'ms' ? `${formatted} ms` : unit === 'score' ? `${formatted}/100` : formatted;
 }
 function formatDate(value, full = false) {
     const date = new Date(`${value}T12:00:00Z`);
@@ -184,7 +184,10 @@ function makeChart(canvas, config, signature) {
                             return `${label}: ${value}${point?.partial ? ` · ${t('partial')}` : ''}`;
                         },
                         afterBody(items) {
-                            return items.length ? eventsOn(series[items[0].dataIndex]?.date).map(event => `${event.automatic ? '◆' : '●'} ${event.title}`) : [];
+                            if (!items.length) return [];
+                            const point = (items[0].datasetIndex === 0 ? series : previous)[items[0].dataIndex];
+                            const window = point?.context?.collection_start ? [`${point.context.collection_start} – ${point.context.collection_end}`] : [];
+                            return [...window, ...eventsOn(series[items[0].dataIndex]?.date).map(event => `${event.automatic ? '◆' : '●'} ${event.title}`)];
                         },
                     },
                 },
@@ -198,8 +201,8 @@ function makeChart(canvas, config, signature) {
                 },
                 y: {
                     display: !compact,
-                    beginAtZero: config.unit !== 'percent',
-                    suggestedMax: config.unit === 'percent' ? 100 : undefined,
+                    beginAtZero: !['percent', 'score'].includes(config.unit),
+                    suggestedMax: ['percent', 'score'].includes(config.unit) ? 100 : undefined,
                     grid: { color: colors['chart-grid'], drawTicks: false },
                     border: { display: false },
                     ticks: { color: colors['text-muted'], maxTicksLimit: 4, stepSize: config.unit === 'status' ? 1 : undefined, padding: 10, font: { family: 'system-ui', size: 9 }, callback(value) { return formatNumber(value, config.unit, true); } },

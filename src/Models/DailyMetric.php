@@ -15,7 +15,7 @@ class DailyMetric extends Model
     /** @return array<string, string> */
     protected function casts(): array
     {
-        return ['value' => 'float', 'is_partial' => 'boolean', 'date' => 'immutable_date', 'collected_at' => 'immutable_datetime', 'revised_at' => 'immutable_datetime', 'observed_at' => 'immutable_datetime', 'window_start' => 'immutable_datetime', 'window_end' => 'immutable_datetime'];
+        return ['context' => 'array', 'value' => 'float', 'is_partial' => 'boolean', 'date' => 'immutable_date', 'collected_at' => 'immutable_datetime', 'revised_at' => 'immutable_datetime', 'observed_at' => 'immutable_datetime', 'window_start' => 'immutable_datetime', 'window_end' => 'immutable_datetime'];
     }
 
     public function setDateAttribute(mixed $value): void

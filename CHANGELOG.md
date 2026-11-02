@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0 — 2026-11-02
+
+- Add Page speed sources: URL/device setup, daily Lighthouse score/LCP/CLS/TBT snapshots, separate CrUX page/site p75 LCP/INP/CLS windows and up to40 weeks of available history. Own-key connections remain in Core; a host contract supports managed Cloud keys.
+- Show the lowest lab score per project in the overview, without summing scores across sources or projects. Preserve missing data, exact field windows, lab metadata and daily cache/queue behavior; add ratio and score formatting and all twelve interface languages.
+- Add nullable `daily_metrics.context` JSON metadata. Retain the additive column on host rollback and pause Page speed sources before running an earlier Core.
+
 ## 0.2.5 — 2026-11-02
 
 - Add a sortable **Open issues** column to the project overview, with a daily sparkline, repository breakdown and totals across projects. It uses the existing GitHub issues-only snapshots and sums each repository's latest count, rather than adding counts across days. Snapshot metrics have no percentage change; missing observations stay unknown, and combined snapshot charts require every source to have reported that day.

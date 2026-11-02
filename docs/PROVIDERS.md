@@ -8,6 +8,7 @@
 | Bing | site_url,days; UTC | api_key |
 | WordPress.org | slug,limit; UTC | none |
 | GitHub | owner/repository,days; UTC | token, or client_id/installation_id/private_key |
+| Page speed | public HTTPS URL; mobile/desktop; UTC snapshots | own Google API key, with PageSpeed Insights and Chrome UX Report APIs enabled |
 | UptimeRobot | monitor_id; UTC observations | read-only api_key |
 
 Dates and numeric rows are strictly validated. Umami verifies site access before trusting zero-looking stats and independently queries visits/period visitors. GA4 validates metadata and timezone, marks recent dates provisional and rejects sampled, thresholded or restricted reports, and separately requests exact user totals. Search Console combines final/all data states with pagination and explicit finality. Bing decodes .NET dates and keeps traffic/crawl gaps independent. WordPress verifies plugin existence before trusting download counts. GitHub bounds cursor pagination, separates repository activity from productivity claims, and reconciles release events. UptimeRobot validates monitor identity, exact rolling24h windows, response-time sample availability and a shared per-credential request limit.
@@ -28,3 +29,7 @@ For Google browser authorization on your **self-hosted server**, register your o
 Hosts may bind `GoogleAuthorization`, `ConnectionCredentials` and `ProviderRequests` from `Metribay\Core\Contracts`. Defaults use installation-owned Google configuration, decrypt own credentials and permit local provider requests. Runtime collection, discovery and access checks resolve credentials through the host. Every `SafeHttpClient` call invokes the host's request policy, including token exchange and pagination. Policy exceptions fail collection safely without partial metric writes. `ProviderRequestLimit` gives the user a safe retry message.
 
 Managed services store an encrypted reference and user refresh token; the host resolves app secrets server-side and checks access on authorization start, callback and collection. Core rejects payloads containing `managed_app`; changing an edition label cannot unlock the service. Config exports omit **all credentials**, including managed references/tokens. Reconnect with your own account when moving between installations. A host must never expose a credential-resolution endpoint to untrusted clients. Provider apps and public client IDs alone are not a subscription boundary.
+
+## Page speed
+
+Daily Lighthouse tests and separate CrUX page/origin windows are described in [Page speed](PAGESPEED.md). The `PageSpeedCredentials` host contract supplies managed URL-only access where available; the Core default always requires an own-key connection. Missing CrUX traffic is unknown, never zero, and speed scores are excluded from summed overview totals.

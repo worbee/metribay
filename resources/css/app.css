@@ -618,3 +618,6 @@
 
 .setup-checklist { padding: 1.5rem 0; border-block: 1px solid var(--border); margin-bottom: 1.5rem; }
 .setup-checklist ol { display: flex; flex-wrap: wrap; gap: .75rem 2rem; padding-left: 1.25rem; margin: 1rem 0; }
+
+.page-speed-results { display: grid; gap: 16px; margin-top: 16px; }
+.page-speed-results > h3 { margin-top: 16px; }

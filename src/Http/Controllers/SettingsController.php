@@ -15,6 +15,7 @@ use Metribay\Core\Connectors\ConnectorRegistry;
 use Metribay\Core\Connectors\ProviderRequestLimit;
 use Metribay\Core\Connectors\SourceConfiguration;
 use Metribay\Core\Contracts\ConnectionCredentials;
+use Metribay\Core\Contracts\PageSpeedCredentials;
 use Metribay\Core\Contracts\WorkspaceAccess;
 use Metribay\Core\Jobs\CollectSource;
 use Metribay\Core\Models\Connection;
@@ -108,7 +109,7 @@ class SettingsController
         $values = $request->validate(['project_id' => ['required', 'integer'], 'kind' => ['required', Rule::in(array_keys(ProviderCatalog::all()))], 'label' => ['required', 'string', 'max:120'], 'connection_id' => ['nullable', 'integer'], 'reporting_timezone' => ['required', 'timezone'], 'config' => ['required', 'array']]);
         Project::query()->findOrFail($values['project_id']);
         $config = ProviderCatalog::source($values['kind'], $values['config'], $values['reporting_timezone']);
-        if ($values['kind'] !== 'wporg') {
+        if (ProviderCatalog::requiresConnection($values['kind'])) {
             $connection = Connection::query()->find($values['connection_id'] ?? null);
             if (! $connection || $connection->kind !== $values['kind']) {
                 throw ValidationException::withMessages(['connection_id' => __('Choose a connected account for this provider.')]);
@@ -121,7 +122,7 @@ class SettingsController
         if (Source::query()->where('project_id', $values['project_id'])->where('identity_hash', $hash)->exists()) {
             throw ValidationException::withMessages(['config' => __('This data source is already in this project.')]);
         }
-        Source::create(['project_id' => $values['project_id'], 'kind' => $values['kind'], 'label' => $values['label'], 'connection_id' => $values['kind'] === 'wporg' ? null : $values['connection_id'], 'reporting_timezone' => $values['reporting_timezone'], 'config' => $config, 'identity_hash' => $hash]);
+        Source::create(['project_id' => $values['project_id'], 'kind' => $values['kind'], 'label' => $values['label'], 'connection_id' => ! ProviderCatalog::requiresConnection($values['kind']) ? null : $values['connection_id'], 'reporting_timezone' => $values['reporting_timezone'], 'config' => $config, 'identity_hash' => $hash]);
 
         return back()->with('status', __('Data source added. Run collection or let the scheduler collect it.'));
     }
@@ -134,18 +135,18 @@ class SettingsController
             $source = Source::query()->lockForUpdate()->whereKey($request->route('source'))->firstOrFail();
             $this->version($request, $source);
             $connectionId = $source->connection_id;
-            if ($request->has('connection_id') && $source->kind !== 'wporg') {
+            if ($request->has('connection_id') && ProviderCatalog::requiresConnection($source->kind)) {
                 $connection = Connection::query()->whereKey($values['connection_id'] ?? null)->where('kind', $source->kind)->first();
                 if (! $connection) {
                     throw ValidationException::withMessages(['connection_id' => __('Choose a connected account for this provider.')]);
                 }
                 $connectionId = $connection->id;
             }
-            if ($source->kind !== 'wporg' && ($request->has('enabled') ? $request->boolean('enabled') : $source->enabled) && $connectionId === null) {
+            if (ProviderCatalog::requiresConnection($source->kind) && ($request->has('enabled') ? $request->boolean('enabled') : $source->enabled) && $connectionId === null) {
                 throw ValidationException::withMessages(['connection_id' => __('Choose a connected account before enabling collection.')]);
             }
             $config = $source->config;
-            if (isset($values['days']) && $source->kind !== 'uptimerobot') {
+            if (isset($values['days']) && ! in_array($source->kind, ['uptimerobot', 'pagespeed'], true)) {
                 $config[$source->kind === 'wporg' ? 'limit' : 'days'] = (int) $values['days'];
             }$source->fill(['connection_id' => $connectionId, 'label' => $values['label'], 'enabled' => $request->has('enabled') ? $request->boolean('enabled') : $source->enabled, 'config' => $config, 'version' => $source->version + 1])->save();
         });
@@ -168,7 +169,7 @@ class SettingsController
         $this->authorize($request, 'manage_connections');
         $source = Source::query()->whereKey($request->route('source'))->firstOrFail();
         try {
-            $connectors->for($source->kind)->collect(new SourceConfiguration($source->kind, array_merge($source->config, ['days' => 1, 'limit' => 1, 'period_days' => []]), $source->reporting_timezone), $source->connection ? app(ConnectionCredentials::class)->resolve($source->connection) : [], CarbonImmutable::now('UTC'));
+            $connectors->for($source->kind)->collect(new SourceConfiguration($source->kind, array_merge($source->config, ['days' => 1, 'limit' => 1, 'period_days' => []]), $source->reporting_timezone), $source->connection ? app(ConnectionCredentials::class)->resolve($source->connection) : ($source->kind === 'pagespeed' ? app(PageSpeedCredentials::class)->resolve() : []), CarbonImmutable::now('UTC'));
         } catch (ProviderRequestLimit $exception) {
             throw ValidationException::withMessages(['connection_id' => $exception->getMessage()]);
         } catch (\Throwable) {

@@ -29,8 +29,11 @@ final class SafeHttpClient
     /**
      * @param  array<string, mixed>  $options  Only payload/query/header options, never transport configuration.
      */
-    public function request(string $method, string $url, array $options = []): Response
+    public function request(string $method, string $url, array $options = [], int $timeout = 30): Response
     {
+        if ($timeout < 1 || $timeout > 180) {
+            throw new ConnectorException('Unsupported provider timeout.');
+        }
         app(ProviderRequests::class)->authorize();
         $method = strtoupper($method);
         if (! in_array($method, ['GET', 'POST'], true)
@@ -73,7 +76,7 @@ final class SafeHttpClient
             'protocols' => ['https'],
             'verify' => true,
             'proxy' => '',
-            'timeout' => 30,
+            'timeout' => $timeout,
             'connect_timeout' => 10,
             'http_errors' => false,
             'sink' => $sink,

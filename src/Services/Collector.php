@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Metribay\Core\Connectors\ConnectorRegistry;
 use Metribay\Core\Connectors\SourceConfiguration;
 use Metribay\Core\Contracts\ConnectionCredentials;
+use Metribay\Core\Contracts\PageSpeedCredentials;
 use Metribay\Core\Models\Connection;
 use Metribay\Core\Models\Source;
 use Metribay\Core\Models\SyncRun;
@@ -25,11 +26,11 @@ class Collector
         $run = SyncRun::create(['source_id' => $source->id, 'started_at' => $now, 'status' => 'running']);
         $source->forceFill(['last_started_at' => $now])->save();
         try {
-            $credentials = $connection ? app(ConnectionCredentials::class)->resolve($connection) : [];
+            $credentials = $connection ? app(ConnectionCredentials::class)->resolve($connection) : ($source->kind === 'pagespeed' ? app(PageSpeedCredentials::class)->resolve() : []);
             $from = null;
             // Recheck recent revisions while keeping exact current/previous visitor period queries.
             // Git history is always recomputed across the configured window (force pushes/late merges).
-            if (! $full && $source->last_success_at && ! in_array($source->kind, ['github', 'uptimerobot'], true)) {
+            if (! $full && $source->last_success_at && ! in_array($source->kind, ['github', 'uptimerobot', 'pagespeed'], true)) {
                 $today = $now->setTimezone($source->reporting_timezone)->startOfDay();
                 $days = $source->config[$source->kind === 'wporg' ? 'limit' : 'days'] ?? 180;
                 $overlap = (int) config('metribay.collection.revision_overlap_days', 7);

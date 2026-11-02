@@ -17,6 +17,9 @@ final class MetricRegistry
             ['monitor_status', 'Monitor status', 'status', 'latest', true], ['uptime_24h', 'Uptime · last 24h', 'percent', 'latest', true],
             ['response_time_24h', 'Response time · last 24h', 'ms', 'latest', true],
         ];
+        foreach ([['lab_score', 'Lab performance score', 'score'], ['lab_lcp', 'Lab LCP', 'ms'], ['lab_cls', 'Lab CLS', 'ratio'], ['lab_tbt', 'Lab total blocking time', 'ms'], ['crux_lcp', 'Real users · page LCP', 'ms'], ['crux_inp', 'Real users · page INP', 'ms'], ['crux_cls', 'Real users · page CLS', 'ratio'], ['crux_origin_lcp', 'Real users · site LCP', 'ms'], ['crux_origin_inp', 'Real users · site INP', 'ms'], ['crux_origin_cls', 'Real users · site CLS', 'ratio']] as [$key, $label, $unit]) {
+            $definitions[] = [$key, $label, $unit, 'latest', true];
+        }
         $all = [];
         foreach ($definitions as $definition) {
             $metric = new MetricDefinition(...$definition);

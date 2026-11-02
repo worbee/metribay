@@ -17,6 +17,7 @@ use Metribay\Core\Console\SyncCommand;
 use Metribay\Core\Contracts\ConnectionCredentials;
 use Metribay\Core\Contracts\Entitlements;
 use Metribay\Core\Contracts\GoogleAuthorization;
+use Metribay\Core\Contracts\PageSpeedCredentials;
 use Metribay\Core\Contracts\ProviderRequests;
 use Metribay\Core\Contracts\WorkspaceAccess;
 use Metribay\Core\Http\Middleware\DiscardAbandonedSetup;
@@ -24,6 +25,7 @@ use Metribay\Core\Http\Middleware\SetLocale;
 use Metribay\Core\Livewire\Dashboard;
 use Metribay\Core\Services\OwnConnectionCredentials;
 use Metribay\Core\Services\OwnGoogleAuthorization;
+use Metribay\Core\Services\OwnPageSpeedCredentials;
 use Metribay\Core\Services\PersonalEntitlements;
 use Metribay\Core\Services\PersonalWorkspaceAccess;
 use Metribay\Core\Services\UnrestrictedProviderRequests;
@@ -40,6 +42,7 @@ class MetribayServiceProvider extends ServiceProvider
         $this->app->bindIf(GoogleAuthorization::class, OwnGoogleAuthorization::class);
         $this->app->bindIf(ConnectionCredentials::class, OwnConnectionCredentials::class);
         $this->app->bindIf(ProviderRequests::class, UnrestrictedProviderRequests::class);
+        $this->app->bindIf(PageSpeedCredentials::class, OwnPageSpeedCredentials::class);
     }
 
     public function boot(): void
