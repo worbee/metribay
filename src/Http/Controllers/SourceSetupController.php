@@ -11,7 +11,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Metribay\Core\Connectors\ConnectorRegistry;
-use Metribay\Core\Connectors\GitHubDeploymentAccess;
+use Metribay\Core\Connectors\DeploymentAccess;
 use Metribay\Core\Connectors\ProviderRequestLimit;
 use Metribay\Core\Connectors\ResourceDiscovery;
 use Metribay\Core\Connectors\SafeHttpClient;
@@ -233,8 +233,8 @@ class SourceSetupController
             } elseif ($action === 'finish') {
                 abort_unless(isset($draft['resource']), 409);
                 $values = $request->validate(['label' => ['nullable', 'string', 'max:120'], 'days' => ['required', 'integer', 'min:1', 'max:366'], 'environments' => ['nullable', 'string', 'max:3000']]);
-                $field = ['umami' => 'website_id', 'ga4' => 'property_id', 'gsc' => 'site_url', 'bing' => 'site_url', 'github' => 'repository', 'uptimerobot' => 'monitor_id', 'wporg' => 'slug', 'pagespeed' => 'url'][$kind];
-                $environments = $kind === 'github' ? ProviderCatalog::environments((string) ($values['environments'] ?? '')) : [];
+                $field = ProjectResources::field($kind);
+                $environments = ProviderCatalog::hasDeploymentEnvironments($kind) ? ProviderCatalog::environments((string) ($values['environments'] ?? '')) : [];
                 $config = ProviderCatalog::source($kind, [$field => $draft['resource']['id']] + ($kind === 'pagespeed' ? ['strategy' => $draft['resource']['strategy']] : []) + (in_array($kind, ['uptimerobot', 'pagespeed'], true) ? [] : [($kind === 'wporg' ? 'limit' : 'days') => $values['days']]) + ($environments !== [] ? ['environments' => $environments] : []), $draft['resource']['timezone']);
                 if (! ProviderCatalog::requiresConnection($kind)) {
                     if ($kind === 'pagespeed' && ! app(PageSpeedCredentials::class)->available()) {
@@ -278,7 +278,7 @@ class SourceSetupController
     }
 
     /**
-     * Lists a GitHub repository's deployment environments to suggest which deployments become events.
+     * Lists the repository's deployment environments to suggest which deployments become events.
      * Optional: failures only explain why no suggestions are shown.
      *
      * @param  array<string, mixed>  $draft
@@ -287,19 +287,25 @@ class SourceSetupController
     private function deploymentEnvironments(Request $request, array $draft): array
     {
         unset($draft['environments'], $draft['environments_error']);
-        $connection = Connection::query()->where('kind', 'github')->find($draft['connection_id'] ?? null);
-        if ($draft['kind'] !== 'github' || ! $connection
+        $connection = Connection::query()->where('kind', $draft['kind'])->find($draft['connection_id'] ?? null);
+        if (! ProviderCatalog::hasDeploymentEnvironments($draft['kind']) || ! $connection
             || ! app(WorkspaceAccess::class)->allows($request->user(), app(WorkspaceContext::class)->current(), 'manage_connections')) {
             return $draft;
         }
         try {
-            $draft['environments'] = app(ConnectorRegistry::class)->github()->environments((string) $draft['resource']['id'], app(ConnectionCredentials::class)->resolve($connection), CarbonImmutable::now('UTC'));
-        } catch (GitHubDeploymentAccess|ProviderRequestLimit $exception) {
+            $draft['environments'] = app(ConnectorRegistry::class)->environments($draft['kind'])->environments((string) $draft['resource']['id'], app(ConnectionCredentials::class)->resolve($connection), CarbonImmutable::now('UTC'));
+        } catch (DeploymentAccess|ProviderRequestLimit $exception) {
             $draft['environments_error'] = __($exception->getMessage());
         } catch (\Throwable) {
-            $draft['environments_error'] = __('GitHub could not list deployments. Check the connected account, then try again.');
+            $draft['environments_error'] = self::environmentsUnavailable($draft['kind']);
         }
 
         return $draft;
+    }
+
+    public static function environmentsUnavailable(string $kind): string
+    {
+        return $kind === 'azure_devops' ? __('Azure DevOps could not list environments. Check the connected account, then try again.')
+            : __('GitHub could not list deployments. Check the connected account, then try again.');
     }
 }

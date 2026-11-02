@@ -17,6 +17,9 @@ class ResourceDiscovery extends AbstractConnector
         if ($kind === 'umami') {
             return (new UmamiResourceDiscovery($this->http))->discover($credentials);
         }
+        if ($kind === 'azure_devops') {
+            return $this->azureDevOps($credentials);
+        }
         $headers = [];
         if (in_array($kind, ['ga4', 'gsc'], true)) {
             $scope = $kind === 'ga4' ? 'https://www.googleapis.com/auth/analytics.readonly' : 'https://www.googleapis.com/auth/webmasters.readonly';
@@ -109,6 +112,41 @@ class ResourceDiscovery extends AbstractConnector
                 break;
             }
         }
+
+        return $out;
+    }
+
+    /**
+     * Enabled Git repositories in every project of the organization that the access token can read.
+     *
+     * @param  array<string,mixed>  $credentials
+     * @return list<array{id:string,name:string,domain:string,timezone:string}>
+     */
+    private function azureDevOps(array $credentials): array
+    {
+        $organization = AzureDevOpsConnector::organization($credentials['organization'] ?? null);
+        $token = $this->text($credentials['token'] ?? null, 'Azure DevOps personal access token', 1024);
+        $response = $this->http->request('GET', 'https://dev.azure.com/'.$organization.'/_apis/git/repositories', [
+            'headers' => ['Authorization' => 'Basic '.base64_encode(':'.$token), 'X-TFS-FedAuthRedirect' => 'Suppress'],
+            'query' => ['api-version' => AzureDevOpsConnector::API_VERSION],
+        ]);
+        if ($response->status() !== 200) {
+            throw new ConnectorException('Could not list resources. Check this account’s permissions or try again later.');
+        }
+        $out = [];
+        foreach ($this->list($this->json($response, 'Azure DevOps')['value'] ?? null, 'Azure DevOps') as $row) {
+            $row = $this->object($row, 'Azure DevOps');
+            if (($row['isDisabled'] ?? false) === true) {
+                continue;
+            }
+            $id = $this->text($this->object($row['project'] ?? null, 'Azure DevOps')['name'] ?? null, 'Azure DevOps project name', 64)
+                .'/'.$this->text($row['name'] ?? null, 'Azure DevOps repository name', 64);
+            $out[] = ['id' => $id, 'name' => $id, 'domain' => '', 'timezone' => 'UTC'];
+            if (count($out) >= 2000) {
+                break;
+            }
+        }
+        usort($out, fn (array $a, array $b): int => strnatcasecmp($a['id'], $b['id']));
 
         return $out;
     }

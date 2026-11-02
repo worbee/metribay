@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.0 — 2026-11-02
+
+- Add **Azure DevOps** as a data source: connect an organization with an organization-scoped personal access token (Code, Build, Work Items and Project and Team set to Read), then pick a Git repository from any project. Collects **Commits** on the default branch, **PRs merged** from completed pull requests, the new **Pipeline runs succeeded** and **Pipeline runs failed** for this repository's default-branch runs, and **Open issues** from open bug work items (Issue in the Basic process). Lines changed is not collected.
+- Optional deployment environments turn successful Azure DevOps deployments of default-branch or tag runs into events, one per run and environment. They need the token's Environment (Read & manage) scope; without it the source explains the missing scope (`AzureDevOpsDeploymentAccess`). Environment suggestions, filter changes and errors now share one path with GitHub (`DeploymentAccess`, `ListsDeploymentEnvironments`, `ConnectorRegistry::environments()`). Available in all twelve interface languages. No migration.
+
 ## 0.6.0 — 2026-11-02
 
 - Move a project to another workspace from the new **Workspace** section in Project settings, with **Manage workspaces** and (where the host allows it) **New workspace** links. The section appears only when the host exposes workspaces (the `metribay.workspaces` route), so single-workspace editions are unchanged. Moving needs `manage_access` on the current workspace and `edit` on the target, and checks the project version.

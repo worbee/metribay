@@ -8,7 +8,7 @@ use Carbon\CarbonImmutable;
 use Firebase\JWT\JWT;
 
 /** Full-window activity recomputation handles late merges and force pushes. */
-final class GitHubConnector extends AbstractConnector
+final class GitHubConnector extends AbstractConnector implements ListsDeploymentEnvironments
 {
     public const API_VERSION = '2026-03-10';
 

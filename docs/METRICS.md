@@ -6,6 +6,8 @@ Default cards cover7/30/90 provider-local calendar days including today. Today m
 
 **Open issues** uses the latest recorded count in the selected window for each source, never a sum across days. The overview adds those source counts for each project and shows totals across projects; unknown sources remain unavailable in the breakdown, while a recorded zero stays zero. The overview sparkline sums a date only when every source has an observation for it; missing dates remain gaps. The project page charts each source's recorded daily snapshots. Neither view shows a percentage change for this snapshot metric, and the current count cannot reconstruct dates before collection began.
 
+Azure DevOps exposes the same `open_issues` key from its open work items, so it shares the column and the snapshot rules. Its `pipeline_runs_succeeded` and `pipeline_runs_failed` are daily sums by finish time; the overview's Commits · PRs column also includes Azure DevOps commits and completed pull requests.
+
 Overview columns match the metric keys exposed by each source. A future provider that exposes the registered `open_issues` metric joins the same overview column without a provider-specific dashboard change.
 
 All writes validate known metric keys, provider ownership, finite nonnegative numbers, valid dates and percent/status ranges before one atomic transaction. Canonical date-only setters prevent SQLite timestamp text from breaking metric identities. Daily first collected_at is preserved; changed numeric values advance revised_at, and observed_at records latest contact. Snapshot replacement removes omitted same-day readings while retaining present data. Uptime rows carry exact trailing24h window bounds.

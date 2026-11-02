@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Metribay\Core\Connectors;
 
 /** GitHub refused deployment data: the account, token or app lacks read access to deployments. Safe to display. */
-final class GitHubDeploymentAccess extends ConnectorException
+final class GitHubDeploymentAccess extends DeploymentAccess
 {
     public function __construct()
     {

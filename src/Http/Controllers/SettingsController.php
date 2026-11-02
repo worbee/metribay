@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Metribay\Core\Connectors\ConnectorRegistry;
-use Metribay\Core\Connectors\GitHubDeploymentAccess;
+use Metribay\Core\Connectors\DeploymentAccess;
 use Metribay\Core\Connectors\ProviderRequestLimit;
 use Metribay\Core\Connectors\SourceConfiguration;
 use Metribay\Core\Contracts\ConnectionCredentials;
@@ -149,7 +149,7 @@ class SettingsController
                 $config[$source->kind === 'wporg' ? 'limit' : 'days'] = (int) $values['days'];
             }
             $environmentsChanged = false;
-            if ($source->kind === 'github' && $request->has('environments')) {
+            if (ProviderCatalog::hasDeploymentEnvironments($source->kind) && $request->has('environments')) {
                 $environments = ProviderCatalog::environments((string) ($values['environments'] ?? ''));
                 $environmentsChanged = $environments !== ($config['environments'] ?? []);
                 unset($config['environments']);
@@ -158,7 +158,7 @@ class SettingsController
                 }
                 if ($environmentsChanged) {
                     // Deselected environments must not linger beyond the collection window; the next sync reimports the rest.
-                    ProjectEvent::query()->where('source_id', $source->id)->where('origin', 'github_deployment')->delete();
+                    ProjectEvent::query()->where('source_id', $source->id)->where('origin', ProviderCatalog::deploymentOrigin($source->kind))->delete();
                 }
             }
             $source->fill(['connection_id' => $connectionId, 'label' => $values['label'], 'enabled' => $request->has('enabled') ? $request->boolean('enabled') : $source->enabled, 'config' => $config, 'version' => $source->version + 1])->save();
@@ -177,16 +177,16 @@ class SettingsController
     public function environments(Request $request, ConnectorRegistry $connectors): RedirectResponse
     {
         $this->authorize($request, 'manage_connections');
-        $source = Source::query()->whereKey($request->route('source'))->where('kind', 'github')->firstOrFail();
+        $source = Source::query()->whereKey($request->route('source'))->whereIn('kind', ['github', 'azure_devops'])->firstOrFail();
         $connection = $source->connection;
         abort_if($connection === null, 422, __('Choose a connected account first.'));
         $redirect = redirect()->to(url()->previous().'#source-'.$source->id)->withInput(['source_form' => (string) $source->id]);
         try {
-            $names = $connectors->github()->environments((string) $source->config['repository'], app(ConnectionCredentials::class)->resolve($connection), CarbonImmutable::now('UTC'));
-        } catch (GitHubDeploymentAccess|ProviderRequestLimit $exception) {
+            $names = $connectors->environments($source->kind)->environments((string) $source->config['repository'], app(ConnectionCredentials::class)->resolve($connection), CarbonImmutable::now('UTC'));
+        } catch (DeploymentAccess|ProviderRequestLimit $exception) {
             return $redirect->withErrors(['environments' => __($exception->getMessage())]);
         } catch (\Throwable) {
-            return $redirect->withErrors(['environments' => __('GitHub could not list deployments. Check the connected account, then try again.')]);
+            return $redirect->withErrors(['environments' => SourceSetupController::environmentsUnavailable($source->kind)]);
         }
 
         return $redirect->with('environments_found', ['source' => $source->id, 'names' => $names]);
@@ -200,7 +200,7 @@ class SettingsController
             $connectors->for($source->kind)->collect(new SourceConfiguration($source->kind, array_merge($source->config, ['days' => 1, 'limit' => 1, 'period_days' => []]), $source->reporting_timezone), $source->connection ? app(ConnectionCredentials::class)->resolve($source->connection) : ($source->kind === 'pagespeed' ? app(PageSpeedCredentials::class)->resolve() : []), CarbonImmutable::now('UTC'));
         } catch (ProviderRequestLimit $exception) {
             throw ValidationException::withMessages(['connection_id' => $exception->getMessage()]);
-        } catch (GitHubDeploymentAccess $exception) {
+        } catch (DeploymentAccess $exception) {
             throw ValidationException::withMessages(['connection_id' => __($exception->getMessage())]);
         } catch (\Throwable) {
             throw ValidationException::withMessages(['connection_id' => __('The provider could not confirm access. Check the resource, the connected account and provider permissions.')]);

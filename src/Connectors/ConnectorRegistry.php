@@ -11,13 +11,23 @@ final readonly class ConnectorRegistry
     /** @return list<string> */
     public function kinds(): array
     {
-        return ['umami', 'ga4', 'gsc', 'bing', 'wporg', 'github', 'uptimerobot', 'pagespeed'];
+        return ['umami', 'ga4', 'gsc', 'bing', 'wporg', 'github', 'uptimerobot', 'pagespeed', 'azure_devops'];
     }
 
     /** The GitHub connector, which also lists deployment environments. */
     public function github(): GitHubConnector
     {
         return new GitHubConnector($this->http);
+    }
+
+    /** The connector that lists deployment environments for this provider, if it imports deployments. */
+    public function environments(string $kind): ListsDeploymentEnvironments
+    {
+        return match ($kind) {
+            'github' => $this->github(),
+            'azure_devops' => new AzureDevOpsConnector($this->http),
+            default => throw new ConnectorException('This provider does not import deployments.'),
+        };
     }
 
     public function for(string $kind): Connector
@@ -31,6 +41,7 @@ final readonly class ConnectorRegistry
             'github' => new GitHubConnector($this->http),
             'uptimerobot' => new UptimeRobotConnector($this->http),
             'pagespeed' => new PageSpeedConnector($this->http),
+            'azure_devops' => new AzureDevOpsConnector($this->http),
             default => throw new ConnectorException('Unsupported source provider.'),
         };
     }
