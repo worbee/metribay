@@ -1,6 +1,6 @@
 # Project page design
 
-Status: mockup approved by Rob (2026-11-02); implemented in Core on 2026-11-03, not yet committed or released. Mockup: [mockups/project-page.html](mockups/project-page.html) (static, synthetic data). The event list is out of scope here and will be redesigned separately; configurability is recorded below but deferred.
+Status: mockup approved by Rob (2026-11-02); released in Core 0.8.0 (production 20261103-01, 2026-11-03). Mockup: [mockups/project-page.html](mockups/project-page.html) (static, synthetic data). The event list is out of scope here and will be redesigned separately; configurability is recorded below but deferred.
 
 ## Why
 
