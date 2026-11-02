@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Remove **Sync now** from the project page and Project settings, together with the `metribay.sources.sync` route. Data sources are collected on the schedule only (and after setup or a change of GitHub deployment environments). `php artisan metribay:sync` remains for operators. Hosts that referenced the route name, such as Cloud's refresh limits, can drop it once they consume this release.
+
 ## 0.4.0 — 2026-11-02
 
 - Import successful GitHub deployments as project events. Each GitHub data source can name up to ten deployment environments (for example `production`) during setup or under **Manage data source**; **Find environments** lists the environments of the repository's latest deployments, and setup suggests `production` when it exists. Events are dated by the first success status, titled with the environment and tag or short commit, and link to the commit. Deployments later replaced by newer ones still count. Changing the environments removes existing deployment events and queues a fresh import. The event list labels imported events as **Release** or **Deployment**. Available in all twelve interface languages.

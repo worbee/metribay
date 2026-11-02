@@ -192,16 +192,6 @@ class SettingsController
         return $redirect->with('environments_found', ['source' => $source->id, 'names' => $names]);
     }
 
-    public function sync(Request $request): RedirectResponse
-    {
-        $this->authorize($request);
-        $source = Source::query()->whereKey($request->route('source'))->firstOrFail();
-        abort_unless($source->enabled && ! $source->project->archived, 422, __('Enable the data source and project before collecting.'));
-        CollectSource::dispatch(app(WorkspaceContext::class)->id(), $source->id, true);
-
-        return back()->with('status', __('Collection queued. The status updates when the import finishes.'));
-    }
-
     public function check(Request $request, ConnectorRegistry $connectors): RedirectResponse
     {
         $this->authorize($request, 'manage_connections');
