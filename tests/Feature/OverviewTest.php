@@ -133,7 +133,7 @@ class OverviewTest extends TestCase
             ->assertSee('Open issues')->assertSee('sortBy(\'issues\')', false)->assertSee('class="sparkline"', false)
             ->assertDontSee('class="cell-change', false);
         $response = $this->get('/w/overview/projects/'.$project->id.'?days=7')->assertOk()
-            ->assertSee('Open issues')->assertSee('Daily snapshots · no historical backfill')->assertSee('Observed '.CarbonImmutable::now('UTC')->toDateString());
+            ->assertSee('Open issues')->assertSee('Daily snapshots · no historical backfill')->assertSee('Observed '.CarbonImmutable::now('UTC')->translatedFormat('j M'));
         $this->assertStringContainsString('chart-'.$data['sources'][0]['id'].'-open_issues-label', $response->getContent());
     }
 

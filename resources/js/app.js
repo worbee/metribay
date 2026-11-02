@@ -71,7 +71,7 @@ function syncNumbers() {
 }
 function chartColors() {
     const style = getComputedStyle(root);
-    return Object.fromEntries(['chart-line', 'chart-previous', 'chart-grid', 'text-muted', 'page', 'text', 'event-blue', 'event-green', 'event-amber', 'event-violet', 'event-automatic'].map(name => [name, style.getPropertyValue(`--${name}`).trim()]));
+    return Object.fromEntries(['chart-line', 'chart-previous', 'chart-grid', 'text-muted', 'page', 'surface', 'text', 'event-blue', 'event-green', 'event-amber', 'event-violet', 'event-automatic'].map(name => [name, style.getPropertyValue(`--${name}`).trim()]));
 }
 // Draws project events as vertical markers: dots for custom events, diamonds for imported ones.
 const eventMarkers = {
@@ -110,26 +110,85 @@ const eventMarkers = {
         ctx.restore();
     },
 };
+// Hovering one chart marks the same reporting date on every chart of the page.
+let crossDate = null;
+function setCrosshair(date, source) {
+    if (date === crossDate) return;
+    crossDate = date;
+    for (const chart of charts) {
+        chart.metribayCrossDate = date;
+        if (chart !== source) chart.draw();
+    }
+}
+const crosshair = {
+    id: 'metribayCrosshair',
+    afterEvent(chart, args) {
+        const { event } = args;
+        if (event.type === 'mouseout' || !args.inChartArea) {
+            if (crossDate !== null) { setCrosshair(null, chart); args.changed = true; }
+            return;
+        }
+        if (!['mousemove', 'touchstart', 'touchmove'].includes(event.type)) return;
+        const index = Math.round(chart.scales.x.getValueForPixel(event.x));
+        const date = chart.data.labels[Math.max(0, Math.min(chart.data.labels.length - 1, index))] ?? null;
+        if (date !== crossDate) { setCrosshair(date, chart); args.changed = true; }
+    },
+    afterDatasetsDraw(chart) {
+        const index = crossDate === null ? -1 : chart.data.labels.indexOf(crossDate);
+        if (index < 0) return;
+        const { ctx, chartArea: { top, bottom }, scales: { x, y } } = chart;
+        const colors = chart.metribayColors;
+        const position = x.getPixelForValue(index);
+        ctx.save();
+        ctx.strokeStyle = colors['text-muted'];
+        ctx.globalAlpha = .55;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(position, top);
+        ctx.lineTo(position, bottom);
+        ctx.stroke();
+        const value = chart.isDatasetVisible(0) ? finite(chart.data.datasets[0].data[index]) : null;
+        if (value !== null && !chart.tooltip?.getActiveElements().length) {
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = colors['chart-line'];
+            ctx.strokeStyle = colors.surface;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(position, y.getPixelForValue(value), 3.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+        }
+        ctx.restore();
+    },
+};
+// Sizes: "l" lead chart with axes and events, "s" small chart with start and end dates, "n" sparkline under a number.
 function makeChart(canvas, config, signature) {
     const colors = chartColors();
-    const compact = Boolean(config.compact);
+    const size = ['l', 's', 'n'].includes(config.size) ? config.size : 'l';
+    const large = size === 'l';
+    const tile = size === 'n';
     const series = Array.isArray(config.series) ? config.series : [];
-    const previous = Array.isArray(config.previous) ? config.previous : [];
+    const previous = !tile && Array.isArray(config.previous) ? config.previous : [];
     const labels = series.map(point => point.date);
     const hasPrevious = previous.some(point => finite(point.value) !== null);
-    const events = compact || !Array.isArray(config.events) ? [] : config.events.filter(event => labels.includes(event.date));
+    const events = tile || !Array.isArray(config.events) ? [] : config.events.filter(event => labels.includes(event.date));
     const eventsOn = date => events.filter(event => event.date === date);
+    const known = index => finite(series[index]?.value) !== null;
+    const isolated = index => known(index) && !known(index - 1) && !known(index + 1);
+    const lastIndex = series.length - 1;
     const datasets = [{
         label: t('Selected period'),
         data: series.map(point => finite(point.value)),
         borderColor: colors['chart-line'],
-        backgroundColor: `${colors['chart-line']}0c`,
-        borderWidth: compact ? 1.7 : 2,
-        pointRadius: compact ? 0 : 1.7,
-        pointHoverRadius: compact ? 3 : 4,
+        backgroundColor: `${colors['chart-line']}${tile ? '14' : '0c'}`,
+        borderWidth: large ? 2 : 1.6,
+        // Today's incomplete value: hollow end point and a dashed segment leading to it.
+        pointRadius(context) { return context.dataIndex === lastIndex && series[lastIndex]?.partial ? (large ? 3 : 2.3) : (isolated(context.dataIndex) ? 2 : 0); },
+        pointHoverRadius: tile ? 2.5 : 4,
         pointBorderWidth: 1.5,
-        pointBackgroundColor(context) { return series[context.dataIndex]?.partial ? colors.page : colors['chart-line']; },
+        pointBackgroundColor(context) { return series[context.dataIndex]?.partial ? colors.surface : colors['chart-line']; },
         pointBorderColor: colors['chart-line'],
+        segment: { borderDash(context) { return series[context.p1DataIndex]?.partial ? [2, 2.5] : undefined; } },
         spanGaps: false,
         tension: 0.18,
         fill: true,
@@ -140,30 +199,31 @@ function makeChart(canvas, config, signature) {
         data: labels.map((_, index) => finite(previous[index]?.value)),
         borderColor: colors['chart-previous'],
         backgroundColor: 'transparent',
-        borderDash: [3, 4],
+        borderDash: [3, 3],
         borderWidth: 1.2,
         pointRadius: 0,
-        pointHoverRadius: compact ? 2 : 3,
+        pointHoverRadius: large ? 3 : 2,
         spanGaps: false,
         tension: 0.18,
         fill: false,
         stepped: config.unit === 'status',
     });
+    const group = canvas.closest('[data-chart-group]');
     for (const [index, dataset] of datasets.entries()) {
-        const toggle = canvas.closest('.metric')?.querySelector(`[data-chart-toggle="${index}"]`);
-        dataset.hidden = toggle?.getAttribute('aria-pressed') === 'false';
+        dataset.hidden = group?.querySelector(`[data-chart-toggle="${index}"]`)?.getAttribute('aria-pressed') === 'false';
     }
+    const tickFont = { family: 'system-ui', size: 10 };
     const chart = new Chart(canvas, {
         type: 'line',
         data: { labels, datasets },
-        plugins: [eventMarkers],
+        plugins: [eventMarkers, crosshair],
         options: {
             responsive: true,
             maintainAspectRatio: false,
             animation: false,
             normalized: true,
             interaction: { mode: 'index', intersect: false },
-            layout: { padding: { top: events.length ? 10 : 4, left: compact ? 0 : 2, right: 2, bottom: 0 } },
+            layout: { padding: { top: events.length ? 10 : 4, left: 0, right: tile ? 3 : 2, bottom: tile ? 2 : 0 } },
             plugins: {
                 legend: { display: false },
                 metribayEvents: { events, labels, colors },
@@ -172,8 +232,8 @@ function makeChart(canvas, config, signature) {
                     backgroundColor: colors.text,
                     titleColor: colors.page,
                     bodyColor: colors.page,
-                    padding: 11,
-                    displayColors: !compact,
+                    padding: tile ? 8 : 10,
+                    displayColors: large,
                     titleFont: { family: 'system-ui', size: 11, weight: 'normal' },
                     bodyFont: { family: 'system-ui', size: 11 },
                     callbacks: {
@@ -195,25 +255,32 @@ function makeChart(canvas, config, signature) {
             },
             scales: {
                 x: {
-                    display: !compact,
+                    display: !tile,
                     grid: { display: false, drawTicks: false },
                     border: { display: false },
-                    ticks: { color: colors['text-muted'], maxTicksLimit: 5, maxRotation: 0, padding: 10, font: { family: 'system-ui', size: 9 }, callback(value) { return formatDate(labels[value] ?? ''); } },
+                    ticks: large
+                        ? { color: colors['text-muted'], maxTicksLimit: 5, maxRotation: 0, align: 'inner', padding: 8, font: tickFont, callback(value) { return formatDate(labels[value] ?? ''); } }
+                        : { color: colors['text-muted'], autoSkip: false, maxRotation: 0, align: 'inner', padding: 5, font: tickFont, callback(value, index) { return index === 0 || index === lastIndex ? formatDate(labels[value] ?? '') : ''; } },
                 },
                 y: {
-                    display: !compact,
-                    beginAtZero: !['percent', 'score'].includes(config.unit),
-                    suggestedMax: ['percent', 'score'].includes(config.unit) ? 100 : undefined,
+                    display: !tile,
+                    // Number tiles show the shape of a snapshot, so their sparkline is not anchored at zero.
+                    beginAtZero: !tile && !['percent', 'score'].includes(config.unit),
+                    suggestedMax: !tile && ['percent', 'score'].includes(config.unit) ? 100 : undefined,
                     grid: { color: colors['chart-grid'], drawTicks: false },
                     border: { display: false },
-                    ticks: { color: colors['text-muted'], maxTicksLimit: 4, stepSize: config.unit === 'status' ? 1 : undefined, padding: 10, font: { family: 'system-ui', size: 9 }, callback(value) { return formatNumber(value, config.unit, true); } },
+                    ticks: large
+                        ? { color: colors['text-muted'], maxTicksLimit: 4, stepSize: config.unit === 'status' ? 1 : undefined, padding: 8, font: tickFont, callback(value) { return formatNumber(value, config.unit, true); } }
+                        : { display: false, maxTicksLimit: 3 },
                 },
             },
         },
     });
     chart.metribaySignature = signature;
+    chart.metribayColors = colors;
+    chart.metribayCrossDate = crossDate;
     charts.add(chart);
-    if (!compact) {
+    if (!tile) {
         canvas.tabIndex = 0;
         canvas.setAttribute('aria-keyshortcuts', 'ArrowLeft ArrowRight');
         canvas.addEventListener('keydown', event => {
@@ -354,17 +421,18 @@ document.addEventListener('click', event => {
     if (closer) closer.closest('dialog')?.close();
     const cycle = event.target.closest('[data-theme-cycle]');
     if (cycle) { const preference = themePreference(); applyTheme(preference === 'system' ? (root.dataset.theme === 'light' ? 'dark' : 'light') : ({ light: 'dark', dark: 'system' })[preference], true); }
+    // One legend per group toggles that series on every chart of the group.
     const legend = event.target.closest('[data-chart-toggle]');
     if (legend) {
-        const canvas = legend.closest('.metric')?.querySelector('canvas');
-        const chart = canvas && Chart.getChart(canvas);
-        if (chart) {
-            const index = Number(legend.dataset.chartToggle);
-            const visible = !chart.isDatasetVisible(index);
+        const index = Number(legend.dataset.chartToggle);
+        const visible = legend.getAttribute('aria-pressed') === 'false';
+        legend.setAttribute('aria-pressed', String(visible));
+        legend.closest('[data-chart-group]')?.querySelectorAll('canvas[data-metric-chart]').forEach(canvas => {
+            const chart = Chart.getChart(canvas);
+            if (!chart?.data.datasets[index]) return;
             chart.setDatasetVisibility(index, visible);
-            legend.setAttribute('aria-pressed', String(visible));
             chart.update('none');
-        }
+        });
     }
     // The project name is the real link; the rest of the row is a larger click target for pointer users.
     const row = event.target.closest('[data-row-href]');

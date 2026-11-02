@@ -1,54 +1,56 @@
 @php
+    $metric = $card['metric'];
+    $size = $card['size'];
+    $sourceId = $card['source']['id'];
+    $key = $metric['key'];
     $metricValue = $metric['value'] ?? null;
     $metricUnit = $metric['unit'] ?? 'count';
-    $metricLabel = __($metric['label'] ?? $metric['key']);
+    $metricLabel = __($metric['label'] ?? $key);
+    $title = ($short ?? false) && isset(\Metribay\Core\Metrics\ProjectLayout::SHORT_LABELS[$key]) ? __(\Metribay\Core\Metrics\ProjectLayout::SHORT_LABELS[$key]) : $metricLabel;
     $statusNames = [0=>__('Paused'),1=>__('Not checked yet'),2=>__('Up'),8=>__('Seems down'),9=>__('Down')];
-    $metricChange = $metric['change'] ?? null;
     $series = $metric['series'] ?? [];
-    $previousSeries = $metric['previous_series'] ?? [];
+    $previousSeries = $size === 'n' ? [] : ($metric['previous_series'] ?? []);
     $known = (int) ($metric['coverage']['known'] ?? 0);
     $total = (int) ($metric['coverage']['total'] ?? count($series));
     $hasData = collect($series)->contains(fn($point) => ($point['value'] ?? null) !== null);
-    $chartConfig = ['ariaLabel'=>__(':metric by reporting date. :known of :total days available. Missing dates are gaps.', ['metric' => $metricLabel, 'known' => $known, 'total' => $total]), 'label'=>$metricLabel, 'unit'=>$metricUnit, 'series'=>$series, 'previous'=>$previousSeries, 'compact'=>(bool)($compact ?? false), 'events'=>($compact ?? false) ? [] : array_values(array_filter($events ?? [], fn($event) => in_array($event['date'], array_column($series, 'date'), true)))];
-    $chartId = 'chart-'.($sourceId ?? 'metric').'-'.$metric['key'];
+    $snapshot = (bool) ($metric['snapshot'] ?? false);
+    // Today's incomplete value is drawn in the chart; the badge is for earlier incomplete dates only.
+    $earlierPartial = collect(array_slice($series, 0, -1))->contains(fn($point) => !empty($point['partial']));
+    $quality = \Metribay\Core\Metrics\ProjectLayout::quality($key, $metricValue);
+    $qualityNames = ['good'=>__('Good'),'needs-improvement'=>__('Needs improvement'),'poor'=>__('Poor')];
+    $chartEvents = $size !== 'n' ? array_values(array_filter($card['source']['events'] ?? [], fn($event) => in_array($event['date'], array_column($series, 'date'), true))) : [];
+    $ariaLabel = __(':metric by reporting date. :known of :total days available. Missing dates are gaps.', ['metric' => $metricLabel, 'known' => $known, 'total' => $total]);
+    $chartConfig = ['ariaLabel'=>$ariaLabel, 'label'=>$metricLabel, 'unit'=>$metricUnit, 'series'=>$series, 'previous'=>$previousSeries, 'size'=>$size, 'events'=>$chartEvents];
+    $chartId = 'chart-'.$sourceId.'-'.$key;
+    $formatted = $metricValue !== null && !in_array($metricUnit, ['count', 'lines', 'status'], true) ? \Metribay\Core\Metrics\ProjectLayout::format((float) $metricValue, $metricUnit) : null;
+    $previousTotal = $size === 'l' && !$snapshot ? ($metric['previous'] ?? null) : null;
 @endphp
-<section @class(['metric', 'metric-compact' => $compact ?? false]) aria-labelledby="{{ $chartId }}-label" wire:key="{{ $chartId }}">
-    <div class="metric-top"><h3 id="{{ $chartId }}-label">{{ $metricLabel }}</h3><div class="metric-top-actions">@if ($metric['partial'] ?? false)<span class="partial-label" title="{{ __('Some dates or the current reporting day are incomplete') }}">{{ __('Partial') }}</span>@endif @if(!empty($hideAction))<form method="POST" action="{{ $hideAction }}" class="chart-hide-form">@csrf<input type="hidden" name="source_id" value="{{ $sourceId }}"><input type="hidden" name="metric_key" value="{{ $metric['key'] }}"><button type="submit" class="icon-button chart-hide" aria-label="{{ __('Hide :chart chart', ['chart' => $metricLabel]) }}" title="{{ __('Hide this chart from the project page') }}">@include('metribay::partials/icon',['name'=>'eye-off'])</button></form>@endif</div></div>
-    <div class="metric-value-row">
-        <strong class="metric-value" @if(is_numeric($metricValue) && $metricUnit !== 'status') data-metric-number="{{ $metricValue }}" data-unit="{{ $metricUnit }}" @endif>
-            @if ($metricValue === null)<span class="missing-value" aria-label="{{ __('No period total available') }}">—</span>
-            @elseif (!empty($metric['display_value'])){{ $metric['display_value'] }}
-            @elseif ($metricUnit === 'percent'){{ \Illuminate\Support\Number::format((float)$metricValue, 2, locale: app()->getLocale()) }}<small>%</small>
-            @elseif ($metricUnit === 'ms'){{ \Illuminate\Support\Number::format((float)$metricValue, 0, locale: app()->getLocale()) }}<small>ms</small>
-            @elseif ($metricUnit === 'status'){{ $statusNames[(int)$metricValue] ?? \Illuminate\Support\Number::format((float)$metricValue, locale: app()->getLocale()) }}
-            @else{{ \Illuminate\Support\Number::format((float)$metricValue, fmod((float)$metricValue, 1) !== 0.0 ? 1 : 0, locale: app()->getLocale()) }}@endif
-        </strong>
-        @if ($metricChange !== null && $metricUnit !== 'status')<span class="metric-change" title="{{ __('Change from the preceding :days-day period', ['days' => $days ?? 30]) }}">@if($metricChange > 0)↗ @elseif($metricChange < 0)↘ @else→ @endif{{ $metricChange > 0 ? '+' : '' }}{{ \Illuminate\Support\Number::format((float)$metricChange, 1, locale: app()->getLocale()) }}<span>%</span><span class="sr-only"> {{ __('versus previous period') }}</span></span>@endif
+<section @class(['metric', 'metric-'.$size, 'span-'.($card['span'] ?? 'auto'), 'metric-solo' => $card['solo'] ?? false]) @if(($card['rows'] ?? 1) > 1) style="--rows: {{ $card['rows'] }}" @endif aria-labelledby="{{ $chartId }}-label" wire:key="{{ $chartId }}">
+    <div class="metric-head">
+        <div class="metric-top"><h3 id="{{ $chartId }}-label" @if($title !== $metricLabel) aria-label="{{ $metricLabel }}" @endif>{{ $title }}</h3>@if(!empty($card['label']))<span class="metric-source">{{ $card['label'] }}</span>@endif @if($earlierPartial)<span class="partial-label" title="{{ __('Some dates or the current reporting day are incomplete') }}">{{ __('Partial') }}</span>@endif @include('metribay::partials/chart-hide', ['metric' => $metric, 'sourceId' => $sourceId])</div>
+        <div class="metric-value-row">
+            <strong class="metric-value">@if ($metricValue === null)<span class="missing-value" aria-label="{{ __('No period total available') }}">—</span>@elseif ($metricUnit === 'status'){{ $statusNames[(int)$metricValue] ?? __('Unknown') }}@elseif($formatted){{ $formatted[0] }}@if($formatted[1])<small>{{ $formatted[1] }}</small>@endif @else<span data-metric-number="{{ $metricValue }}" data-unit="{{ $metricUnit }}">{{ \Illuminate\Support\Number::format((float)$metricValue, fmod((float)$metricValue, 1) !== 0.0 ? 1 : 0, locale: app()->getLocale()) }}</span>@endif</strong>
+            @if($quality)<span class="quality quality-{{ $quality }}">{{ $qualityNames[$quality] }}</span>@endif
+            @if($metricUnit !== 'status')@include('metribay::partials/overview-change', ['change' => $metric['change'] ?? null, 'days' => $days, 'polarity' => \Metribay\Core\Metrics\ProjectLayout::polarity($key)])@endif
+        </div>
+        @if($previousTotal !== null)<p class="metric-previous">{{ __(':value in the previous :days days', ['value' => \Illuminate\Support\Number::format((float) $previousTotal, fmod((float) $previousTotal, 1) !== 0.0 ? 1 : 0, locale: app()->getLocale()), 'days' => $days]) }}</p>
+        @elseif($metricValue === null && $hasData)<p class="metric-previous">{{ __('Daily data available · period total unavailable') }}</p>@endif
     </div>
     @if ($hasData)
-        <div @class(['chart-wrap', 'chart-wrap-compact'=>$compact ?? false]) data-chart-container data-chart-config="{{ json_encode($chartConfig, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_THROW_ON_ERROR) }}">
-            <canvas data-metric-chart wire:ignore role="img" aria-label="{{ __(':metric by reporting date. :known of :total days available. Missing dates are gaps.', ['metric' => $metricLabel, 'known' => $known, 'total' => $total]) }}" @unless($compact ?? false) aria-describedby="{{ $chartId }}-help" @endunless></canvas>
-            @unless($compact ?? false)<p class="sr-only" id="{{ $chartId }}-help">{{ __('Use the left and right arrow keys to inspect recorded dates. Daily values are also available in the table below.') }}</p><p class="sr-only" aria-live="polite" data-chart-announcement></p>@endunless
+        <div class="chart-wrap" data-chart-container data-chart-config="{{ json_encode($chartConfig, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_THROW_ON_ERROR) }}">
+            <canvas data-metric-chart wire:ignore role="img" aria-label="{{ $ariaLabel }}" @if($size !== 'n') aria-describedby="{{ $chartId }}-help" @endif></canvas>
+            @if($size !== 'n')<p class="sr-only" id="{{ $chartId }}-help">{{ __('Use the left and right arrow keys to inspect recorded dates. Daily values are also available in the table below.') }}</p><p class="sr-only" aria-live="polite" data-chart-announcement></p>@endif
         </div>
     @else
-        <div @class(['chart-empty', 'chart-empty-compact'=>$compact ?? false])><span>{{ __('No data for this period') }}</span><span class="chart-empty-line" aria-hidden="true"></span></div>
+        <div class="chart-empty"><span>{{ __('No data for this period') }}</span></div>
     @endif
-    <div class="metric-footnote">
-    @if (($metric['snapshot'] ?? false) || in_array($metric['key'], ['monitor_status','uptime_24h','response_time_24h','open_issues','indexed_pages']))
-        <span>{{ !empty($metric['observed_date']) ? __('Observed :date', ['date' => $metric['observed_date']]) : __('Latest observation') }}</span>
-    @elseif ($metricValue === null && $hasData)
-        <span>{{ __('Daily data available · period total unavailable') }}</span>
-    @else
-        <span>{{ __(':known/:total days recorded', ['known' => $known, 'total' => $total]) }}</span>
-    @endif
-    @unless($compact ?? false)<span>{{ match($metricUnit) {'percent'=>__('Percent (%)'), 'ms'=>__('Milliseconds'), 'lines'=>__('Lines'), 'status'=>__('Provider status'), 'score'=>__('Score (0–100)'), 'ratio'=>__('Layout shift score'), default=>__('Count')} }}</span>@endunless
+    <div class="metric-foot">
+        @if($snapshot && empty($observedInCaption))<span>{{ !empty($metric['observed_date']) ? __('Observed :date', ['date' => \Carbon\CarbonImmutable::parse($metric['observed_date'])->translatedFormat('j M')]) : __('Latest observation') }}</span>
+        @elseif(!$snapshot && $known < $total)<span class="coverage-gap">{{ __(':known/:total days recorded', ['known' => $known, 'total' => $total]) }}</span>@endif
+        @if(!empty($metric['context']['collection_start']))<span>{{ __('Collection window: :start – :end', ['start' => $metric['context']['collection_start'], 'end' => $metric['context']['collection_end']]) }}</span>@endif
+        @if($key === 'open_issues')<span>{{ __('Daily snapshots · no historical backfill') }}</span>@endif
+        @if($hasData)
+        <details class="chart-table" wire:ignore.self><summary>{{ __('Daily values') }}</summary><div class="table-scroll"><table><caption class="sr-only">{{ __(':metric daily values in the data source’s reporting timezone', ['metric' => $metricLabel]) }}</caption><thead><tr><th>{{ __('Date') }}</th><th class="number">{{ __('Value') }}</th><th>{{ __('Coverage') }}</th></tr></thead><tbody>@foreach (array_reverse($series) as $point)<tr><th scope="row">{{ $point['date'] }}@if(!empty($point['context']['collection_start']))<small class="field-hint"> · {{ $point['context']['collection_start'] }} – {{ $point['context']['collection_end'] }}</small>@endif</th><td class="number">@if($point['value'] === null)—@elseif($metricUnit === 'status'){{ $statusNames[(int) $point['value']] ?? __('Unknown') }}@else{{ \Illuminate\Support\Number::format((float)$point['value'], in_array($metricUnit, ['percent', 'ratio']) ? 3 : (fmod((float)$point['value'], 1) !== 0.0 ? 2 : 0), locale: app()->getLocale()) }}@if($metricUnit === 'percent')%@elseif($metricUnit === 'ms') ms @elseif($metricUnit === 'score')/100 @endif @endif</td><td>{{ $point['value'] === null ? __('Missing') : (!empty($point['partial']) ? __('Partial') : __('Recorded')) }}</td></tr>@endforeach</tbody></table></div></details>
+        @endif
     </div>
-    @if(!empty($metric['context']['collection_start']) && !($compact ?? false))<p class="field-hint">{{ __('Collection window: :start – :end', ['start' => $metric['context']['collection_start'], 'end' => $metric['context']['collection_end']]) }}</p>@endif
-    @if($metric['key'] === 'open_issues' && !($compact ?? false))<p class="field-hint">{{ __('Daily snapshots · no historical backfill') }}</p>@endif
-    @unless($compact ?? false)
-    @if($hasData)
-    <div class="chart-legend" aria-label="{{ __('Chart series') }}"><button type="button" wire:ignore data-chart-toggle="0" aria-pressed="true"><span class="legend-swatch"></span>{{ __('Selected period') }}</button>@if(collect($previousSeries)->contains(fn($point) => ($point['value'] ?? null) !== null))<button type="button" wire:ignore data-chart-toggle="1" aria-pressed="true"><span class="legend-swatch legend-swatch-previous"></span>{{ __('Previous period') }}</button>@endif @if(!empty($chartConfig['events']))<span class="legend-events"><span class="legend-swatch legend-swatch-event"></span>{{ trans_choice('{1} :count event|[2,*] :count events', count($chartConfig['events']), ['count' => count($chartConfig['events'])]) }}</span>@endif</div>
-    <details class="chart-table" wire:ignore.self><summary>{{ __('View daily values') }}</summary><div class="table-scroll"><table><caption class="sr-only">{{ __(':metric daily values in the data source’s reporting timezone', ['metric' => $metricLabel]) }}</caption><thead><tr><th>{{ __('Date') }}</th><th class="number">{{ __('Value') }}</th><th>{{ __('Coverage') }}</th></tr></thead><tbody>@foreach ($series as $point)<tr><th scope="row">{{ $point['date'] }}@if(!empty($point['context']['collection_start']))<small class="field-hint"> · {{ $point['context']['collection_start'] }} – {{ $point['context']['collection_end'] }}</small>@endif</th><td class="number">{{ $point['value'] === null ? '—' : \Illuminate\Support\Number::format((float)$point['value'], in_array($metricUnit, ['percent', 'ratio']) ? 3 : (fmod((float)$point['value'], 1) !== 0.0 ? 2 : 0), locale: app()->getLocale()) }}@if($point['value'] !== null && $metricUnit === 'percent')%@elseif($point['value'] !== null && $metricUnit === 'ms') ms @endif</td><td>{{ $point['value'] === null ? __('Missing') : (!empty($point['partial']) ? __('Partial') : __('Recorded')) }}</td></tr>@endforeach</tbody></table></div></details>
-    @endif
-    @endunless
 </section>

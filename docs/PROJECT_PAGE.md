@@ -1,0 +1,116 @@
+# Project page design
+
+Status: mockup approved by Rob (2026-11-02); implemented in Core on 2026-11-03, not yet committed or released. Mockup: [mockups/project-page.html](mockups/project-page.html) (static, synthetic data). The event list is out of scope here and will be redesigned separately; configurability is recorded below but deferred.
+
+## Why
+
+Today every metric is the same ~410 px card: a 35 px number, a 215 px line chart and six lines of small print. A project with five sources and 13 metrics is about 4,500 px tall at 1440 px (five screens) and 6,800 px on a phone; the first desktop screen shows two numbers. Sections follow providers, so related numbers (visits and search clicks, uptime and response time) sit far apart, and status values such as "Up" are drawn as line charts.
+
+## Principles
+
+1. **The index summarises, the project page shows everything.** Someone who opens a project wants more, not less. No metric moves behind an extra click, drawer or detail page. Every chart stays visible and interactive.
+2. **Hierarchy comes from grouping, size and chart type**, not from hiding.
+3. **Same language as the index.** Group order follows the index columns; changes use the index's arrows, rounding and colours.
+4. **Say it once.** Small print that is identical on every chart (legend, unit, full coverage) is shown once per group or only when it carries information.
+5. **Core data rules are unchanged:** unknown stays "—" and never 0, missing days stay gaps, partial days stay marked, visitors are never summed, percent change against a missing or zero baseline is unavailable, the daily-values table stays available for every chart.
+
+Target: at 1440 × 900 every headline number and the first group fit on the first screen; a project with 13 metrics fits in about two screens.
+
+## Page structure
+
+1. **Compact header** (one block, about 110 px):
+   - "All projects" link, favicon, project name (h1, about 26 px), domain link.
+   - Status line: number of data sources, last sync, and a single health state ("All data sources healthy" / "1 needs attention" / "1 paused") linking to Project settings. Per-source names, timezones and sync times move out of the page body (they stay in the tooltip of each provider label and in Project settings).
+   - Right side: period as a segmented control (7 / 30 / 90 days), secondary buttons **Add event** and **Add data source**, icon button for Project settings. No primary (pink) button on this page.
+2. **Summary row (optional, evaluate in the mockup):** the project's own index row (same columns, numbers, changes and sparklines). Each cell links to its group. It is a recap of the row the user clicked, not a new layer.
+3. **Groups**, in index column order. Each group has a heading, the provider labels it draws from, and one legend (selected period, previous period, events).
+4. **Footnote** (existing data note), unchanged.
+
+## Groups and default sizes
+
+| Group | Metrics (lead first) | Providers |
+| --- | --- | --- |
+| Audience | **Visits**, Visitors, Page views | Umami, Google Analytics |
+| Search | **Clicks**, Impressions, Indexed pages | Search Console, Bing Webmaster |
+| Development | **Commits**, PRs merged, Lines changed, Open issues, Pipeline runs succeeded / failed | GitHub, Azure DevOps |
+| Distribution | **Downloads** | WordPress.org |
+| Reliability | **Monitor status** (status strip), Uptime, Response time | UptimeRobot |
+| Page speed | **Lab performance score**, lab LCP / CLS / TBT, real-user page and site LCP / INP / CLS | PageSpeed Insights |
+
+Sizes (desktop grid of six columns):
+
+- **Large** (lead): four columns, number about 30 px, previous-period value in words, chart about 160 px with y-axis labels and event markers. One per group.
+- **Small**: two columns, number about 20 px, chart about 64 px with two gridlines and start/end dates only. Smalls fill the column beside the lead first (stacked, sharing its height), then continue in rows of three.
+- **Number**: value, change, threshold or status, and a sparkline; no axis. Used for snapshot and quality values (open issues, Page speed values).
+- **Status strip**: one cell per day (up, down, partial, unknown), with the current state and "29 of 30 days up". Replaces the line chart for monitor status.
+
+Layout rules:
+
+- A group with a single chart, or that fits in three columns, takes half the width and pairs with the next group of the same kind (for example Distribution beside Reliability).
+- If a group's lead metric is missing, the next metric in the table becomes the lead.
+- When two sources provide the same metric (two repositories, Umami and GA4), each gets its own chart labelled with the source; the first source in project order provides the lead.
+- Charts without any data in the period collapse to one line ("Response time · no data for this period") instead of a full card.
+
+## Chart chrome
+
+- **Legend:** once per group, not per chart.
+- **Unit line** ("Count", "Milliseconds"): removed; units live in the number formatting (ms, %, score /100).
+- **Coverage:** shown only when incomplete ("27 / 30 days recorded"). Snapshots keep "Observed 1 Nov"; when every value in a block shares the date (Page speed), it is shown once in the block caption.
+- **Partial:** today's incomplete value is drawn in the chart itself (dashed last segment, hollow last point, "partial" in the tooltip) instead of a badge on every card. The Partial badge remains only when earlier dates are incomplete.
+- **Hide chart:** icon on hover and keyboard focus; always visible on touch screens.
+- **Daily values:** stays per chart as a quiet "Daily values" link that expands the existing table in place.
+- **Provider label:** on each chart only when the group has more than one provider.
+- **Aligned dates:** all charts in a period share the same x-axis; hovering one chart shows a crosshair at the same date in every chart and that day's value in the hovered chart.
+
+## Change indicator
+
+Matches the index (`partials/overview-change`): ↗ / ↘ / →, one decimal below 10 %, whole numbers from 10 %. Colour applies from 10 % and depends on the metric's polarity:
+
+- Higher is better: visits, visitors, page views, clicks, impressions, indexed pages, commits, PRs merged, pipeline runs succeeded, downloads, uptime, lab score.
+- Lower is better (a rise is red): open issues, pipeline runs failed, response time, every LCP / INP / CLS / TBT value.
+- Neutral (never coloured): lines changed.
+
+Large charts also show the previous-period value in words ("468 in the previous 30 days"). No percentage is shown when the previous period is missing or zero (existing rule).
+
+## Page speed
+
+Values carry the published thresholds as a quality label (Good / Needs improvement / Poor) and colour: score ≥ 90 / 50–89 / < 50; LCP ≤ 2.5 s / ≤ 4 s / > 4 s; INP ≤ 200 ms / ≤ 500 ms / > 500 ms; CLS ≤ 0.1 / ≤ 0.25 / > 0.25; TBT ≤ 200 ms / ≤ 600 ms / > 600 ms. Lab values and real-user values stay separate, and real-user page and site values stay separate rows; the tested URL, device and Lighthouse version stay in the group heading, and the observation date is shown once per block (lab, real users) instead of on every value.
+
+## States
+
+- **Failed source:** a warning in its group heading ("Search Console needs attention · existing history shown") with the Review link; its charts keep their history.
+- **Delayed source:** a quiet note in the group heading.
+- **Paused source:** "Paused" label beside the provider; charts unchanged.
+- **First import pending:** the group shows its heading with a single line "First import running"; no placeholder charts.
+- **All charts of a group hidden:** the group is omitted; the existing "N charts hidden · Show" line remains at the end of the page.
+- **No sources:** the existing empty state.
+
+## Responsive
+
+- ≥ 1100 px: six-column grid as above.
+- 700–1099 px: large charts take the full width; smalls two per row; paired groups stack.
+- < 700 px: summary row becomes a two-column grid; large chart full width at about 160 px; smalls two per row as compact tiles (number, change, sparkline); header controls wrap below the title; period control full width.
+
+## Accessibility
+
+Keep the current canvas labels, keyboard date inspection, live announcements and the daily-values table for every chart. Group headings are h2, chart titles h3. Colour never carries meaning alone: changes keep arrows and signs, quality labels keep words, status cells have text equivalents.
+
+## Configurability (deferred)
+
+Agreed staged plan, to revisit after the default layout ships:
+
+1. Excellent defaults first (this document).
+2. Chart menu next to Hide: size (large / small / number only) and move up / down within its group; "Reset layout" in Project settings beside Hidden charts. Stored per project and workspace-wide, like hidden charts (one row per chart with hidden, size and position).
+3. Optionally "Apply this layout to other projects in the workspace".
+4. Drag and drop only on demand, as an explicit "Edit layout" mode with snapping sizes; move buttons remain the accessible alternative.
+
+Constraints: sizes snap to the grid; charts reorder within their group and groups reorder as blocks.
+
+## Implementation
+
+- Layout rules live in `src/Metrics/ProjectLayout.php` (groups, lead and sizes, grid spans, half-width pairing, polarity, page speed thresholds, value formatting). `src/Livewire/ProjectCharts.php` passes its rows, the project's overview summary and source status counts to `resources/views/components/project-charts.blade.php`, which now also renders the page header.
+- Partials: `project-group` (heading, sources, legend, source notices, grid), `metric` (sizes `l`, `s`, `n`), `metric-strip` (monitor status), `page-speed`, `source-notice`, `chart-hide`. `overview-change` takes an optional `polarity`; its classes are `is-good` / `is-bad`.
+- Charts stay on Chart.js (`resources/js/app.js`): sizes `l`/`s`/`n`, dashed segment into partial dates with a hollow end point, a shared crosshair by reporting date, and group legends that toggle a series on every chart of the group.
+- Differences from the mockup: small charts also draw event markers (otherwise events tied to a second source would appear on no chart); number-tile sparklines are not anchored at zero; daily-value tables list the newest date first; several "no data" charts each get their own line.
+- Tests: `tests/Feature/ProjectPageLayoutTest.php`.
+

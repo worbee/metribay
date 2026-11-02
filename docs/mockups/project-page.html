@@ -1,0 +1,529 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Project page mockup · Metribay</title>
+<script>
+    try { document.documentElement.dataset.theme = localStorage.getItem('mock-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); } catch (e) {}
+</script>
+<style>
+    /* Tokens copied from resources/css/app.css */
+    :root {
+        color-scheme: light;
+        --page: #fafaf7; --surface: #ffffff; --surface-soft: #f1f2ee; --surface-hover: #ededeb;
+        --text: #172235; --text-secondary: #4c5764; --text-muted: #69717c;
+        --border: #dddfd9; --border-strong: #c3c8c5;
+        --accent: #aa336d; --accent-soft: #f7e9f0;
+        --lime: #527600; --lime-dot: #84a814; --lime-soft: #edf3dc;
+        --warning: #8b5c12; --warning-soft: #fcf2dc; --error: #b43743; --error-soft: #fbecef;
+        --chart-line: #aa336d; --chart-previous: #a7acb1; --chart-grid: #e9eae6;
+        --event-blue: #2f6db5; --event-automatic: #69717c;
+        --font: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        --gutter: clamp(16px, 3.7vw, 56px);
+    }
+    [data-theme='dark'] {
+        color-scheme: dark;
+        --page: #101925; --surface: #15202e; --surface-soft: #1b2735; --surface-hover: #233040;
+        --text: #e8ecee; --text-secondary: #bdc6cf; --text-muted: #98a6b5;
+        --border: #2a3644; --border-strong: #455261;
+        --accent: #e280b1; --accent-soft: #332335;
+        --lime: #b3d963; --lime-dot: #a3c945; --lime-soft: #283323;
+        --warning: #e3bd73; --warning-soft: #332d22; --error: #f1969e; --error-soft: #37242d;
+        --chart-line: #df7aad; --chart-previous: #64778b; --chart-grid: #283442;
+        --event-blue: #7fb0ee; --event-automatic: #98a6b5;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    * { margin: 0; }
+    body { background: var(--page); color: var(--text); font: 14px/1.5 var(--font); -webkit-font-smoothing: antialiased; min-height: 100svh; }
+    a { color: inherit; text-decoration: none; }
+    button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+    svg { display: block; }
+    h1, h2, h3 { font-weight: 600; letter-spacing: -.025em; line-height: 1.25; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+    .icon { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .num { font-variant-numeric: tabular-nums; }
+
+    /* App chrome (unchanged) */
+    .app-header { border-bottom: 1px solid var(--border); }
+    .app-header-inner, .page { max-width: 1440px; margin: 0 auto; padding: 0 var(--gutter); }
+    .app-header-inner { display: flex; align-items: center; gap: 18px; min-height: 56px; }
+    .brand img { height: 24px; width: auto; }
+    .brand .logo-light { display: block; } .brand .logo-dark { display: none; }
+    [data-theme='dark'] .brand .logo-light { display: none; } [data-theme='dark'] .brand .logo-dark { display: block; }
+    .workspace-switch { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 500; }
+    .header-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+    .icon-button { display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 5px; color: var(--text-muted); }
+    .icon-button:hover { background: var(--surface-hover); color: var(--text); }
+    .user-avatar { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--text); color: var(--page); font-size: 12px; font-weight: 600; }
+
+    /* Compact project header */
+    .page { padding-bottom: 72px; }
+    .project-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 14px 24px; padding: 18px 0 18px; border-bottom: 1px solid var(--border); }
+    .back { display: inline-flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: 12px; margin-bottom: 8px; }
+    .back:hover { color: var(--text); }
+    .title-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .favicon { width: 26px; height: 26px; border-radius: 6px; display: grid; place-items: center; background: var(--lime-soft); color: var(--lime); font-weight: 700; font-size: 13px; }
+    .title-row h1 { font-size: 26px; letter-spacing: -.04em; }
+    .domain { color: var(--text-muted); font-size: 13px; display: inline-flex; align-items: center; gap: 4px; }
+    .domain:hover { color: var(--text); }
+    .status-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 6px; color: var(--text-muted); font-size: 12px; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--lime-dot); display: inline-block; }
+    .dot.warn { background: var(--warning); } .dot.bad { background: var(--error); } .dot.off { background: var(--text-muted); }
+    .status-line a { color: var(--text-secondary); text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; }
+    .head-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    .segmented { display: inline-flex; padding: 3px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); }
+    .segmented button { padding: 5px 11px; border-radius: 5px; font-size: 12px; color: var(--text-secondary); }
+    .segmented button[aria-pressed='true'] { background: var(--surface-hover); color: var(--text); font-weight: 600; }
+    .button { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); font-size: 12.5px; font-weight: 500; }
+    .button:hover { background: var(--surface-hover); }
+
+    /* Summary row: the project's own index row */
+    .summary { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); margin-top: 18px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); overflow: hidden; }
+    .summary a { display: flex; flex-direction: column; gap: 2px; padding: 10px 14px 11px; border-left: 1px solid var(--border); min-width: 0; }
+    .summary a:first-child { border-left: 0; }
+    .summary a:hover { background: var(--surface-hover); }
+    .summary .s-label { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 5px; }
+    .summary .s-value { display: flex; align-items: baseline; gap: 6px; font-size: 18px; font-weight: 600; letter-spacing: -.02em; white-space: nowrap; }
+    .summary .s-value small { font-size: 12px; font-weight: 500; color: var(--text-muted); }
+    .summary .spark { height: 18px; margin-top: 3px; }
+
+    /* Groups */
+    .group { margin-top: 30px; }
+    .group-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 6px 20px; margin-bottom: 12px; }
+    .group-head h2 { font-size: 17px; }
+    .group-sources { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; color: var(--text-muted); font-size: 12px; margin-top: 2px; }
+    .group-sources .src { display: inline-flex; align-items: center; gap: 5px; }
+    .tag { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--border); border-radius: 4px; padding: 0 6px; font-size: 11px; line-height: 18px; color: var(--text-muted); }
+    .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--text-muted); font-size: 11.5px; }
+    .legend span { display: inline-flex; align-items: center; gap: 6px; }
+    .sw { width: 16px; height: 0; border-top: 2px solid var(--chart-line); }
+    .sw.prev { border-top: 2px dashed var(--chart-previous); }
+    .sw.event { width: 0; height: 11px; border-top: 0; border-left: 2px dotted var(--event-automatic); }
+    .group-notice { display: flex; gap: 10px; align-items: flex-start; padding: 9px 12px; border-radius: 6px; margin-bottom: 12px; font-size: 12.5px; background: var(--warning-soft); color: var(--text); }
+    .group-notice .icon { color: var(--warning); margin-top: 2px; }
+    .group-notice a { color: var(--text); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border-strong); }
+    .group-notice.quiet { background: var(--surface-soft); color: var(--text-secondary); }
+    .group-notice.quiet .icon { color: var(--text-muted); }
+
+    .grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; grid-auto-flow: row dense; }
+    .pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 24px; }
+    .pair > .group { display: flex; flex-direction: column; }
+    .pair > .group > .grid { flex: 1; }
+    .card { position: relative; display: flex; flex-direction: column; min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px 10px; }
+    .size-l { grid-column: span 4; grid-row: span var(--rows, 1); padding: 14px 16px 10px; }
+    .size-s, .size-n { grid-column: span 2; }
+    .size-n.solo { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(150px, auto) minmax(0, 1fr) auto; grid-template-areas: 'top chart foot' 'value chart foot'; column-gap: 24px; align-items: center; padding: 8px 14px; }
+    .size-n.solo .card-top { grid-area: top; } .size-n.solo .value-row { grid-area: value; } .size-n.solo .chart { grid-area: chart; margin: 0; height: 34px; } .size-n.solo .card-foot { grid-area: foot; margin: 0; flex-direction: column; align-items: flex-end; gap: 0; } .size-n.solo .card-tools { position: absolute; right: 8px; top: 6px; } .size-n.solo .daily-table { grid-column: 1 / -1; }
+    .half .size-l, .half .size-strip { grid-column: span 6; }
+    .half .size-s { grid-column: span 3; }
+    .card-top { display: flex; align-items: center; gap: 8px; min-height: 22px; }
+    .card-top h3 { font-size: 12.5px; font-weight: 500; color: var(--text-secondary); letter-spacing: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .size-l .card-top h3 { font-size: 13px; }
+    .card-tools { margin-left: auto; display: flex; gap: 2px; opacity: 0; transition: opacity 120ms; }
+    .card:hover .card-tools, .card:focus-within .card-tools { opacity: 1; }
+    @media (hover: none) { .card-tools { opacity: 1; } }
+    .card-tools button { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 4px; color: var(--text-muted); }
+    .card-tools button:hover { background: var(--surface-hover); color: var(--text); }
+    .badge { font-size: 10.5px; color: var(--text-muted); border: 1px solid var(--border); border-radius: 4px; padding: 0 5px; line-height: 17px; white-space: nowrap; }
+    .value-row { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; }
+    .value { font-weight: 600; letter-spacing: -.035em; font-variant-numeric: tabular-nums; line-height: 1.15; }
+    .value small { font-size: .55em; font-weight: 500; color: var(--text-muted); margin-left: 2px; letter-spacing: 0; }
+    .size-l .value { font-size: 30px; }
+    .size-s .value, .size-n .value { font-size: 20px; }
+    .missing { color: var(--text-muted); }
+    .chg { font-size: 12px; color: var(--text-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .chg.good { color: var(--lime); } .chg.bad { color: var(--error); }
+    .sub { color: var(--text-muted); font-size: 12px; }
+    .size-l .sub { margin-top: 1px; }
+    .chart { position: relative; margin-top: 8px; min-height: 0; }
+    .size-l .chart { height: 160px; flex: 1 0 160px; }
+    .size-s .chart { flex: 1 0 56px; }
+    .size-n .chart { height: 28px; flex: none; margin-top: 6px; }
+    .half .size-l .chart { flex: 1 0 160px; height: auto; }
+    .chart svg { position: absolute; inset: 0; overflow: visible; }
+    .chart text { fill: var(--text-muted); font-size: 10.5px; font-family: var(--font); font-variant-numeric: tabular-nums; }
+    .tip { position: absolute; z-index: 5; pointer-events: none; transform: translate(-50%, calc(-100% - 10px)); background: var(--text); color: var(--page); border-radius: 5px; padding: 4px 8px; font-size: 11.5px; white-space: nowrap; box-shadow: 0 6px 18px rgb(0 0 0 / 20%); }
+    .tip b { font-weight: 600; }
+    .tip span { opacity: .7; }
+    .card-foot { display: flex; align-items: center; gap: 10px; margin-top: 8px; min-height: 18px; font-size: 11.5px; color: var(--text-muted); }
+    .card-foot { flex-wrap: wrap; row-gap: 0; } .card-foot > * { white-space: nowrap; }
+    .card-foot .daily { margin-left: auto; color: var(--text-muted); font-size: 11.5px; }
+    .card-foot .daily:hover { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+    .coverage { color: var(--warning); }
+    .daily-table { margin-top: 8px; max-height: 220px; overflow: auto; border-top: 1px solid var(--border); font-size: 12px; }
+    .daily-table table { width: 100%; border-collapse: collapse; }
+    .daily-table th, .daily-table td { padding: 4px 2px; border-bottom: 1px solid var(--border); text-align: left; font-weight: 400; }
+    .daily-table td { text-align: right; font-variant-numeric: tabular-nums; }
+    .line-card { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; padding: 10px 14px; border: 1px dashed var(--border-strong); border-radius: 8px; color: var(--text-muted); font-size: 12.5px; }
+    .line-card b { color: var(--text-secondary); font-weight: 500; }
+
+    /* Status strip */
+    .size-strip .strip-value { display: flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 600; letter-spacing: -.03em; }
+    .size-strip .strip-value .dot { width: 9px; height: 9px; }
+    .strip { display: grid; grid-template-columns: repeat(30, minmax(0, 1fr)); gap: 2px; margin-top: 10px; height: 26px; }
+    .strip i { border-radius: 2px; background: var(--lime-dot); opacity: .85; }
+    .strip i.down { background: var(--error); opacity: 1; }
+    .strip i.unknown { background: var(--surface-hover); }
+    .strip i:hover { opacity: 1; outline: 1px solid var(--text); }
+    .strip-axis { display: flex; justify-content: space-between; color: var(--text-muted); font-size: 10.5px; margin-top: 4px; }
+
+    /* Page speed */
+    .speed-block + .speed-block { margin-top: 14px; }
+    .speed-caption { display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: baseline; margin-bottom: 8px; font-size: 12px; color: var(--text-muted); }
+    .speed-caption b { color: var(--text-secondary); font-weight: 600; font-size: 12.5px; }
+    .speed-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    .field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 24px; }
+    .field-grid .speed-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .field-grid h3 { font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; letter-spacing: 0; }
+    .q { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 500; white-space: nowrap; }
+    .q::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+    .q.good { color: var(--lime); } .q.ni { color: var(--warning); } .q.poor { color: var(--error); }
+    .speed-grid > .card { grid-column: auto !important; padding: 11px 13px 10px; }
+
+    .hidden-line, .data-note { display: flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: 12px; margin-top: 26px; }
+    .data-note { margin-top: 14px; }
+    .hidden-line a { text-decoration: underline; text-underline-offset: 3px; }
+
+    /* Mockup controls (not part of the design) */
+    .mock-bar { position: fixed; z-index: 50; left: 50%; bottom: 14px; transform: translateX(-50%); display: flex; align-items: center; gap: 4px; padding: 5px; border-radius: 999px; background: #0b0f15; color: #e8ecee; font-size: 12px; box-shadow: 0 10px 30px rgb(0 0 0 / 35%); white-space: nowrap; }
+    .mock-bar strong { padding: 0 10px 0 8px; color: #e280b1; font-weight: 600; }
+    .mock-bar button { padding: 6px 11px; border-radius: 999px; color: #bdc6cf; }
+    .mock-bar button[aria-pressed='true'] { background: #2a3644; color: #fff; }
+
+    @media (max-width: 1099px) {
+        .summary { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+        .summary a:nth-child(5) { border-left: 0; }
+        .summary a:nth-child(n+5) { border-top: 1px solid var(--border); }
+        .size-l { grid-column: 1 / -1; grid-row: auto; }
+        .size-s, .size-n { grid-column: span 3; }
+        .pair { grid-template-columns: 1fr; }
+        .speed-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .field-grid { grid-template-columns: 1fr; }
+        .field-grid .speed-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+    @media (max-width: 699px) {
+        .project-head { align-items: flex-start; }
+        .head-actions { width: 100%; }
+        .segmented { flex: 1 1 100%; } .segmented button { flex: 1; white-space: nowrap; }
+        .size-n.solo { display: flex; flex-direction: column; align-items: stretch; padding: 10px 12px 8px; } .size-n.solo .chart { height: 28px; margin-top: 6px; } .size-n.solo .card-foot { flex-direction: row; align-items: center; gap: 10px; margin-top: 8px; } .size-n.solo .card-tools { position: static; }
+        .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .summary a { border-left: 0 !important; border-top: 1px solid var(--border); }
+        .summary a:nth-child(-n+2) { border-top: 0; }
+        .summary a:nth-child(even) { border-left: 1px solid var(--border) !important; }
+        .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+        .size-l, .half .size-l, .half .size-strip { grid-column: 1 / -1; }
+        .size-s, .size-n, .half .size-s { grid-column: span 1; }
+        .size-l .chart { height: 160px; flex-basis: 160px; }
+        .size-s .chart { flex-basis: 44px; }
+        .size-l .value { font-size: 26px; }
+        .card { padding: 10px 12px 8px; }
+        .speed-grid, .field-grid .speed-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+        .legend .legend-period { display: none; }
+        .mock-bar strong { display: none; }
+    }
+</style>
+</head>
+<body>
+<header class="app-header"><div class="app-header-inner">
+    <a class="brand" href="#"><img class="logo-light" src="../../dist/metribay-lockup-light.svg" alt="Metribay"><img class="logo-dark" src="../../dist/metribay-lockup-dark.svg" alt="Metribay"></a>
+    <span class="workspace-switch">My workspace <svg class="icon" viewBox="0 0 24 24" style="width:13px"><path d="m8 9 4-4 4 4M8 15l4 4 4-4"/></svg></span>
+    <div class="header-right"><button class="icon-button" type="button" data-theme-toggle aria-label="Change color theme"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button><span class="user-avatar">R</span></div>
+</div></header>
+
+<main class="page">
+    <header class="project-head">
+        <div>
+            <a class="back" href="#"><svg class="icon" viewBox="0 0 24 24" style="width:14px"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>All projects</a>
+            <div class="title-row"><span class="favicon" aria-hidden="true">F</span><h1>Fieldnotes</h1><a class="domain" href="#">fieldnotes.example <svg class="icon" viewBox="0 0 24 24" style="width:12px"><path d="M7 17 17 7M8 7h9v9"/></svg></a></div>
+            <div class="status-line" id="status-line"></div>
+        </div>
+        <div class="head-actions">
+            <div class="segmented" role="group" aria-label="Reporting period"><button type="button" aria-pressed="false">7 days</button><button type="button" aria-pressed="true">30 days</button><button type="button" aria-pressed="false">90 days</button></div>
+            <button class="button" type="button" title="Add event"><svg class="icon" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span>Add event</span></button>
+            <button class="button" type="button" title="Add data source"><svg class="icon" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span>Add data source</span></button>
+            <a class="icon-button" href="#" aria-label="Project settings" title="Project settings" style="border:1px solid var(--border);background:var(--surface);width:36px;height:36px"><svg class="icon" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></a>
+        </div>
+    </header>
+
+    <nav class="summary" id="summary" aria-label="Project summary"></nav>
+    <div id="groups"></div>
+    <p class="hidden-line"><svg class="icon" viewBox="0 0 24 24"><path d="M3 3l18 18M10.6 10.6a2 2 0 0 0 2.8 2.8M9.9 5.1A10 10 0 0 1 12 5c6 0 9.5 7 9.5 7a17 17 0 0 1-2.4 3.2M6.6 6.6C3.9 8.3 2.5 12 2.5 12S6 19 12 19a9.7 9.7 0 0 0 5.4-1.6"/></svg>1 chart hidden · <a href="#">Show</a></p>
+    <p class="data-note"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>Daily charts retain missing dates as gaps. Comparisons use the preceding period. Non-additive metrics use provider period totals when available.</p>
+</main>
+
+<div class="mock-bar" role="toolbar" aria-label="Mockup controls">
+    <strong>Mockup</strong>
+    <button type="button" data-mock="theme">Light / dark</button>
+    <button type="button" data-mock="summary" aria-pressed="true">Summary row</button>
+    <button type="button" data-mock="edge" aria-pressed="false">Edge states</button>
+</div>
+
+<script>
+const ICON = {
+    hide: '<svg class="icon" viewBox="0 0 24 24" style="width:14px"><path d="M3 3l18 18M10.6 10.6a2 2 0 0 0 2.8 2.8M9.9 5.1A10 10 0 0 1 12 5c6 0 9.5 7 9.5 7a17 17 0 0 1-2.4 3.2M6.6 6.6C3.9 8.3 2.5 12 2.5 12S6 19 12 19a9.7 9.7 0 0 0 5.4-1.6"/></svg>',
+    alert: '<svg class="icon" viewBox="0 0 24 24"><path d="M12 3 2 20h20L12 3zM12 10v4M12 17h.01"/></svg>',
+    clock: '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+};
+
+// Synthetic data: 30 days ending 2 Nov 2026, previous period the 30 days before.
+const N = 30, DAY = 864e5, END = Date.UTC(2026, 10, 2);
+const dates = Array.from({ length: N }, (_, i) => new Date(END - (N - 1 - i) * DAY));
+const prevDates = dates.map(d => new Date(d - N * DAY));
+const fmtDay = d => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+const fmtLong = d => d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+function rng(seed) { return () => { seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function gen(seed, { base, weekend = 1, trend = 0, noise = .25, spikes = 0, round = true, days = dates }) {
+    const r = rng(seed);
+    return days.map((d, i) => {
+        const we = [0, 6].includes(d.getUTCDay()) ? weekend : 1;
+        let v = base * (1 + trend * (i / (N - 1))) * we * (1 + noise * (r() * 2 - 1));
+        if (spikes && r() < spikes) v *= 2 + r() * 2;
+        return Math.max(0, round ? Math.round(v) : v);
+    });
+}
+const pair = (seed, opts, prevOpts = {}) => ({ series: gen(seed, opts), prev: gen(seed + 99, { ...opts, ...prevOpts, days: prevDates }) });
+const sum = a => a.reduce((t, v) => t + (v ?? 0), 0);
+const walk = (seed, start, endValue, jitter, round = true) => { const r = rng(seed); return dates.map((_, i) => { const v = start + (endValue - start) * i / (N - 1) + jitter * (r() * 2 - 1); return round ? Math.round(v) : v; }); };
+
+const D = {
+    visits: pair(1, { base: 17, weekend: .7, trend: .3, noise: .3 }, { trend: 0, base: 16 }),
+    visitors: pair(2, { base: 13, weekend: .7, trend: .3, noise: .3 }, { trend: 0, base: 12 }),
+    pageviews: pair(3, { base: 41, weekend: .65, trend: .25, noise: .35 }, { trend: 0, base: 37 }),
+    clicks: pair(4, { base: 3, weekend: .6, noise: .6, spikes: .1 }, { base: 2.6 }),
+    impressions: pair(5, { base: 128, weekend: .75, trend: .2, noise: .25 }, { trend: 0, base: 120 }),
+    commits: pair(6, { base: 5, weekend: .1, noise: .6 }, { base: 4.4 }),
+    prs: pair(7, { base: 1, weekend: 0, noise: .9 }, { base: 1.1 }),
+    lines: pair(8, { base: 260, weekend: .1, noise: .8, spikes: .08 }, { base: 300 }),
+    downloads: pair(9, { base: 24, weekend: .8, trend: -.1, noise: .25 }, { trend: 0, base: 26 }),
+    issues: { series: walk(10, 17, 9, 1) },
+    uptime: { series: dates.map((_, i) => i === 17 ? 97.15 : i === 8 ? 99.86 : 100) },
+    response: { series: walk(11, 455, 405, 25), prev: walk(12, 470, 450, 25) },
+    labScore: { series: walk(13, 79, 86, 3) },
+    labLcp: { series: walk(14, 3300, 2900, 150) },
+    labCls: { series: walk(15, .06, .04, .01, false) },
+    labTbt: { series: walk(16, 210, 140, 30) },
+    pageLcp: { series: walk(17, 2300, 2100, 60) }, pageInp: { series: walk(18, 190, 180, 8) }, pageCls: { series: walk(19, .03, .02, .004, false) },
+    siteLcp: { series: walk(20, 2700, 2600, 60) }, siteInp: { series: walk(21, 250, 240, 8) }, siteCls: { series: walk(22, .07, .06, .005, false) },
+};
+const EVENTS = [{ i: 10, title: 'Release v2.4.0 · imported from GitHub' }, { i: 24, title: 'Pricing page launch · custom event', color: 'var(--event-blue)' }];
+
+let edge = false;
+
+// Formatting, matching the index conventions.
+const fmtCount = v => Math.round(v).toLocaleString('en-US');
+function fmtValue(v, unit) {
+    if (v == null) return '<span class="missing" aria-label="No period total available">—</span>';
+    if (unit === 'ms') return v >= 1000 ? `${(v / 1000).toFixed(1)}<small>s</small>` : `${Math.round(v)}<small>ms</small>`;
+    if (unit === 'percent') return `${v === 100 ? '100' : v.toFixed(2)}<small>%</small>`;
+    if (unit === 'score') return `${Math.round(v)}<small>/100</small>`;
+    if (unit === 'ratio') return v.toFixed(2);
+    return fmtCount(v);
+}
+const plain = (v, unit) => fmtValue(v, unit).replace(/<[^>]+>/g, '');
+function change(cur, prev, polarity = 'up') {
+    if (cur == null || !prev) return '';
+    const pct = (cur - prev) / prev * 100, mag = Math.abs(pct);
+    const arrow = pct > 0 ? '↗' : pct < 0 ? '↘' : '→';
+    let cls = '';
+    if (mag >= 10 && polarity !== 'neutral') cls = (pct > 0) === (polarity === 'up') ? 'good' : 'bad';
+    return `<span class="chg ${cls}" title="Change from the preceding 30-day period">${arrow}&#8239;${mag.toFixed(mag < 10 ? 1 : 0)}%</span>`;
+}
+function quality(v, kind) {
+    const t = { score: [90, 50, true], lcp: [2500, 4000], inp: [200, 500], cls: [.1, .25], tbt: [200, 600] }[kind];
+    const [good, poor, higher] = t;
+    const level = higher ? (v >= good ? 'good' : v >= poor ? 'ni' : 'poor') : (v <= good ? 'good' : v <= poor ? 'ni' : 'poor');
+    return `<span class="q ${level}">${{ good: 'Good', ni: 'Needs improvement', poor: 'Poor' }[level]}</span>`;
+}
+
+// Cards
+const charts = [];
+let chartSeq = 0;
+function chartSlot(cfg) { const id = 'c' + (chartSeq++); charts.push({ id, ...cfg }); return `<div class="chart" data-chart="${id}" role="img" aria-label="${cfg.label} by reporting date"></div>`; }
+function tools(label) { return `<div class="card-tools"><button type="button" aria-label="Hide ${label} chart" title="Hide this chart from the project page">${ICON.hide}</button></div>`; }
+function dailyTable(m) {
+    const rows = m.series.map((v, i) => `<tr><th>${fmtDay(dates[i])}</th><td>${v == null ? '—' : plain(v, m.unit)}</td></tr>`).reverse().join('');
+    return `<div class="daily-table" hidden><table><caption class="sr-only">${m.label} daily values</caption><tbody>${rows}</tbody></table></div>`;
+}
+function foot(m) {
+    const parts = [];
+    if (m.snapshot && !m.observedInHeading) parts.push(`<span>Observed 2 Nov</span>`);
+    else if (m.coverage) parts.push(`<span class="coverage">${m.coverage} days recorded</span>`);
+    if (m.note) parts.push(`<span>${m.note}</span>`);
+    return `<div class="card-foot">${parts.join('')}<button type="button" class="daily" data-daily>Daily values</button></div>${dailyTable(m)}`;
+}
+function metricCard(m, size, extra = '') {
+    const cur = m.value !== undefined ? m.value : (m.snapshot ? m.series.at(-1) : sum(m.series));
+    const prevTotal = m.prevValue !== undefined ? m.prevValue : (m.prev ? sum(m.prev) : null);
+    const chg = m.snapshot ? '' : change(cur, prevTotal, m.polarity);
+    const top = `<div class="card-top"><h3>${m.label}</h3>${m.provider ? `<span class="tag">${m.provider}</span>` : ''}${m.partial ? '<span class="badge" title="Some earlier dates are incomplete">Partial</span>' : ''}${tools(m.label)}</div>`;
+    const val = `<div class="value-row"><strong class="value">${fmtValue(cur, m.unit)}</strong>${chg}${m.quality ? quality(m.snapshot ? m.series.at(-1) : cur, m.quality) : ''}</div>`;
+    const sub = size === 'l' && prevTotal != null ? `<p class="sub">${fmtValue(prevTotal, m.unit)} in the previous 30 days</p>` : (m.totalNote ? `<p class="sub">${m.totalNote}</p>` : '');
+    const chart = chartSlot({ label: m.label, series: m.series, prev: size === 'n' ? null : m.prev, unit: m.unit, axes: size === 'l' ? 'full' : size === 's' ? 'min' : 'none', events: size === 'l', zero: m.zero !== false, partialLast: !m.snapshot });
+    return `<article class="card size-${size}${extra.includes('data-solo') ? ' solo' : ''}" ${extra}>${top}${val}${sub}${chart}${foot(m)}</article>`;
+}
+function lineCard(label, text) { return `<div class="line-card"><b>${label}</b><span>·</span><span>${text}</span></div>`; }
+function stripCard() {
+    const states = dates.map((_, i) => i === 17 ? 'down' : 'up');
+    const cells = states.map((s, i) => `<i class="${s}" title="${fmtDay(dates[i])}: ${s === 'down' ? 'Down for 41 min' : 'Up all day'}"></i>`).join('');
+    return `<article class="card size-strip"><div class="card-top"><h3>Monitor status</h3>${tools('Monitor status')}</div><div class="strip-value"><span class="dot"></span>Up <span class="sub" style="font-weight:400;letter-spacing:0">· 29 of 30 days without downtime</span></div><div class="strip" role="img" aria-label="Daily monitor status: up on 29 days, down for 41 minutes on 21 Oct">${cells}</div><div class="strip-axis"><span>${fmtDay(dates[0])}</span><span>${fmtDay(dates.at(-1))}</span></div></article>`;
+}
+function groupHead(g) {
+    const legend = g.legend === false ? '' : `<div class="legend" aria-hidden="true"><span><i class="sw"></i>Last 30 days</span>${g.prev === false ? '' : '<span><i class="sw prev"></i>Previous<span class="legend-period"> 30 days</span></span>'}${g.events ? '<span><i class="sw event"></i>2 events</span>' : ''}</div>`;
+    return `<header class="group-head"><div><h2>${g.title}</h2><div class="group-sources">${g.sources.map(s => `<span class="src" title="${s.title || ''}">${s.name}${s.state ? ` <span class="tag">${s.state}</span>` : ''}</span>`).join('<span aria-hidden="true">·</span>')}</div></div>${legend}</header>`;
+}
+const notice = (html, quiet) => `<div class="group-notice${quiet ? ' quiet' : ''}" role="status">${quiet ? ICON.clock : ICON.alert}<div>${html}</div></div>`;
+
+const M = {
+    visits: { label: 'Visits', unit: 'count', ...D.visits, polarity: 'up' },
+    visitors: { label: 'Visitors', unit: 'count', ...D.visitors, value: 402, prevValue: 349, polarity: 'up' },
+    pageviews: { label: 'Page views', unit: 'count', ...D.pageviews, polarity: 'up' },
+    clicks: { label: 'Clicks', unit: 'count', ...D.clicks, polarity: 'up' },
+    impressions: { label: 'Impressions', unit: 'count', ...D.impressions, polarity: 'up' },
+    commits: { label: 'Commits', unit: 'count', ...D.commits, polarity: 'up' },
+    prs: { label: 'PRs merged', unit: 'count', ...D.prs, polarity: 'up' },
+    lines: { label: 'Lines changed', unit: 'lines', ...D.lines, polarity: 'neutral' },
+    issues: { label: 'Open issues', unit: 'count', ...D.issues, snapshot: true, note: '17 on 4 Oct' },
+    downloads: { label: 'Downloads', unit: 'count', ...D.downloads, polarity: 'up' },
+    uptime: { label: 'Uptime · last 24h', unit: 'percent', ...D.uptime, snapshot: true, zero: false },
+    response: { label: 'Response time · last 24h', unit: 'ms', ...D.response, snapshot: true, zero: false },
+};
+const speed = (label, key, unit, q) => ({ label, unit, ...D[key], snapshot: true, observedInHeading: true, zero: false, quality: q });
+
+function render() {
+    charts.length = 0; chartSeq = 0;
+    const visits = { ...M.visits }, visitors = { ...M.visitors }, commits = { ...M.commits };
+    if (edge) {
+        visitors.value = null; visitors.totalNote = 'Daily data available · period total unavailable';
+        commits.series = commits.series.map((v, i) => [3, 4, 19].includes(i) ? null : v); commits.coverage = '27/30'; commits.partial = true;
+    }
+
+    document.getElementById('status-line').innerHTML = edge
+        ? '<span class="dot warn"></span><span>6 data sources · 1 needs attention · 1 paused · 1 importing</span><span aria-hidden="true">·</span><span>Last sync 23:47 UTC</span><a href="#">Review in settings</a>'
+        : '<span class="dot"></span><span>5 data sources, all healthy</span><span aria-hidden="true">·</span><span>Last sync 23:47 UTC</span>';
+
+    const sumCell = (label, valueHtml, series, target, warn) => `<a href="#${target}"><span class="s-label">${warn ? '<span class="dot warn"></span>' : ''}${label}</span><span class="s-value">${valueHtml}</span>${series ? chartSlot({ label, series, axes: 'none', spark: true, zero: true }).replace('class="chart"', 'class="chart spark"') : '<span class="spark"></span>'}</a>`;
+    document.getElementById('summary').innerHTML = [
+        sumCell('Visits', `${fmtCount(sum(visits.series))}${change(sum(visits.series), sum(visits.prev))}`, visits.series, 'audience'),
+        sumCell('Search clicks', `${fmtCount(sum(M.clicks.series))}${change(sum(M.clicks.series), sum(M.clicks.prev))}`, M.clicks.series, 'search', edge),
+        sumCell('Commits · PRs', `${fmtCount(sum(commits.series))}<small>· ${sum(M.prs.series)}</small>${change(sum(commits.series), sum(commits.prev))}`, commits.series, 'development'),
+        sumCell('Open issues', `${M.issues.series.at(-1)}`, M.issues.series, 'development'),
+        sumCell('Downloads', `${fmtCount(sum(M.downloads.series))}${change(sum(M.downloads.series), sum(M.downloads.prev))}`, M.downloads.series, 'distribution'),
+        sumCell('Uptime · 24h', `1/1<small>100%</small>`, null, 'reliability'),
+        sumCell('Page speed · lowest', `86<small>/100</small>`, null, 'page-speed'),
+    ].join('');
+
+    let html = '';
+    // Audience
+    html += `<section class="group" id="audience">${groupHead({ title: 'Audience', sources: [{ name: 'Umami', title: 'fieldnotes.example · UTC · synced 23:47' }], events: true })}<div class="grid">${metricCard(visits, 'l', 'style="--rows:2"')}${metricCard(visitors, 's')}${metricCard(M.pageviews, 's')}</div></section>`;
+    // Search
+    html += `<section class="group" id="search">${groupHead({ title: 'Search', sources: [{ name: 'Search Console', title: 'sc-domain:fieldnotes.example · America/Los_Angeles' }], events: true })}${edge ? notice('Search Console needs attention: the connected account lost access. Existing history is shown. <a href="#">Review data source</a>') : ''}<div class="grid">${metricCard(M.clicks, 'l')}${metricCard(M.impressions, 's')}</div></section>`;
+    // Development
+    html += `<section class="group" id="development">${groupHead({ title: 'Development', sources: edge ? [{ name: 'GitHub', title: 'fieldnotes/fieldnotes' }, { name: 'Azure DevOps', state: 'Importing' }] : [{ name: 'GitHub', title: 'fieldnotes/fieldnotes · UTC' }], events: true })}${edge ? notice('Azure DevOps · first import running. Its charts appear here when it finishes.', true) : ''}<div class="grid">${metricCard(commits, 'l', 'style="--rows:2"')}${metricCard(M.prs, 's')}${metricCard(M.lines, 's')}${metricCard(M.issues, 'n', 'data-solo')}</div></section>`;
+    // Distribution + Reliability share a row
+    const reliability = `${stripCard()}${metricCard(M.uptime, 's')}${edge ? '' : metricCard(M.response, 's')}${edge ? lineCard('Response time · last 24h', 'No data for this period') : ''}`;
+    html += `<div class="pair"><section class="group half" id="distribution">${groupHead({ title: 'Distribution', sources: [{ name: 'WordPress.org', title: 'plugin: fieldnotes', state: edge ? 'Paused' : '' }], events: false })}<div class="grid">${metricCard(M.downloads, 'l')}</div></section>`;
+    html += `<section class="group half" id="reliability">${groupHead({ title: 'Reliability', sources: [{ name: 'UptimeRobot', title: 'https://fieldnotes.example' }], prev: false, legend: false })}<div class="grid">${reliability}</div></section></div>`;
+    // Page speed
+    const tile = m => metricCard(m, 'n');
+    html += `<section class="group" id="page-speed">${groupHead({ title: 'Page speed', sources: [{ name: 'PageSpeed Insights' }, { name: 'https://fieldnotes.example/' }, { name: 'Mobile' }], legend: false })}
+        <div class="speed-block"><p class="speed-caption"><b>Lab test</b><span>Daily Lighthouse run · observed 2 Nov 2026, 06:12 UTC · Lighthouse 12.8</span></p>
+        <div class="speed-grid">${tile(speed('Performance', 'labScore', 'score', 'score'))}${tile(speed('LCP', 'labLcp', 'ms', 'lcp'))}${tile(speed('CLS', 'labCls', 'ratio', 'cls'))}${tile(speed('Total blocking time', 'labTbt', 'ms', 'tbt'))}</div></div>
+        <div class="speed-block"><p class="speed-caption"><b>Real users</b><span>CrUX · 75th percentile over rolling 28-day windows · observed 2 Nov</span></p>
+        <div class="field-grid"><div><h3>This page</h3><div class="speed-grid">${tile(speed('LCP', 'pageLcp', 'ms', 'lcp'))}${tile(speed('INP', 'pageInp', 'ms', 'inp'))}${tile(speed('CLS', 'pageCls', 'ratio', 'cls'))}</div></div>
+        <div><h3>Whole site</h3><div class="speed-grid">${tile(speed('LCP', 'siteLcp', 'ms', 'lcp'))}${tile(speed('INP', 'siteInp', 'ms', 'inp'))}${tile(speed('CLS', 'siteCls', 'ratio', 'cls'))}</div></div></div></div></section>`;
+    document.getElementById('groups').innerHTML = html;
+    drawAll();
+}
+
+// Charts: one shared date axis for every chart on the page.
+const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+function niceStep(raw) { const p = 10 ** Math.floor(Math.log10(raw || 1)), f = raw / p; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p; }
+function draw(el) {
+    const cfg = charts.find(c => c.id === el.dataset.chart); if (!cfg) return;
+    const w = el.clientWidth, h = el.clientHeight; if (!w || !h) return;
+    const full = cfg.axes === 'full', none = cfg.axes === 'none';
+    const vals = [...cfg.series, ...(cfg.prev || [])].filter(v => v != null);
+    let lo = cfg.zero ? 0 : Math.min(...vals), hi = Math.max(...vals);
+    if (!cfg.zero) { const pad = (hi - lo) * .3 || Math.abs(hi) * .02 || 1; lo -= pad; hi += pad; }
+    const step = niceStep((hi - lo) / 3);
+    if (full) { hi = Math.ceil(hi / step) * step; lo = cfg.zero ? 0 : Math.floor(lo / step) * step; }
+    if (hi === lo) hi = lo + 1;
+    const pl = full ? 36 : 0, pr = 2, pt = 4, pb = none ? 2 : 17;
+    const x = i => pl + i * (w - pl - pr) / (N - 1), y = v => pt + (1 - (v - lo) / (hi - lo)) * (h - pt - pb);
+    let s = `<svg width="${w}" height="${h}" aria-hidden="true">`;
+    if (full) for (let v = lo; v <= hi + 1e-9; v += step) s += `<line x1="${pl}" x2="${w}" y1="${y(v)}" y2="${y(v)}" stroke="${css('--chart-grid')}"/><text x="${pl - 8}" y="${y(v) + 3.5}" text-anchor="end">${plain(v, cfg.unit === 'ms' && v < 1000 ? 'count' : cfg.unit)}</text>`;
+    else if (!none) s += `<line x1="0" x2="${w}" y1="${y(lo)}" y2="${y(lo)}" stroke="${css('--chart-grid')}"/><line x1="0" x2="${w}" y1="${y(hi)}" y2="${y(hi)}" stroke="${css('--chart-grid')}" stroke-dasharray="2 3"/>`;
+    if (cfg.events) EVENTS.forEach(e => { s += `<line x1="${x(e.i)}" x2="${x(e.i)}" y1="${pt}" y2="${h - pb}" stroke="${e.color ? css('--event-blue') : css('--event-automatic')}" stroke-dasharray="1.5 3" stroke-width="1.5"><title>${e.title}</title></line><circle cx="${x(e.i)}" cy="${pt + 1}" r="3" fill="${e.color ? css('--event-blue') : css('--event-automatic')}"><title>${fmtDay(dates[e.i])} · ${e.title}</title></circle>`; });
+    const segs = series => { const out = []; let cur = []; series.forEach((v, i) => { if (v == null) { if (cur.length) out.push(cur); cur = []; } else cur.push([x(i), y(v)]); }); if (cur.length) out.push(cur); return out; };
+    const path = pts => pts.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join('');
+    if (cfg.prev) segs(cfg.prev).forEach(p => s += `<path d="${path(p)}" fill="none" stroke="${css('--chart-previous')}" stroke-width="1.3" stroke-dasharray="3 3"/>`);
+    const line = css('--chart-line'), base = y(cfg.zero ? 0 : lo);
+    const gid = 'g' + cfg.id;
+    s += `<defs><linearGradient id="${gid}" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${line}" stop-opacity="${cfg.spark ? .16 : .2}"/><stop offset="1" stop-color="${line}" stop-opacity="0"/></linearGradient></defs>`;
+    const sw = full ? 2 : 1.5;
+    segs(cfg.series).forEach((p, k, all) => {
+        if (p.length === 1) { s += `<circle cx="${p[0][0]}" cy="${p[0][1]}" r="1.8" fill="${line}"/>`; return; }
+        s += `<path d="${path(p)}L${p.at(-1)[0]},${base}L${p[0][0]},${base}Z" fill="url(#${gid})"/>`;
+        const last = k === all.length - 1 && cfg.partialLast;
+        s += `<path d="${path(last ? p.slice(0, -1) : p)}" fill="none" stroke="${line}" stroke-width="${sw}" stroke-linejoin="round"/>`;
+        if (last) s += `<path d="${path(p.slice(-2))}" fill="none" stroke="${line}" stroke-width="${sw}" stroke-dasharray="2 2.5"/><circle cx="${p.at(-1)[0]}" cy="${p.at(-1)[1]}" r="${full ? 3 : 2.3}" fill="${css('--surface')}" stroke="${line}" stroke-width="1.5"><title>Today is still incomplete</title></circle>`;
+    });
+    if (full) [0, 7, 14, 21, 29].forEach(i => s += `<text x="${x(i)}" y="${h - 3}" text-anchor="${i === 0 ? 'start' : i === 29 ? 'end' : 'middle'}">${fmtDay(dates[i])}</text>`);
+    else if (!none) s += `<text x="0" y="${h - 3}">${fmtDay(dates[0])}</text><text x="${w}" y="${h - 3}" text-anchor="end">${fmtDay(dates.at(-1))}</text>`;
+    s += `<line class="cross" x1="0" x2="0" y1="${pt}" y2="${h - pb}" stroke="${css('--text-muted')}" stroke-width="1" visibility="hidden"/><circle class="cross-dot" r="3.5" fill="${line}" stroke="${css('--surface')}" stroke-width="2" visibility="hidden"/></svg>`;
+    el.innerHTML = s;
+    el._x = x; el._y = y; el._pl = pl; el._pr = pr;
+}
+function drawAll() { document.querySelectorAll('[data-chart]').forEach(draw); }
+new ResizeObserver(() => drawAll()).observe(document.getElementById('groups'));
+addEventListener('resize', drawAll);
+
+// Shared crosshair: hovering any chart marks the same date on every chart.
+function crosshair(idx, source) {
+    document.querySelectorAll('[data-chart]').forEach(el => {
+        const cfg = charts.find(c => c.id === el.dataset.chart), svg = el.querySelector('svg'); if (!cfg || !svg || cfg.spark) return;
+        const line = svg.querySelector('.cross'), dot = svg.querySelector('.cross-dot');
+        el.querySelector('.tip')?.remove();
+        if (idx == null) { line.setAttribute('visibility', 'hidden'); dot.setAttribute('visibility', 'hidden'); return; }
+        const cx = el._x(idx), v = cfg.series[idx];
+        line.setAttribute('x1', cx); line.setAttribute('x2', cx); line.setAttribute('visibility', 'visible');
+        if (v != null) { dot.setAttribute('cx', cx); dot.setAttribute('cy', el._y(v)); dot.setAttribute('visibility', 'visible'); } else dot.setAttribute('visibility', 'hidden');
+        if (el === source) {
+            const tip = document.createElement('div'); tip.className = 'tip';
+            const prev = cfg.prev?.[idx];
+            const ev = cfg.events ? EVENTS.find(e => e.i === idx) : null;
+            tip.innerHTML = `<span>${fmtLong(dates[idx])}</span> <b>${v == null ? 'Missing' : plain(v, cfg.unit)}</b>${prev != null ? ` <span>· prev ${plain(prev, cfg.unit)}</span>` : ''}${idx === N - 1 ? ' <span>· partial</span>' : ''}${ev ? `<br><span>${ev.title}</span>` : ''}`;
+            tip.style.left = Math.min(Math.max(cx, 70), el.clientWidth - 70) + 'px'; tip.style.top = (v != null ? el._y(v) : 10) + 'px';
+            el.appendChild(tip);
+        }
+    });
+}
+document.addEventListener('pointermove', e => {
+    const el = e.target.closest?.('[data-chart]');
+    if (!el || !el._x) return crosshair(null);
+    const cfg = charts.find(c => c.id === el.dataset.chart); if (cfg?.spark) return crosshair(null);
+    const r = el.getBoundingClientRect(), px = e.clientX - r.left;
+    const idx = Math.round((px - el._pl) / ((el.clientWidth - el._pl - el._pr) / (N - 1)));
+    crosshair(Math.max(0, Math.min(N - 1, idx)), el);
+});
+document.addEventListener('pointerleave', () => crosshair(null));
+
+document.addEventListener('click', e => {
+    const daily = e.target.closest('[data-daily]');
+    if (daily) { const t = daily.parentElement.nextElementSibling; t.hidden = !t.hidden; daily.textContent = t.hidden ? 'Daily values' : 'Hide daily values'; return; }
+    const seg = e.target.closest('.segmented button');
+    if (seg) seg.parentElement.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b === seg)));
+    const themeButton = e.target.closest('[data-theme-toggle], [data-mock="theme"]');
+    if (themeButton) { const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; document.documentElement.dataset.theme = next; try { localStorage.setItem('mock-theme', next); } catch (err) {} render(); }
+    const mock = e.target.closest('[data-mock="summary"], [data-mock="edge"]');
+    if (mock) {
+        const on = mock.getAttribute('aria-pressed') !== 'true'; mock.setAttribute('aria-pressed', String(on));
+        if (mock.dataset.mock === 'summary') document.getElementById('summary').hidden = !on; else { edge = on; render(); }
+    }
+});
+
+render();
+</script>
+</body>
+</html>

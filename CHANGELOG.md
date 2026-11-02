@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.0 — 2026-11-03
+
+- Redesign the project page (docs/PROJECT_PAGE.md). A compact header with the favicon, domain link, a status line (data sources, attention/delayed/importing/paused counts, last sync), a 7/30/90-day switch and secondary **Add event** / **Add data source** buttons. The project's overview row follows as a summary that links to its groups.
+- Charts are grouped by meaning in overview order (**Audience**, **Search**, **Development**, **Distribution**, **Reliability**, **Page speed**) instead of per data source. Each group has one large chart with the previous-period total in words, small charts beside it, number tiles for open issues and a daily status strip for monitor status; one-chart groups share a row. Several sources of the same metric get labelled charts. Charts without data collapse to one line; failed, delayed and importing sources show a note in their group.
+- Changes are coloured by polarity (a rise in response time, failed pipeline runs, open issues or page speed timings is red; lines changed is neutral), matching the overview's arrows and rounding. Page speed values show Good / Needs improvement / Poor from the published thresholds.
+- Charts: dashed segment and hollow point for incomplete dates, a date line shared across all charts on hover, one legend per group, quieter **Daily values** tables (newest first) and coverage shown only when incomplete. New `Metrics\ProjectLayout`; `partials/overview-change` takes an optional `polarity` and its classes are now `is-good` / `is-bad`. Available in all twelve interface languages. No migration.
+
 ## 0.7.0 — 2026-11-02
 
 - Add **Azure DevOps** as a data source: connect an organization with an organization-scoped personal access token (Code, Build, Work Items and Project and Team set to Read), then pick a Git repository from any project. Collects **Commits** on the default branch, **PRs merged** from completed pull requests, the new **Pipeline runs succeeded** and **Pipeline runs failed** for this repository's default-branch runs, and **Open issues** from open bug work items (Issue in the Basic process). Lines changed is not collected.

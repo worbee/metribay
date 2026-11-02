@@ -7,6 +7,7 @@ use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
 use Metribay\Core\Contracts\WorkspaceAccess;
+use Metribay\Core\Metrics\ProjectLayout;
 use Metribay\Core\Models\HiddenChart;
 use Metribay\Core\Models\Project;
 use Metribay\Core\Models\ProjectEvent;
@@ -36,7 +37,8 @@ class ProjectCharts extends Component
         return app(WorkspaceContext::class)->run($workspace, function () use ($workspace) {
             $project = Project::query()->findOrFail($this->projectId);
             $data = app(DashboardData::class);
-            $sources = $data->projects($this->days, $project->id)[0]['sources'] ?? [];
+            $projectData = $data->projects($this->days, $project->id)[0] ?? ['sources' => [], 'summary' => []];
+            $sources = $projectData['sources'];
             $events = ProjectEvent::query()->where('project_id', $project->id)->orderByDesc('date')->orderByDesc('id')->get();
             $hidden = HiddenChart::query()->where('project_id', $project->id)->get();
             foreach ($sources as &$source) {
@@ -46,11 +48,15 @@ class ProjectCharts extends Component
                 $hiddenKeys = $hidden->where('source_id', (int) $source['id'])->pluck('metric_key')->all();
                 $source['all_metrics'] = $source['metrics'];
                 $source['metrics'] = array_values(array_filter($source['metrics'], fn (array $metric): bool => ! in_array($metric['key'], $hiddenKeys, true)));
+                $source['hidden_keys'] = $hiddenKeys;
                 $source['hidden_count'] = count($hiddenKeys);
             }
             unset($source);
 
-            return view('metribay::components.project-charts', ['workspace' => $workspace, 'project' => $project, 'sources' => $sources, 'days' => $this->days, 'hiddenCount' => $hidden->count(), 'justHidden' => $hidden->firstWhere('id', (int) session('chart_hidden'))]);
+            $statuses = array_count_values(array_column($sources, 'status'));
+            $lastSync = max([0, ...array_filter(array_column($sources, 'last_success_timestamp'))]);
+
+            return view('metribay::components.project-charts', ['workspace' => $workspace, 'project' => $project, 'sources' => $sources, 'rows' => ProjectLayout::rows($sources), 'summary' => $projectData['summary'], 'statuses' => $statuses, 'lastSync' => $lastSync ? CarbonImmutable::createFromTimestampUTC($lastSync) : null, 'days' => $this->days, 'hiddenCount' => $hidden->count(), 'justHidden' => $hidden->firstWhere('id', (int) session('chart_hidden'))]);
         });
     }
 

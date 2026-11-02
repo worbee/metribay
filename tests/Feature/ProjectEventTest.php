@@ -57,7 +57,7 @@ class ProjectEventTest extends TestCase
     {
         $html = $this->actingAs($this->owner)->get('/w/events/projects/'.$this->project->id)->assertOk()->getContent();
         $this->assertSame(1, substr_count($html, 'data-dialog-open="new-event"'));
-        $heading = substr($html, strpos($html, 'class="heading-actions"'), strpos($html, '</header>', strpos($html, 'class="heading-actions"')) - strpos($html, 'class="heading-actions"'));
+        $heading = substr($html, strpos($html, 'class="project-actions"'), strpos($html, '</header>', strpos($html, 'class="project-actions"')) - strpos($html, 'class="project-actions"'));
         $this->assertStringContainsString('Add data source', $heading);
         $this->assertStringContainsString('data-dialog-open="new-event"', $heading);
         $this->assertStringContainsString('id="events-heading"', $html);

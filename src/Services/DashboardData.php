@@ -66,7 +66,7 @@ class DashboardData
                     $status = 'failed';
                 }
 
-                return ['id' => $source->id, 'label' => $source->label, 'kind' => $source->kind, 'reporting_timezone' => $source->reporting_timezone, 'enabled' => $source->enabled, 'status' => $status, 'last_success_at' => $source->last_success_at ? $source->last_success_at->utc()->translatedFormat('j M Y, H:i').' UTC' : null, 'latest_date' => $source->latest_data_date, 'error_code' => $source->error_code, 'metrics' => $metrics, 'page_speed' => $source->kind === 'pagespeed' ? $source->config : null];
+                return ['id' => $source->id, 'label' => $source->label, 'kind' => $source->kind, 'reporting_timezone' => $source->reporting_timezone, 'enabled' => $source->enabled, 'status' => $status, 'last_success_at' => $source->last_success_at ? $source->last_success_at->utc()->translatedFormat('j M Y, H:i').' UTC' : null, 'last_success_timestamp' => $source->last_success_at?->getTimestamp(), 'latest_date' => $source->latest_data_date, 'error_code' => $source->error_code, 'metrics' => $metrics, 'page_speed' => $source->kind === 'pagespeed' ? $source->config : null];
             })->all();
 
             return ['id' => $project->id, 'name' => $project->name, 'slug' => $project->slug, 'domain' => $project->domain, 'group' => $project->group?->name, 'archived' => $project->archived, 'sources' => $sources, 'status' => $this->projectStatus($sources), 'summary' => $this->summary($sources, $days)];

@@ -1,19 +1,50 @@
 <div data-hourly-refresh>
-@php($providerNames = ['ga4'=>'Google Analytics','gsc'=>'Google Search Console','bing'=>'Bing Webmaster','umami'=>'Umami Analytics','github'=>'GitHub','azure_devops'=>'Azure DevOps','wporg'=>'WordPress.org','uptimerobot'=>'UptimeRobot'])
-@php($hideAction = ($canEdit ?? false) ? route('metribay.charts.hide', ['workspace'=>$workspace->slug,'project'=>$project->id]) : null)
-@if(collect($sources)->contains(fn($source) => $source['status'] === 'pending'))<div class="notice" role="status" data-import-pending>{{ __('First import queued or running. You can leave this page; collection continues in the background.') }}</div>@endif
-<div class="project-detail-sources">
-@forelse ($sources as $source)
-<section class="source-detail" id="source-{{ $source['id'] }}" wire:key="source-{{ $source['id'] }}"><header class="source-detail-header"><div><div class="source-name"><span class="provider-icon">{{ mb_strtoupper(mb_substr($source['kind'],0,1)) }}</span><h2>{{ $source['label'] }}</h2></div><p class="field-hint">{{ $providerNames[$source['kind']] ?? $source['kind'] }}<span class="description-divider">/</span>{{ $source['reporting_timezone'] ?? __('Data source reporting timezone') }}@if($source['last_success_at'])<span class="description-divider">/</span>{{ __('Synced :time', ['time' => $source['last_success_at']]) }}@endif</p></div><div class="source-detail-actions">@include('metribay::partials/status',['status'=>$source['status']])</div></header>
-@if($source['status'] === 'failed')<div class="notice notice-warning">@include('metribay::partials/icon',['name'=>'alert'])<div>{{ ($source['error_code'] ?? '') === 'ProviderRequestLimit' ? __('The Cloud provider request limit was reached. Scheduled imports will retry automatically.') : (($source['error_code'] ?? '') === 'GitHubDeploymentAccess' ? __('GitHub did not allow reading deployments. Allow read access to deployments for this connected account, or clear the deployment environments.') : (($source['error_code'] ?? '') === 'AzureDevOpsDeploymentAccess' ? __('Azure DevOps did not allow reading environments. Give the access token the Environment (Read & manage) scope, or clear the deployment environments.') : (!empty($source['error_code']) ? __('Collection needs attention. Reference: :code. Check the data source settings and its connected account.', ['code' => $source['error_code']]) : __('This data source needs attention. Review its latest status and collection settings.')))) }} {{ __('Existing history is shown below.') }} @if($canEdit ?? false)<a class="text-link" href="{{ route('metribay.projects.edit',['workspace'=>$workspace->slug,'project'=>$project->id]) }}#source-{{ $source['id'] }}">{{ __('Review data source') }} →</a>@endif</div></div>@elseif($source['status'] === 'delayed')<div class="notice notice-warning">@include('metribay::partials/icon',['name'=>'clock'])<div>{{ __('Recent data is delayed. Providers may take time to finalize reporting dates.') }}</div></div>@endif
-@if($justHidden && (int) $justHidden->source_id === (int) $source['id'])<div class="notice notice-success chart-hidden-notice" role="status">@include('metribay::partials/icon',['name'=>'eye-off'])<div>{{ __(':chart chart hidden from this project.', ['chart' => __(\Metribay\Core\Metrics\MetricRegistry::all()[$justHidden->metric_key]->label ?? $justHidden->metric_key)]) }}</div><form method="POST" action="{{ route('metribay.charts.show',['workspace'=>$workspace->slug,'project'=>$project->id,'chart'=>$justHidden->id]) }}">@csrf @method('DELETE')<input type="hidden" name="return" value="project"><button class="button button-small button-secondary" type="submit">{{ __('Undo') }}</button></form></div>@endif
-@if($source['last_success_at'])
-@if($source['kind'] === 'pagespeed')@include('metribay::partials/page-speed')@else<div class="metric-grid">@forelse($source['metrics'] as $metric)@include('metribay::partials/metric',['metric'=>$metric,'sourceId'=>$source['id'],'compact'=>false,'days'=>$days,'events'=>$source['events'] ?? []])@empty<div class="inline-empty">{{ ($source['hidden_count'] ?? 0) > 0 ? __('All charts from this data source are hidden.') : (($source['enabled'] ?? false) ? __('Metrics will appear after the first successful sync.') : __('Collection is paused.')) }}</div>@endforelse</div>@endif
-@elseif($source['status'] !== 'failed')<p class="field-hint">{{ __('Your first import is in progress. Metrics will appear here when it finishes.') }}</p>@endif
-</section>
+@php
+    $hideAction = ($canEdit ?? false) ? route('metribay.charts.hide', ['workspace'=>$workspace->slug,'project'=>$project->id]) : null;
+    $settingsUrl = route('metribay.projects.edit',['workspace'=>$workspace->slug,'project'=>$project->id]);
+    $attention = $statuses['failed'] ?? 0;
+    $states = array_filter([
+        $attention ? trans_choice('{1} :count needs attention|[2,*] :count need attention', $attention, ['count' => $attention]) : null,
+        ($statuses['delayed'] ?? 0) ? trans_choice('{1} :count delayed|[2,*] :count delayed', $statuses['delayed'], ['count' => $statuses['delayed']]) : null,
+        ($statuses['pending'] ?? 0) ? trans_choice('{1} :count importing|[2,*] :count importing', $statuses['pending'], ['count' => $statuses['pending']]) : null,
+        ($statuses['disabled'] ?? 0) ? trans_choice('{1} :count paused|[2,*] :count paused', $statuses['disabled'], ['count' => $statuses['disabled']]) : null,
+    ]);
+    $domainUrl = $project->domain ? (str_contains($project->domain, '://') ? $project->domain : 'https://'.$project->domain) : null;
+    $domainUrl = $domainUrl && filter_var($domainUrl, FILTER_VALIDATE_URL) && in_array(parse_url($domainUrl, PHP_URL_SCHEME), ['http', 'https'], true) ? $domainUrl : null;
+    $summaryLabels = ['traffic'=>__('Visits'),'search'=>__('Search clicks'),'development'=>__('Commits · PRs'),'issues'=>__('Open issues'),'downloads'=>__('Downloads'),'uptime'=>__('Uptime · 24h'),'speed'=>__('Page speed · lowest')];
+@endphp
+<header class="project-head">
+    <div class="project-head-main">
+        <a class="breadcrumb" href="{{ route('metribay.dashboard', ['workspace'=>$workspace->slug,'days'=>$days]) }}">@include('metribay::partials/icon',['name'=>'arrow-left']) {{ __('All projects') }}</a>
+        <div class="project-title">@if($project->domain)<img class="project-favicon" src="{{ route('metribay.projects.favicon', ['workspace'=>$workspace->slug, 'project'=>$project->id, 'v'=>substr(hash('sha256', $project->domain), 0, 12)]) }}" width="22" height="22" alt="" decoding="async">@endif<h1>{{ $project->name }}</h1>@if($domainUrl)<a class="project-domain" href="{{ $domainUrl }}" target="_blank" rel="noopener noreferrer">{{ $project->domain }} @include('metribay::partials/icon',['name'=>'arrow-up-right'])</a>@elseif($project->domain)<span class="project-domain">{{ $project->domain }}</span>@endif</div>
+        @if($sources)
+        <p class="project-status"><span @class(['status-dot', 'is-bad' => $attention, 'is-warn' => !$attention && ($statuses['delayed'] ?? 0) + ($statuses['pending'] ?? 0), 'dot-neutral' => count($sources) === ($statuses['disabled'] ?? 0)]) aria-hidden="true"></span><span>{{ trans_choice('{1} :count data source|[2,*] :count data sources', count($sources), ['count' => count($sources)]) }} · {{ $states ? implode(' · ', $states) : __('all healthy') }}</span>@if($lastSync)<span aria-hidden="true">·</span><span>{{ __('Last sync :time', ['time' => $lastSync->translatedFormat('j M, H:i').' UTC']) }}</span>@endif @if($attention && ($canEdit ?? false))<a class="text-link" href="{{ $settingsUrl }}">{{ __('Review in settings') }}</a>@endif</p>
+        @endif
+    </div>
+    <div class="project-actions">
+        <nav class="period-switch" aria-label="{{ __('Reporting period') }}">@foreach([7, 30, 90] as $option)<a href="{{ route('metribay.projects.show', ['workspace'=>$workspace->slug,'project'=>$project->id,'days'=>$option]) }}" @if($days === $option) aria-current="page" @endif>{{ __(':days days', ['days' => $option]) }}</a>@endforeach</nav>
+        @if($canEdit ?? false)<button type="button" class="button button-secondary" data-dialog-open="new-event">@include('metribay::partials/icon',['name'=>'plus']) {{ __('Add event') }}</button>@endif
+        @if(($canEdit ?? false) && !$project->archived)<a class="button button-secondary" href="{{ route('metribay.sources.create',['workspace'=>$workspace->slug,'project'=>$project->id]) }}">@include('metribay::partials/icon',['name'=>'plus']) {{ __('Add data source') }}</a>@endif
+        <a class="button button-secondary button-icon" href="{{ $settingsUrl }}" aria-label="{{ __('Project settings') }}" title="{{ __('Project settings') }}">@include('metribay::partials/icon',['name'=>'settings'])</a>
+    </div>
+</header>
+@if ($project->archived)<div class="notice" role="status">{{ __('This project is archived. Its recorded history remains available.') }}</div>@endif
+@if($summary)
+<nav class="project-summary" aria-label="{{ __('Project summary') }}">@foreach($summaryLabels as $column => $columnLabel)@if(isset($summary[$column]))<a href="#group-{{ \Metribay\Core\Metrics\ProjectLayout::SUMMARY[$column] }}"><span class="summary-label">{{ $columnLabel }}</span>@include('metribay::partials/overview-cell', ['cell' => $summary[$column], 'column' => $column, 'days' => $days])</a>@endif @endforeach</nav>
+@endif
+@if($justHidden)<div class="notice notice-success chart-hidden-notice" role="status">@include('metribay::partials/icon',['name'=>'eye-off'])<div>{{ __(':chart chart hidden from this project.', ['chart' => __(\Metribay\Core\Metrics\MetricRegistry::all()[$justHidden->metric_key]->label ?? $justHidden->metric_key)]) }}</div><form method="POST" action="{{ route('metribay.charts.show',['workspace'=>$workspace->slug,'project'=>$project->id,'chart'=>$justHidden->id]) }}">@csrf @method('DELETE')<input type="hidden" name="return" value="project"><button class="button button-small button-secondary" type="submit">{{ __('Undo') }}</button></form></div>@endif
+<div class="project-groups">
+@forelse ($rows as $row)
+@if(count($row) > 1)<div class="group-pair">@endif
+@foreach($row as $group)@include('metribay::partials/project-group', ['group' => $group])@endforeach
+@if(count($row) > 1)</div>@endif
 @empty
+@if($sources)
+<div class="inline-empty">@include('metribay::partials/icon',['name'=>'eye-off'])<span>{{ __('All charts from this data source are hidden.') }}</span></div>
+@else
 <div class="empty-state">@include('metribay::partials/icon',['name'=>'link'])<h2>{{ __('Add your first data source') }}</h2><p>{{ __('Choose a provider, sign in with a connected account and pick what to track for :project.', ['project' => $project->name]) }}</p>@if(($canEdit ?? false) && !$project->archived)<a class="button button-primary" href="{{ route('metribay.sources.create',['workspace'=>$workspace->slug,'project'=>$project->id]) }}">@include('metribay::partials/icon',['name'=>'plus']) {{ __('Add data source') }}</a>@endif</div>
+@endif
 @endforelse
 </div>
-@if($hiddenCount > 0)<p class="hidden-charts-line">@include('metribay::partials/icon',['name'=>'eye-off'])<span>{{ trans_choice('{1} :count chart hidden|[2,*] :count charts hidden', $hiddenCount, ['count' => $hiddenCount]) }}</span><span class="description-divider">·</span><a class="text-link" href="{{ route('metribay.projects.edit',['workspace'=>$workspace->slug,'project'=>$project->id]) }}#hidden-charts">{{ __('Show') }}</a></p>@endif
+@if($hiddenCount > 0)<p class="hidden-charts-line">@include('metribay::partials/icon',['name'=>'eye-off'])<span>{{ trans_choice('{1} :count chart hidden|[2,*] :count charts hidden', $hiddenCount, ['count' => $hiddenCount]) }}</span><span class="description-divider">·</span><a class="text-link" href="{{ $settingsUrl }}#hidden-charts">{{ __('Show') }}</a></p>@endif
 </div>
