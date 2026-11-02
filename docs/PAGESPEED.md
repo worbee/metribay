@@ -8,7 +8,7 @@ Personal/standalone installations connect their own Google API key first. Enable
 
 Daily Lighthouse snapshots record performance score (0–100), Largest Contentful Paint (LCP), Cumulative Layout Shift (CLS), and Total Blocking Time (TBT). Each observation retains its test time, requested/final URLs, device and Lighthouse version. Repeated requests for the same URL/device/key on the same UTC day reuse a cached lab result; a shared lock prevents duplicate concurrent tests. The provider timeout is bounded at 180 seconds.
 
-History begins with the first test. A current score cannot reconstruct earlier lab results. Charts retain missing dates as gaps. Snapshot values use the latest observation in the selected period, without generic growth percentages. The overview shows the **lowest** score across a project's tracked pages/devices and defaults to lowest-first sorting; speed scores are excluded from totals across projects.
+History begins with the first test. A current score cannot reconstruct earlier lab results. Charts retain missing dates as gaps. Snapshot values use the latest observation in the selected period, without generic growth percentages. The overview shows the **lowest** score across a project's tracked pages/devices and selecting the speed column sorts lowest scores first; speed scores are excluded from totals across projects.
 
 ## Real users
 
@@ -20,7 +20,7 @@ Google may have no eligible data for a page or even its whole site. This is **No
 
 ## Operations
 
-Normal scheduled imports run page-speed sources at most once every 24 hours after a successful collection. Explicit sync/check and weekly full refreshes can still run, subject to the same caches and request policy. Repeated tests do not bypass the daily lab cache. Core limits combined requests to 100 per minute per API key, below the shared CrUX/History quota of 150/minute. Cloud adds its own owner/application budgets. Every HTTP request also passes the host's `ProviderRequests` policy.
+Normal scheduled imports run page-speed sources at most once every 24 hours after a successful collection. Explicit sync/check and weekly full refreshes can still run, subject to the same caches and request policy. Repeated tests do not bypass the daily lab cache. Core limits combined requests to 100 per minute per API key, below the shared CrUX/History quota of 150/minute. Multiple keys in one Google Cloud project still share Google’s project quota; the per-key limiter does not increase it. Cloud adds its own owner/application budgets. Every HTTP request also passes the host's `ProviderRequests` policy.
 
 `daily_metrics.context` is nullable JSON with a small allowlist of measurement metadata; it never stores the API key or raw provider responses. The new migration is additive. A host rollback can retain the column, but pause any Page speed sources before running an older Core that does not support the provider.
 
