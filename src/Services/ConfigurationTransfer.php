@@ -31,10 +31,7 @@ class ConfigurationTransfer
                 $project->fill(['name' => $item['name'], 'domain' => ProjectConfiguration::domain($item['domain'] ?? null), 'group_id' => $group?->id, 'archived' => $item['archived'], 'version' => ($project->version ?? 0) + 1])->save();
                 foreach ($item['sources'] as $entry) {
                     $config = ProviderCatalog::source($entry['kind'], $entry['config'], $entry['reporting_timezone']);
-                    $identity = $config;
-                    unset($identity['days'],$identity['limit']);
-                    ksort($identity);
-                    $hash = hash('sha256', json_encode([$entry['kind'], $identity, $entry['reporting_timezone']], JSON_THROW_ON_ERROR));
+                    $hash = ProviderCatalog::identityHash($entry['kind'], $config, $entry['reporting_timezone']);
                     $connection = ! empty($entry['connection']) ? Connection::query()->where('name', $entry['connection'])->where('kind', $entry['kind'])->first() : null;
                     $source = Source::query()->firstOrNew(['project_id' => $project->id, 'identity_hash' => $hash]);
                     $source->fill(['kind' => $entry['kind'], 'label' => $entry['label'], 'config' => $config, 'reporting_timezone' => $entry['reporting_timezone'], 'enabled' => $entry['enabled'] && (! ProviderCatalog::requiresConnection($entry['kind']) || $connection !== null), 'connection_id' => $connection?->id, 'version' => ($source->version ?? 0) + 1])->save();

@@ -37,6 +37,7 @@ Route::middleware(['web', 'auth', 'auth.session', 'verified'])->group(function (
         Route::patch('/sources/{source}', [SettingsController::class, 'sourceUpdate'])->name('metribay.sources.update');
         Route::post('/sources/{source}/sync', [SettingsController::class, 'sync'])->name('metribay.sources.sync');
         Route::post('/sources/{source}/check', [SettingsController::class, 'check'])->name('metribay.sources.check');
+        Route::post('/sources/{source}/environments', [SettingsController::class, 'environments'])->middleware('throttle:30,1')->name('metribay.sources.environments');
         Route::get('/export', [SettingsController::class, 'export'])->name('metribay.settings.export');
         Route::post('/import', [SettingsController::class, 'import'])->name('metribay.settings.import');
         Route::post('/projects/{project}/events', [ProjectEventController::class, 'store'])->name('metribay.events.store');

@@ -115,8 +115,9 @@ class MetricStore
             foreach ($result->periods as $row) {
                 PeriodMetric::query()->updateOrCreate(['source_id' => $source->id, 'metric' => $row['metric'], 'start_date' => $row['start_date'], 'end_date' => $row['end_date']], ['value' => $row['value'], 'is_partial' => $row['is_partial'], 'collected_at' => $now]);
             }
+            $origins = ProviderCatalog::eventOrigins($source->kind);
             foreach ($result->events as $event) {
-                if (strlen($event['title']) > 200) {
+                if (! in_array($event['origin'], $origins, true) || strlen($event['title']) > 200) {
                     throw new InvalidArgumentException('Invalid provider event.');
                 }
                 $url = $event['url'];
@@ -127,10 +128,16 @@ class MetricStore
                     }
                 }
                 $at = CarbonImmutable::parse($event['occurred_at'])->utc();
-                ProjectEvent::query()->updateOrCreate(['source_id' => $source->id, 'origin' => 'github_release', 'external_id' => (string) $event['external_id']], ['project_id' => $source->project_id, 'date' => $at->toDateString(), 'occurred_at' => $at, 'title' => $event['title'], 'body' => $event['body'] ?? '', 'url' => $event['url']]);
+                ProjectEvent::query()->updateOrCreate(['source_id' => $source->id, 'origin' => $event['origin'], 'external_id' => (string) $event['external_id']], ['project_id' => $source->project_id, 'date' => $at->toDateString(), 'occurred_at' => $at, 'title' => $event['title'], 'body' => $event['body'] ?? '', 'url' => $event['url']]);
             }
-            if ($result->authoritativeEvents) {
-                ProjectEvent::query()->where('source_id', $source->id)->where('origin', 'github_release')->whereNotIn('external_id', array_column($result->events, 'external_id'))->delete();
+            foreach ($result->authoritativeEvents as $origin => $since) {
+                if (! in_array($origin, $origins, true)) {
+                    throw new InvalidArgumentException('Invalid provider event.');
+                }
+                // Only the window that was read is authoritative; older imported events stay.
+                $kept = array_column(array_filter($result->events, fn (array $event): bool => $event['origin'] === $origin), 'external_id');
+                ProjectEvent::query()->where('source_id', $source->id)->where('origin', $origin)->whereNotIn('external_id', $kept)
+                    ->when($since !== null, fn ($query) => $query->where('occurred_at', '>=', CarbonImmutable::parse($since)->utc()))->delete();
             }
             $observed = DailyMetric::query()->where('source_id', $source->id)->max('date');
             $finalized = DailyMetric::query()->where('source_id', $source->id)->where('is_partial', false)->whereNotIn('metric', array_keys(array_filter(MetricRegistry::all(), fn ($definition) => $definition->snapshot)))->max('date');

@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Http;
 use Metribay\Core\Connectors\CollectionResult;
 use Metribay\Core\Connectors\ConnectorException;
 use Metribay\Core\Connectors\GitHubConnector;
+use Metribay\Core\Connectors\GitHubDeploymentAccess;
 use Metribay\Core\Connectors\SourceConfiguration;
 use PHPUnit\Framework\Attributes\DataProvider;
 
@@ -33,7 +34,7 @@ final class GitHubConnectorTest extends FixtureTestCase
             $this->assertSame($row['metric'] !== 'open_issues' && $row['date'] === '2026-10-25', $row['is_partial']);
         }
         $this->assertSame(['2026-10-25' => ['open_issues']], $result->replaceDailyDates);
-        $this->assertTrue($result->authoritativeEvents);
+        $this->assertSame(['github_release' => '2026-10-23T00:00:00+00:00', 'github_deployment' => null], $result->authoritativeEvents);
         Http::assertSentCount(6);
     }
 
@@ -73,22 +74,100 @@ final class GitHubConnectorTest extends FixtureTestCase
         Http::assertSentCount(3);
     }
 
-    public function test_an_old_draft_published_now_is_imported_and_all_release_pages_are_authoritative(): void
+    public function test_releases_are_read_until_a_margin_before_the_window_and_only_window_releases_become_events(): void
     {
-        $draft = $this->release('draft');
+        $draft = $this->release('draft', created: '2026-10-25T09:00:00Z');
         $draft['isDraft'] = true;
         $draft['publishedAt'] = null;
-        $prerelease = $this->release('preview', '2026-01-01T00:00:00Z');
+        $prerelease = $this->release('preview', '2026-10-24T09:00:00Z', '2026-09-25T00:00:00Z');
         $prerelease['isPrerelease'] = true;
-        $this->githubFake(releases: ['' => $this->page([$draft, $prerelease], true, 'older-created'),
-            'older-created' => $this->page([$this->release('released-today', '2026-10-25T08:00:00Z')])]);
+        $this->githubFake(releases: [
+            '' => $this->page([$draft, $this->release('old-draft', '2026-10-25T08:00:00Z', '2026-09-30T00:00:00Z'), $prerelease], true, 'older-created'),
+            'older-created' => $this->page([$this->release('before-window', '2026-10-01T00:00:00Z', '2026-09-01T00:00:00Z')], true, 'never-read'),
+        ]);
         $result = $this->collect();
-        $this->assertCount(2, $result->events);
-        $this->assertSame('Release preview (prerelease)', $result->events[0]['title']);
-        $this->assertSame('released-today', $result->events[1]['external_id']);
-        $this->assertSame('2026-10-25T08:00:00+00:00', $result->events[1]['occurred_at']);
-        $this->assertSame('Synthetic release notes', $result->events[1]['body']);
-        $this->assertTrue($result->authoritativeEvents);
+        $this->assertSame(['old-draft', 'preview'], array_column($result->events, 'external_id'));
+        $this->assertSame(['github_release', 'github_release'], array_column($result->events, 'origin'));
+        $this->assertSame('2026-10-25T08:00:00+00:00', $result->events[0]['occurred_at']);
+        $this->assertSame('Synthetic release notes', $result->events[0]['body']);
+        $this->assertSame('Release preview (prerelease)', $result->events[1]['title']);
+        $this->assertSame('2026-10-23T00:00:00+00:00', $result->authoritativeEvents['github_release']);
+        Http::assertNotSent(fn (Request $request): bool => ($request['variables']['after'] ?? null) === 'never-read');
+    }
+
+    public function test_successful_deployments_to_chosen_environments_become_events(): void
+    {
+        $this->githubFake(deployments: ['' => $this->page([
+            $this->deployment('tagged', 'Production', '2026-10-25T08:00:00Z', [['SUCCESS', '2026-10-25T08:05:00Z']], ['name' => 'v2.0.0', 'prefix' => 'refs/tags/']),
+            $this->deployment('staging', 'staging', '2026-10-25T07:00:00Z', [['SUCCESS', '2026-10-25T07:05:00Z']]),
+            $this->deployment('failed', 'production', '2026-10-24T09:00:00Z', [['FAILURE', '2026-10-24T09:05:00Z']]),
+            $this->deployment('replaced', 'production', '2026-10-24T08:00:00Z', [['INACTIVE', '2026-10-25T08:05:00Z'], ['SUCCESS', '2026-10-24T08:04:00Z'], ['IN_PROGRESS', '2026-10-24T08:01:00Z']]),
+            $this->deployment('before-window', 'production', '2026-10-21T08:00:00Z', [['SUCCESS', '2026-10-21T08:05:00Z']]),
+        ], true, 'never-read')]);
+        $result = $this->collect(['environments' => ['production']]);
+        $deployments = array_values(array_filter($result->events, fn (array $event): bool => $event['origin'] === 'github_deployment'));
+        $this->assertSame(['tagged', 'replaced'], array_column($deployments, 'external_id'));
+        $this->assertSame('Production · v2.0.0', $deployments[0]['title']);
+        $this->assertSame('production · '.substr(str_repeat('a1', 20), 0, 7), $deployments[1]['title']);
+        $this->assertSame('2026-10-24T08:04:00+00:00', $deployments[1]['occurred_at']);
+        $this->assertSame('https://github.com/example/repo/commit/'.str_repeat('a1', 20), $deployments[1]['url']);
+        $this->assertSame('2026-10-23T00:00:00+00:00', $result->authoritativeEvents['github_deployment']);
+        Http::assertSent(fn (Request $request): bool => str_contains($request['query'], 'RepositoryDeployments') && $request['variables']['environments'] === ['production']);
+        Http::assertNotSent(fn (Request $request): bool => ($request['variables']['after'] ?? null) === 'never-read');
+    }
+
+    public function test_without_environments_no_deployments_are_read(): void
+    {
+        $this->githubFake();
+        $this->collect();
+        Http::assertNotSent(fn (Request $request): bool => str_contains($request['query'] ?? '', 'deployments('));
+    }
+
+    public function test_missing_deployment_permission_is_reported_without_provider_details(): void
+    {
+        $this->githubFake(override: function (Request $request) {
+            if (str_contains($request['query'], 'RepositoryDeployments')) {
+                return ['errors' => [['type' => 'FORBIDDEN', 'message' => 'Resource not accessible by integration synthetic-provider-secret']], 'data' => ['repository' => ['deployments' => null]]];
+            }
+
+            return null;
+        });
+        try {
+            $this->collect(['environments' => ['production']]);
+            $this->fail('A forbidden deployment read was accepted.');
+        } catch (GitHubDeploymentAccess $exception) {
+            $this->assertStringNotContainsString('synthetic-provider-secret', $exception->getMessage());
+        }
+    }
+
+    public function test_github_app_requests_deployment_access_only_when_environments_are_chosen(): void
+    {
+        $this->githubFake(override: function (Request $request) {
+            if (str_contains($request->url(), '/access_tokens')) {
+                $this->assertSame(['contents' => 'read', 'issues' => 'read', 'pull_requests' => 'read', 'deployments' => 'read'], $request['permissions']);
+
+                return Http::response(['message' => 'The permissions requested are not granted to this installation.'], 422);
+            }
+
+            return null;
+        });
+        $this->expectException(GitHubDeploymentAccess::class);
+        $this->collect(['environments' => ['production']], ['client_id' => 'Iv23_synthetic', 'installation_id' => '123', 'private_key' => self::signingKeys()['private']]);
+    }
+
+    public function test_environment_discovery_lists_recent_deployment_environments_once(): void
+    {
+        $this->githubFake(override: function (Request $request) {
+            $this->assertStringContainsString('DeploymentEnvironments', $request['query']);
+
+            return ['data' => ['repository' => ['deployments' => $this->page([
+                ['id' => 'd1', 'environment' => 'staging'], ['id' => 'd2', 'environment' => 'production'],
+                ['id' => 'd3', 'environment' => 'Production'], ['id' => 'd4', 'environment' => 'preview-12'],
+            ], true, 'never-read')]]];
+        });
+        $names = (new GitHubConnector($this->http()))->environments('example/repo', ['token' => 'synthetic-token'], $this->now());
+        $this->assertSame(['preview-12', 'production', 'staging'], $names);
+        Http::assertSentCount(1);
     }
 
     public static function paginationFaults(): array
@@ -122,7 +201,7 @@ final class GitHubConnectorTest extends FixtureTestCase
 
     public static function malformedGraphql(): array
     {
-        return [['partial'], ['noRepository'], ['wrongRepository'], ['negativeCount'], ['missingCount'], ['badTimestamp'], ['badOrdering'], ['unsafeReleaseUrl'], ['futureRelease']];
+        return [['partial'], ['noRepository'], ['wrongRepository'], ['negativeCount'], ['missingCount'], ['badTimestamp'], ['badOrdering'], ['unsafeReleaseUrl'], ['futureRelease'], ['badReleaseOrdering']];
     }
 
     #[DataProvider('malformedGraphql')]
@@ -157,6 +236,8 @@ final class GitHubConnectorTest extends FixtureTestCase
                 $releases = ['' => $this->page([$row])];
                 break;
             case 'futureRelease': $releases = ['' => $this->page([$this->release('future', '2026-10-26T00:00:00Z')])];
+                break;
+            case 'badReleaseOrdering': $releases = ['' => $this->page([$this->release('older', created: '2026-10-20T00:00:00Z'), $this->release('newer', created: '2026-10-21T00:00:00Z')])];
                 break;
         }
         $this->githubFake($commits, $pulls, $releases, $info, $override);
@@ -230,14 +311,15 @@ final class GitHubConnectorTest extends FixtureTestCase
         return (new GitHubConnector($this->http()))->collect(new SourceConfiguration('github', $config + ['repository' => 'example/repo', 'days' => 3]), $credentials, $this->now());
     }
 
-    private function githubFake(array $commits = [], array $pulls = [], array $releases = [], array $info = [], ?callable $override = null): void
+    private function githubFake(array $commits = [], array $pulls = [], array $releases = [], array $info = [], ?callable $override = null, array $deployments = []): void
     {
         $info += ['nameWithOwner' => 'example/repo', 'createdAt' => '2026-01-01T00:00:00Z', 'isEmpty' => false,
             'hasIssuesEnabled' => true, 'issues' => ['totalCount' => 7], 'defaultBranchRef' => ['target' => ['oid' => 'default-branch-snapshot']]];
         $commits = $commits ?: ['' => $this->page([])];
         $pulls = $pulls ?: ['' => $this->page([])];
         $releases = $releases ?: ['' => $this->page([])];
-        Http::fake(function (Request $request) use ($commits, $pulls, $releases, $info, $override) {
+        $deployments = $deployments ?: ['' => $this->page([])];
+        Http::fake(function (Request $request) use ($commits, $pulls, $releases, $info, $override, $deployments) {
             $this->assertSame(GitHubConnector::API_VERSION, $request->header('X-GitHub-Api-Version')[0]);
             if ($override !== null && ($response = $override($request)) !== null) {
                 return is_array($response) ? Http::response($response) : $response;
@@ -254,6 +336,8 @@ final class GitHubConnectorTest extends FixtureTestCase
             } elseif (str_contains($request['query'], 'CommitActivity')) {
                 $this->assertSame('default-branch-snapshot', $arguments['oid']);
                 $data = ['object' => ['history' => $commits[$cursor]]];
+            } elseif (str_contains($request['query'], 'RepositoryDeployments')) {
+                $data = ['deployments' => $deployments[$cursor]];
             } else {
                 $data = ['releases' => $releases[$cursor]];
             }
@@ -277,9 +361,16 @@ final class GitHubConnectorTest extends FixtureTestCase
         return ['id' => $id, 'mergedAt' => $merged, 'updatedAt' => $updated];
     }
 
-    private function release(string $id = 'release-one', string $published = '2026-10-24T12:00:00Z'): array
+    private function release(string $id = 'release-one', string $published = '2026-10-24T12:00:00Z', string $created = '2026-10-24T11:00:00Z'): array
     {
         return ['id' => $id, 'name' => 'Release '.$id, 'tagName' => 'v1.0', 'description' => 'Synthetic release notes',
-            'url' => 'https://github.com/example/repo/releases/tag/'.$id, 'publishedAt' => $published, 'isDraft' => false, 'isPrerelease' => false];
+            'url' => 'https://github.com/example/repo/releases/tag/'.$id, 'createdAt' => $created, 'publishedAt' => $published, 'isDraft' => false, 'isPrerelease' => false];
+    }
+
+    /** @param list<array{string, string}> $statuses state and time pairs */
+    private function deployment(string $id, string $environment, string $created, array $statuses, ?array $ref = ['name' => 'main', 'prefix' => 'refs/heads/']): array
+    {
+        return ['id' => $id, 'commitOid' => str_repeat('a1', 20), 'createdAt' => $created, 'environment' => $environment, 'ref' => $ref,
+            'statuses' => ['nodes' => array_map(fn (array $status): array => ['state' => $status[0], 'createdAt' => $status[1]], $statuses)]];
     }
 }

@@ -20,7 +20,7 @@ class ProviderCatalog
             'bing' => ['Bing Webmaster Tools', ['api_key'], ['api_key'], ['site_url', 'days'], 'UTC'],
             'pagespeed' => ['Page speed', ['api_key'], ['api_key'], ['url', 'strategy'], 'UTC'],
             'wporg' => ['WordPress.org', [], [], ['slug', 'limit'], 'UTC'],
-            'github' => ['GitHub', ['token', 'client_id', 'installation_id', 'private_key'], ['token', 'private_key'], ['repository', 'days'], 'UTC'],
+            'github' => ['GitHub', ['token', 'client_id', 'installation_id', 'private_key'], ['token', 'private_key'], ['repository', 'days', 'environments'], 'UTC'],
             'uptimerobot' => ['UptimeRobot', ['api_key'], ['api_key'], ['monitor_id'], 'UTC'],
         ];
         $out = [];
@@ -56,7 +56,8 @@ class ProviderCatalog
             'gsc' => ['site_url' => ['required', 'string', 'max:500']],
             'bing' => ['site_url' => ['required', 'url:http,https', 'max:500']],
             'wporg' => ['slug' => ['required', 'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/D', 'max:100']],
-            'github' => ['repository' => ['required', 'regex:~^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$~', 'max:240']],
+            'github' => ['repository' => ['required', 'regex:~^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$~', 'max:240'],
+                'environments' => ['sometimes', 'array', 'list', 'max:'.self::MAX_ENVIRONMENTS], 'environments.*' => ['required', 'string', 'max:255', 'regex:/^[^\x00-\x1F\x7F,]+$/u']],
             'uptimerobot' => ['monitor_id' => ['required', 'regex:/^[0-9]+$/']],
             'pagespeed' => ['url' => ['required', 'string', 'max:500'], 'strategy' => ['required', 'in:mobile,desktop']],
             default => throw ValidationException::withMessages(['kind' => __('Choose a supported provider.')]),
@@ -83,6 +84,12 @@ class ProviderCatalog
         }
         if ($kind === 'github' && array_intersect(explode('/', $clean['repository']), ['.', '..'])) {
             throw ValidationException::withMessages(['config.repository' => __('Use owner/repository.')]);
+        }
+        if ($kind === 'github' && isset($clean['environments'])) {
+            $clean['environments'] = self::environments(implode(',', $clean['environments']));
+            if ($clean['environments'] === []) {
+                unset($clean['environments']);
+            }
         }
 
         if ($kind === 'pagespeed') {
@@ -146,6 +153,53 @@ class ProviderCatalog
         }
 
         return $values;
+    }
+
+    /** Upper bound on GitHub deployment environments per data source. */
+    public const MAX_ENVIRONMENTS = 10;
+
+    /**
+     * Parses comma-separated GitHub environment names: trimmed, without duplicates (ignoring case), at most ten.
+     *
+     * @return list<string>
+     */
+    public static function environments(string $input): array
+    {
+        $names = [];
+        foreach (explode(',', $input) as $name) {
+            $name = trim($name);
+            if ($name === '') {
+                continue;
+            }
+            if (mb_strlen($name) > 255 || preg_match('/[\x00-\x1F\x7F]/u', $name)) {
+                throw ValidationException::withMessages(['environments' => __('Use environment names separated by commas.')]);
+            }
+            $names[mb_strtolower($name)] ??= $name;
+        }
+        if (count($names) > self::MAX_ENVIRONMENTS) {
+            throw ValidationException::withMessages(['environments' => __('Choose at most :count environments.', ['count' => self::MAX_ENVIRONMENTS])]);
+        }
+
+        return array_values($names);
+    }
+
+    /**
+     * Identifies a data source within a project. Collection windows and event filters are settings, not identity.
+     *
+     * @param  array<string, mixed>  $config
+     */
+    public static function identityHash(string $kind, array $config, string $timezone): string
+    {
+        unset($config['days'], $config['limit'], $config['environments']);
+        ksort($config);
+
+        return hash('sha256', json_encode([$kind, $config, $timezone], JSON_THROW_ON_ERROR));
+    }
+
+    /** @return list<string> Origins of the automatic events this provider imports. */
+    public static function eventOrigins(string $kind): array
+    {
+        return $kind === 'github' ? ['github_release', 'github_deployment'] : [];
     }
 
     public static function requiresConnection(string $kind): bool

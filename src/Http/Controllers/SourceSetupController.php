@@ -2,6 +2,7 @@
 
 namespace Metribay\Core\Http\Controllers;
 
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -9,6 +10,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Metribay\Core\Connectors\ConnectorRegistry;
+use Metribay\Core\Connectors\GitHubDeploymentAccess;
 use Metribay\Core\Connectors\ProviderRequestLimit;
 use Metribay\Core\Connectors\ResourceDiscovery;
 use Metribay\Core\Connectors\SafeHttpClient;
@@ -196,6 +199,7 @@ class SourceSetupController
                         throw ValidationException::withMessages(['resource' => __('Unable to read this property’s reporting timezone. Retry or use manual entry.')]);
                     }
                 }
+                $draft = $this->deploymentEnvironments($request, $draft);
                 $draft['step'] = 'confirm';
             } elseif ($action === 'page_speed') {
                 abort_unless($kind === 'pagespeed', 422);
@@ -215,14 +219,16 @@ class SourceSetupController
                 abort_if($kind === 'pagespeed', 422);
                 $values = $request->validate(['resource_id' => ['required', 'string', 'max:500'], 'timezone' => ['required', 'timezone']]);
                 $draft['resource'] = ['id' => $values['resource_id'], 'name' => $values['resource_id'], 'domain' => '', 'timezone' => $kind === 'ga4' ? $values['timezone'] : ProviderCatalog::all()[$kind]['default_timezone']];
+                $draft = $this->deploymentEnvironments($request, $draft);
                 $draft['step'] = 'confirm';
             } elseif ($action === 'back') {
                 $draft['step'] = $request->input('step') === 'account' && ProviderCatalog::requiresConnection($kind) ? 'account' : 'resources';
             } elseif ($action === 'finish') {
                 abort_unless(isset($draft['resource']), 409);
-                $values = $request->validate(['label' => ['nullable', 'string', 'max:120'], 'days' => ['required', 'integer', 'min:1', 'max:366']]);
+                $values = $request->validate(['label' => ['nullable', 'string', 'max:120'], 'days' => ['required', 'integer', 'min:1', 'max:366'], 'environments' => ['nullable', 'string', 'max:3000']]);
                 $field = ['umami' => 'website_id', 'ga4' => 'property_id', 'gsc' => 'site_url', 'bing' => 'site_url', 'github' => 'repository', 'uptimerobot' => 'monitor_id', 'wporg' => 'slug', 'pagespeed' => 'url'][$kind];
-                $config = ProviderCatalog::source($kind, [$field => $draft['resource']['id']] + ($kind === 'pagespeed' ? ['strategy' => $draft['resource']['strategy']] : []) + (in_array($kind, ['uptimerobot', 'pagespeed'], true) ? [] : [($kind === 'wporg' ? 'limit' : 'days') => $values['days']]), $draft['resource']['timezone']);
+                $environments = $kind === 'github' ? ProviderCatalog::environments((string) ($values['environments'] ?? '')) : [];
+                $config = ProviderCatalog::source($kind, [$field => $draft['resource']['id']] + ($kind === 'pagespeed' ? ['strategy' => $draft['resource']['strategy']] : []) + (in_array($kind, ['uptimerobot', 'pagespeed'], true) ? [] : [($kind === 'wporg' ? 'limit' : 'days') => $values['days']]) + ($environments !== [] ? ['environments' => $environments] : []), $draft['resource']['timezone']);
                 if (! ProviderCatalog::requiresConnection($kind)) {
                     if ($kind === 'pagespeed' && ! app(PageSpeedCredentials::class)->available()) {
                         throw ValidationException::withMessages(['resource' => __('Page speed is temporarily unavailable. Please try again later.')]);
@@ -234,10 +240,7 @@ class SourceSetupController
                 }
                 $source = DB::transaction(function () use ($values, $draft, $kind, $config) {
                     $project = Project::query()->where('archived', false)->lockForUpdate()->findOrFail($draft['project_id']);
-                    $identity = $config;
-                    unset($identity['days'], $identity['limit']);
-                    ksort($identity);
-                    $hash = hash('sha256', json_encode([$kind, $identity, $draft['resource']['timezone']], JSON_THROW_ON_ERROR));
+                    $hash = ProviderCatalog::identityHash($kind, $config, $draft['resource']['timezone']);
                     if (Source::query()->where('project_id', $project->id)->where('identity_hash', $hash)->exists()) {
                         throw ValidationException::withMessages(['resource' => __('This data source is already in this project.')]);
                     }
@@ -256,5 +259,31 @@ class SourceSetupController
         $request->session()->put($key, $draft);
 
         return redirect()->route('metribay.sources.create', app(WorkspaceContext::class)->current()->slug);
+    }
+
+    /**
+     * Lists a GitHub repository's deployment environments to suggest which deployments become events.
+     * Optional: failures only explain why no suggestions are shown.
+     *
+     * @param  array<string, mixed>  $draft
+     * @return array<string, mixed>
+     */
+    private function deploymentEnvironments(Request $request, array $draft): array
+    {
+        unset($draft['environments'], $draft['environments_error']);
+        $connection = Connection::query()->where('kind', 'github')->find($draft['connection_id'] ?? null);
+        if ($draft['kind'] !== 'github' || ! $connection
+            || ! app(WorkspaceAccess::class)->allows($request->user(), app(WorkspaceContext::class)->current(), 'manage_connections')) {
+            return $draft;
+        }
+        try {
+            $draft['environments'] = app(ConnectorRegistry::class)->github()->environments((string) $draft['resource']['id'], app(ConnectionCredentials::class)->resolve($connection), CarbonImmutable::now('UTC'));
+        } catch (GitHubDeploymentAccess|ProviderRequestLimit $exception) {
+            $draft['environments_error'] = __($exception->getMessage());
+        } catch (\Throwable) {
+            $draft['environments_error'] = __('GitHub could not list deployments. Check the connected account, then try again.');
+        }
+
+        return $draft;
     }
 }

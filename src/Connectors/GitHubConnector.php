@@ -54,20 +54,48 @@ GRAPHQL;
 query RepositoryReleases($owner: String!, $name: String!, $after: String) {
   repository(owner: $owner, name: $name) {
     releases(first: 100, after: $after, orderBy: {field: CREATED_AT, direction: DESC}) {
-      nodes { id name tagName description url publishedAt isDraft isPrerelease }
+      nodes { id name tagName description url createdAt publishedAt isDraft isPrerelease }
       pageInfo { hasNextPage endCursor }
     }
   }
 }
 GRAPHQL;
 
+    private const DEPLOYMENTS = <<<'GRAPHQL'
+query RepositoryDeployments($owner: String!, $name: String!, $environments: [String!], $after: String) {
+  repository(owner: $owner, name: $name) {
+    deployments(first: 100, after: $after, environments: $environments, orderBy: {field: CREATED_AT, direction: DESC}) {
+      nodes { id commitOid createdAt environment ref { name prefix } statuses(first: 50) { nodes { state createdAt } } }
+      pageInfo { hasNextPage endCursor }
+    }
+  }
+}
+GRAPHQL;
+
+    private const DEPLOYMENT_ENVIRONMENTS = <<<'GRAPHQL'
+query DeploymentEnvironments($owner: String!, $name: String!, $after: String) {
+  repository(owner: $owner, name: $name) {
+    deployments(first: 100, after: $after, orderBy: {field: CREATED_AT, direction: DESC}) {
+      nodes { id environment }
+      pageInfo { hasNextPage endCursor }
+    }
+  }
+}
+GRAPHQL;
+
+    /** Releases are listed by creation date; read this far past the window for drafts published later. */
+    private const RELEASE_DRAFT_MARGIN_DAYS = 30;
+
     public function collect(SourceConfiguration $source, array $credentials, CarbonImmutable $now): CollectionResult
     {
         $this->utcOnly($source, 'GitHub');
-        $repository = $this->text($source->config['repository'] ?? null, 'GitHub repository');
-        if (! preg_match('~^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$~D', $repository)
-            || array_intersect(explode('/', $repository), ['.', '..']) !== []) {
-            throw new ConnectorException('Use a GitHub repository in owner/repository format.');
+        $repository = $this->repository($source->config['repository'] ?? null);
+        $environments = $source->config['environments'] ?? [];
+        if (! is_array($environments) || ! array_is_list($environments) || count($environments) > 10) {
+            throw new ConnectorException('GitHub deployment environments must be a short list of names.');
+        }
+        foreach ($environments as $environment) {
+            $this->text($environment, 'GitHub deployment environment', 255);
         }
         // GitHub deliberately rereads the full configured window; old commits can become reachable.
         $configuration = new SourceConfiguration($source->kind, $source->config, $source->reportingTimezone);
@@ -79,62 +107,7 @@ GRAPHQL;
         $now = $now->utc();
         [$owner, $name] = explode('/', $repository);
         $variables = ['owner' => $owner, 'name' => $name];
-        $token = isset($credentials['token']) ? $this->text($credentials['token'], 'GitHub token') : null;
-        $tokenExpires = $token !== null ? $now->addDay() : null;
-        $installation = null;
-        $clientId = null;
-        $privateKey = null;
-        if ($token === null) {
-            $installation = $this->text((string) ($credentials['installation_id'] ?? ''), 'GitHub installation ID');
-            $clientId = $this->text($credentials['client_id'] ?? $credentials['app_id'] ?? null, 'GitHub App client ID');
-            $privateKey = $credentials['private_key'] ?? null;
-            if (! preg_match('/^[1-9][0-9]*$/D', $installation) || ! preg_match('/^[A-Za-z0-9_]+$/D', $clientId)
-                || ! is_string($privateKey) || strlen($privateKey) > 16384) {
-                throw new ConnectorException('Use valid GitHub App identifiers and an in-memory PEM private key.');
-            }
-        }
-        $headers = fn (string $bearer): array => ['Authorization' => 'Bearer '.$bearer, 'Accept' => 'application/vnd.github+json',
-            'X-GitHub-Api-Version' => self::API_VERSION];
-        $accessToken = function () use (&$token, &$tokenExpires, $now, $installation, $clientId, $privateKey, $name, $headers): string {
-            if ($token !== null && $tokenExpires !== null && $tokenExpires > $now->addMinute()) {
-                return $token;
-            }
-            try {
-                $assertion = JWT::encode(['iss' => $clientId, 'iat' => $now->getTimestamp() - 60,
-                    'exp' => $now->getTimestamp() + 540], $privateKey, 'RS256');
-            } catch (\Throwable) {
-                throw new ConnectorException('GitHub App private-key signing failed.');
-            }
-            $data = $this->json($this->http->request('POST', 'https://api.github.com/app/installations/'.$installation.'/access_tokens', [
-                'headers' => $headers($assertion), 'json' => ['repositories' => [$name], 'permissions' => [
-                    'contents' => 'read', 'issues' => 'read', 'pull_requests' => 'read',
-                ]],
-            ]), 'GitHub installation authentication', 201);
-            $token = $this->text($data['token'] ?? null, 'GitHub installation token');
-            $tokenExpires = $this->timestamp($data['expires_at'] ?? null, 'GitHub');
-            if ($tokenExpires <= $now->addMinute()) {
-                throw new ConnectorException('GitHub returned an expired installation token.');
-            }
-
-            return $token;
-        };
-        $graphql = function (string $query, array $arguments) use (&$token, &$tokenExpires, $accessToken, $headers, $installation): array {
-            $send = fn () => $this->http->request('POST', 'https://api.github.com/graphql', [
-                'headers' => $headers($accessToken()), 'json' => ['query' => $query, 'variables' => $arguments],
-            ]);
-            $response = $send();
-            if ($response->status() === 401 && $installation !== null) {
-                $token = $tokenExpires = null;
-                $response = $send();
-            }
-            $data = $this->json($response, 'GitHub');
-            if (! empty($data['errors'])) {
-                throw new ConnectorException('GitHub returned GraphQL errors or partial data. Check permissions and rate limits.');
-            }
-            $root = $this->object($data['data'] ?? null, 'GitHub');
-
-            return $this->object($root['repository'] ?? null, 'GitHub');
-        };
+        $graphql = $this->client($repository, $credentials, $now, $environments !== []);
         $info = $graphql(self::REPOSITORY, $variables);
         if (strtolower($this->text($info['nameWithOwner'] ?? null, 'GitHub repository identity')) !== strtolower($repository)
             || ! is_bool($info['isEmpty'] ?? null) || ! is_bool($info['hasIssuesEnabled'] ?? null)) {
@@ -190,19 +163,185 @@ GRAPHQL;
                 }
             }
         }
+        $events = $this->releases($graphql, $variables, $repository, $start, $now, $maximumPages);
+        if ($environments !== []) {
+            $events = array_merge($events, $this->deployments($graphql, $variables + ['environments' => $environments], $repository, $start, $now, $maximumPages));
+        }
+        $daily = [];
+        foreach ($values as $date => $metrics) {
+            foreach ($metrics as $metric => $value) {
+                $daily[] = $this->daily($metric, $date, $value, $date === $today->toDateString());
+            }
+        }
+        if ($info['hasIssuesEnabled']) {
+            $daily[] = $this->daily('open_issues', $today->toDateString(), (float) $issues);
+        }
+
+        // Only the read window is reconciled. Without environments, no deployment events belong to this source.
+        return new CollectionResult(daily: $daily, events: $events, authoritativeEvents: ['github_release' => $start->toIso8601String(),
+            'github_deployment' => $environments === [] ? null : $start->toIso8601String()],
+            replaceDailyDates: [$today->toDateString() => ['open_issues']]);
+    }
+
+    /**
+     * Environment names of the repository's most recent deployments, for choosing which deployments become events.
+     *
+     * @param  array<string, mixed>  $credentials
+     * @return list<string>
+     */
+    public function environments(string $repository, array $credentials, CarbonImmutable $now): array
+    {
+        $repository = $this->repository($repository);
+        [$owner, $name] = explode('/', $repository);
+        $graphql = $this->client($repository, $credentials, $now->utc(), true);
+        $names = [];
+        foreach ($this->pages($graphql, self::DEPLOYMENT_ENVIRONMENTS, ['owner' => $owner, 'name' => $name], 'deployments', 1) as $nodes) {
+            foreach ($nodes as $row) {
+                $environment = $this->text($row['environment'] ?? null, 'GitHub deployment environment', 255);
+                $names[mb_strtolower($environment)] ??= $environment;
+            }
+            // The latest hundred deployments are enough to name the environments in use.
+            break;
+        }
+        $names = array_values($names);
+        natcasesort($names);
+
+        return array_values($names);
+    }
+
+    private function repository(mixed $value): string
+    {
+        $repository = $this->text($value, 'GitHub repository');
+        if (! preg_match('~^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$~D', $repository)
+            || array_intersect(explode('/', $repository), ['.', '..']) !== []) {
+            throw new ConnectorException('Use a GitHub repository in owner/repository format.');
+        }
+
+        return $repository;
+    }
+
+    /**
+     * GraphQL client for one repository. Installation tokens are limited to that repository and read access.
+     *
+     * @param  array<string, mixed>  $credentials
+     * @return callable(string, array<string, mixed>): array<string, mixed>
+     */
+    private function client(string $repository, array $credentials, CarbonImmutable $now, bool $deployments): callable
+    {
+        $name = explode('/', $repository)[1];
+        $token = isset($credentials['token']) ? $this->text($credentials['token'], 'GitHub token') : null;
+        $tokenExpires = $token !== null ? $now->addDay() : null;
+        $installation = null;
+        $clientId = null;
+        $privateKey = null;
+        if ($token === null) {
+            $installation = $this->text((string) ($credentials['installation_id'] ?? ''), 'GitHub installation ID');
+            $clientId = $this->text($credentials['client_id'] ?? $credentials['app_id'] ?? null, 'GitHub App client ID');
+            $privateKey = $credentials['private_key'] ?? null;
+            if (! preg_match('/^[1-9][0-9]*$/D', $installation) || ! preg_match('/^[A-Za-z0-9_]+$/D', $clientId)
+                || ! is_string($privateKey) || strlen($privateKey) > 16384) {
+                throw new ConnectorException('Use valid GitHub App identifiers and an in-memory PEM private key.');
+            }
+        }
+        $headers = fn (string $bearer): array => ['Authorization' => 'Bearer '.$bearer, 'Accept' => 'application/vnd.github+json',
+            'X-GitHub-Api-Version' => self::API_VERSION];
+        $permissions = ['contents' => 'read', 'issues' => 'read', 'pull_requests' => 'read'] + ($deployments ? ['deployments' => 'read'] : []);
+        $accessToken = function () use (&$token, &$tokenExpires, $now, $installation, $clientId, $privateKey, $name, $headers, $permissions, $deployments): string {
+            if ($token !== null && $tokenExpires !== null && $tokenExpires > $now->addMinute()) {
+                return $token;
+            }
+            try {
+                $assertion = JWT::encode(['iss' => $clientId, 'iat' => $now->getTimestamp() - 60,
+                    'exp' => $now->getTimestamp() + 540], $privateKey, 'RS256');
+            } catch (\Throwable) {
+                throw new ConnectorException('GitHub App private-key signing failed.');
+            }
+            $response = $this->http->request('POST', 'https://api.github.com/app/installations/'.$installation.'/access_tokens', [
+                'headers' => $headers($assertion), 'json' => ['repositories' => [$name], 'permissions' => $permissions],
+            ]);
+            if ($deployments && $response->status() === 422) {
+                // GitHub rejects permissions that the installation was not granted.
+                throw new GitHubDeploymentAccess;
+            }
+            $data = $this->json($response, 'GitHub installation authentication', 201);
+            $token = $this->text($data['token'] ?? null, 'GitHub installation token');
+            $tokenExpires = $this->timestamp($data['expires_at'] ?? null, 'GitHub');
+            if ($tokenExpires <= $now->addMinute()) {
+                throw new ConnectorException('GitHub returned an expired installation token.');
+            }
+
+            return $token;
+        };
+
+        return function (string $query, array $arguments) use (&$token, &$tokenExpires, $accessToken, $headers, $installation): array {
+            $send = fn () => $this->http->request('POST', 'https://api.github.com/graphql', [
+                'headers' => $headers($accessToken()), 'json' => ['query' => $query, 'variables' => $arguments],
+            ]);
+            $response = $send();
+            if ($response->status() === 401 && $installation !== null) {
+                $token = $tokenExpires = null;
+                $response = $send();
+            }
+            $data = $this->json($response, 'GitHub');
+            if (! empty($data['errors'])) {
+                if (in_array($query, [self::DEPLOYMENTS, self::DEPLOYMENT_ENVIRONMENTS], true) && $this->forbidden($data['errors'])) {
+                    throw new GitHubDeploymentAccess;
+                }
+                throw new ConnectorException('GitHub returned GraphQL errors or partial data. Check permissions and rate limits.');
+            }
+            $root = $this->object($data['data'] ?? null, 'GitHub');
+
+            return $this->object($root['repository'] ?? null, 'GitHub');
+        };
+    }
+
+    /** True when every GraphQL error says the token may not read the requested data. */
+    private function forbidden(mixed $errors): bool
+    {
+        if (! is_array($errors) || ! array_is_list($errors)) {
+            return false;
+        }
+        foreach ($errors as $error) {
+            if (! is_array($error) || (($error['type'] ?? null) !== 'FORBIDDEN'
+                && ! str_starts_with((string) ($error['message'] ?? ''), 'Resource not accessible'))) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Published releases inside the window. Releases are listed newest-created first, so reading stops once
+     * creation dates fall a margin before the window; a draft created earlier and published later is still found.
+     *
+     * @param  array<string, mixed>  $variables
+     * @return list<array{origin: string, external_id: string, title: string, url: string, occurred_at: string, body: string}>
+     */
+    private function releases(callable $graphql, array $variables, string $repository, CarbonImmutable $start, CarbonImmutable $now, int $maximumPages): array
+    {
         $events = [];
-        // Creation order is not publication order: read all releases before reconciliation.
+        $previousCreated = null;
         foreach ($this->pages($graphql, self::RELEASES, $variables, 'releases', $maximumPages) as $nodes) {
+            $lastCreated = null;
             foreach ($nodes as $row) {
                 if (! is_bool($row['isDraft'] ?? null) || ! is_bool($row['isPrerelease'] ?? null)) {
                     throw new ConnectorException('GitHub returned invalid release metadata.');
                 }
+                $created = $this->timestamp($row['createdAt'] ?? null, 'GitHub');
+                if ($previousCreated !== null && $created > $previousCreated) {
+                    throw new ConnectorException('GitHub returned inconsistent release ordering.');
+                }
+                $previousCreated = $lastCreated = $created;
                 if ($row['isDraft']) {
                     continue;
                 }
                 $published = $this->timestamp($row['publishedAt'] ?? null, 'GitHub');
                 if ($published > $now) {
                     throw new ConnectorException('GitHub returned a future release publication date.');
+                }
+                if ($published < $start) {
+                    continue;
                 }
                 $tag = $this->text($row['tagName'] ?? null, 'GitHub release tag');
                 $title = ($row['name'] ?? null) ?: $tag;
@@ -217,27 +356,80 @@ GRAPHQL;
                     || ! str_starts_with(strtolower($parts['path'] ?? ''), '/'.strtolower($repository).'/releases/')) {
                     throw new ConnectorException('GitHub returned an invalid release URL.');
                 }
-                $events[] = ['external_id' => $this->text($row['id'] ?? null, 'GitHub release identity', 255),
+                $events[] = ['origin' => 'github_release', 'external_id' => $this->text($row['id'] ?? null, 'GitHub release identity', 255),
                     'title' => mb_substr($title.($row['isPrerelease'] ? ' (prerelease)' : ''), 0, 200),
                     'body' => mb_substr($body, 0, 4000), 'url' => $url, 'occurred_at' => $published->toIso8601String()];
             }
-        }
-        $daily = [];
-        foreach ($values as $date => $metrics) {
-            foreach ($metrics as $metric => $value) {
-                $daily[] = $this->daily($metric, $date, $value, $date === $today->toDateString());
+            if ($lastCreated !== null && $lastCreated < $start->subDays(self::RELEASE_DRAFT_MARGIN_DAYS)) {
+                break;
             }
         }
-        if ($info['hasIssuesEnabled']) {
-            $daily[] = $this->daily('open_issues', $today->toDateString(), (float) $issues);
-        }
 
-        return new CollectionResult(daily: $daily, events: $events, authoritativeEvents: true,
-            replaceDailyDates: [$today->toDateString() => ['open_issues']]);
+        return $events;
     }
 
     /**
-     * @param  array<string, string>  $variables
+     * Successful deployments to the chosen environments inside the window, dated by their first success status.
+     * Deployments later replaced by newer ones (inactive) still count: they were live.
+     *
+     * @param  array<string, mixed>  $variables
+     * @return list<array{origin: string, external_id: string, title: string, url: string, occurred_at: string, body: string}>
+     */
+    private function deployments(callable $graphql, array $variables, string $repository, CarbonImmutable $start, CarbonImmutable $now, int $maximumPages): array
+    {
+        $wanted = array_map(mb_strtolower(...), $variables['environments']);
+        $events = [];
+        $previousCreated = null;
+        foreach ($this->pages($graphql, self::DEPLOYMENTS, $variables, 'deployments', $maximumPages) as $nodes) {
+            $lastCreated = null;
+            foreach ($nodes as $row) {
+                $created = $this->timestamp($row['createdAt'] ?? null, 'GitHub');
+                if ($previousCreated !== null && $created > $previousCreated) {
+                    throw new ConnectorException('GitHub returned inconsistent deployment ordering.');
+                }
+                $previousCreated = $lastCreated = $created;
+                $environment = $this->text($row['environment'] ?? null, 'GitHub deployment environment', 255);
+                if (! in_array(mb_strtolower($environment), $wanted, true)) {
+                    continue;
+                }
+                $succeeded = null;
+                foreach ($this->list($this->object($row['statuses'] ?? null, 'GitHub')['nodes'] ?? null, 'GitHub') as $status) {
+                    $status = $this->object($status, 'GitHub');
+                    $at = $this->timestamp($status['createdAt'] ?? null, 'GitHub');
+                    if (! is_string($status['state'] ?? null)) {
+                        throw new ConnectorException('GitHub returned an invalid deployment status.');
+                    }
+                    if ($status['state'] === 'SUCCESS' && ($succeeded === null || $at < $succeeded)) {
+                        $succeeded = $at;
+                    }
+                }
+                if ($succeeded === null || $succeeded < $start) {
+                    continue;
+                }
+                if ($succeeded > $now) {
+                    throw new ConnectorException('GitHub returned a future deployment date.');
+                }
+                $commit = $this->text($row['commitOid'] ?? null, 'GitHub deployment commit');
+                if (! preg_match('/^[0-9a-f]{40}$/D', $commit)) {
+                    throw new ConnectorException('GitHub returned an invalid deployment commit.');
+                }
+                $ref = $row['ref'] ?? null;
+                $tag = is_array($ref) && ($ref['prefix'] ?? null) === 'refs/tags/' ? $this->text($ref['name'] ?? null, 'GitHub deployment tag', 255) : null;
+                $events[] = ['origin' => 'github_deployment', 'external_id' => $this->text($row['id'] ?? null, 'GitHub deployment identity', 255),
+                    'title' => mb_substr($environment.' · '.($tag ?? substr($commit, 0, 7)), 0, 200), 'body' => '',
+                    'url' => 'https://github.com/'.$repository.'/commit/'.$commit, 'occurred_at' => $succeeded->toIso8601String()];
+            }
+            // A deployment usually succeeds within minutes of its creation; a day covers slow ones.
+            if ($lastCreated !== null && $lastCreated < $start->subDay()) {
+                break;
+            }
+        }
+
+        return $events;
+    }
+
+    /**
+     * @param  array<string, mixed>  $variables
      * @return \Generator<int, list<array<string, mixed>>>
      */
     private function pages(callable $graphql, string $query, array $variables, string $field, int $maximum): \Generator

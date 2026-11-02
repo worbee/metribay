@@ -14,6 +14,12 @@ final readonly class ConnectorRegistry
         return ['umami', 'ga4', 'gsc', 'bing', 'wporg', 'github', 'uptimerobot', 'pagespeed'];
     }
 
+    /** The GitHub connector, which also lists deployment environments. */
+    public function github(): GitHubConnector
+    {
+        return new GitHubConnector($this->http);
+    }
+
     public function for(string $kind): Connector
     {
         return match ($kind) {

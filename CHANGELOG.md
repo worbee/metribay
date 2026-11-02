@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0 — 2026-11-02
+
+- Import successful GitHub deployments as project events. Each GitHub data source can name up to ten deployment environments (for example `production`) during setup or under **Manage data source**; **Find environments** lists the environments of the repository's latest deployments, and setup suggests `production` when it exists. Events are dated by the first success status, titled with the environment and tag or short commit, and link to the commit. Deployments later replaced by newer ones still count. Changing the environments removes existing deployment events and queues a fresh import. The event list labels imported events as **Release** or **Deployment**. Available in all twelve interface languages.
+- Read GitHub releases only for the collection window (plus 30 days of creation dates, so drafts published later are still found) instead of the whole release history.
+- Reconcile automatic events per origin and only inside the window that was read: older imported events stay, and a provider can no longer delete events outside what it fetched. `CollectionResult::$authoritativeEvents` is now a map of origin to window start, and each event row names its `origin` (validated per provider by `ProviderCatalog::eventOrigins()`).
+- Reading deployments needs read access to deployments: a classic token with `repo` scope, a fine-grained token or GitHub App with **Deployments: Read-only**. Without it, sources with deployment environments fail with a clear message (`GitHubDeploymentAccess`) and sources without environments are unaffected. GitHub App installation tokens request the deployments permission only when environments are chosen.
+- Deployment environments are settings, not part of a data source's identity. No migration.
+
 ## 0.3.2 — 2026-11-02
 
 - Let editors hide individual charts from a project page for everyone in the workspace. The hide button shows on hover, on keyboard focus, and always on touch screens. Hiding happens straight away and offers **Undo** where the chart was. A quiet "N charts hidden · Show" line links to the new **Hidden charts** section in Project settings, where charts can be shown again. The overview, collection and stored metrics are unchanged. Available in all twelve interface languages.
