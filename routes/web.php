@@ -31,6 +31,7 @@ Route::middleware(['web', 'auth', 'auth.session', 'verified'])->group(function (
         Route::get('/settings', [SettingsController::class, 'index'])->name('metribay.settings');
         Route::post('/projects', [ProjectController::class, 'store'])->name('metribay.projects.store');
         Route::patch('/projects/{project}', [ProjectController::class, 'update'])->name('metribay.projects.update');
+        Route::post('/projects/{project}/move', [ProjectController::class, 'move'])->middleware('throttle:10,1')->name('metribay.projects.move');
         Route::post('/groups', [SettingsController::class, 'groupStore'])->name('metribay.groups.store');
         Route::post('/connections', [SettingsController::class, 'connectionStore'])->name('metribay.connections.store');
         Route::patch('/connections/{connection}', [SettingsController::class, 'connectionUpdate'])->name('metribay.connections.update');

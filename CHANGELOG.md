@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.0 — 2026-11-02
+
+- Move a project to another workspace from the new **Workspace** section in Project settings, with **Manage workspaces** and (where the host allows it) **New workspace** links. The section appears only when the host exposes workspaces (the `metribay.workspaces` route), so single-workspace editions are unchanged. Moving needs `manage_access` on the current workspace and `edit` on the target, and checks the project version.
+- `ProjectTransfer` moves the project with its data sources, events, hidden charts, daily and period metrics and sync runs in one transaction. Composite workspace keys cannot change in place, so the project and its sources are recreated in the target workspace and get new IDs; the group is cleared and slug or account-name conflicts get a numeric suffix. Connected accounts used only by the moved project move with it when the user can manage accounts in both workspaces (credentials are re-bound, never copied); other data sources keep their settings and history without an account. New route `metribay.projects.move`. Available in all twelve interface languages. No migration.
+
 ## 0.5.0 — 2026-11-02
 
 - Refresh the overview and project charts hourly without a page reload, catching up when an overdue tab becomes visible. Keep the reporting period, chart legend choices and open event forms. This replaces the overview's 15-second polling and the first-import page reload.

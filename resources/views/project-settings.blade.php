@@ -33,5 +33,21 @@
     @empty<div class="inline-empty">@include('metribay::partials/icon',['name'=>'eye'])<span>{{ __('No hidden charts. Hide a chart from the project page with its hide button.') }}</span></div>@endforelse
     </div></div>
 </section>
+@if($moveTargets !== null)
+<section class="settings-section" id="workspace" aria-labelledby="workspace-heading">
+    <div class="section-intro"><h2 id="workspace-heading">{{ __('Workspace') }}</h2><p>{{ __('Move this project, with its data sources, events and metric history, to another workspace.') }}</p></div>
+    <div class="form-width form-stack">
+    <p>{{ __('This project is in :workspace.', ['workspace' => $workspace->name]) }}</p>
+    @if(!($canManageAccess ?? false))
+    <p class="muted">{{ __('Only the workspace owner can move projects.') }}</p>
+    @elseif($moveTargets->isEmpty())
+    <p class="muted">{{ __('There is no other workspace you can edit. Create a workspace first, then move the project there.') }}</p>
+    @else
+    <form class="form-stack" method="POST" action="{{ route('metribay.projects.move',['workspace'=>$workspace->slug,'project'=>$project->id]) }}" data-confirm="{{ __('Move this project to the selected workspace? Members of this workspace will no longer see it.') }}">@csrf<input type="hidden" name="version" value="{{ $project->version }}"><div class="field"><label for="move-workspace">{{ __('Move to workspace') }}</label><select id="move-workspace" name="workspace_id" required><option value="">{{ __('Choose a workspace') }}</option>@foreach($moveTargets as $target)<option value="{{ $target->id }}" @selected((string) old('workspace_id') === (string) $target->id)>{{ $target->name }}</option>@endforeach</select><p class="field-hint">{{ __('Connected accounts used only by this project move with it. Data sources whose account other projects also use keep their settings and history, and need an account in the new workspace.') }}</p></div><div><button class="button button-secondary" type="submit">@include('metribay::partials/icon',['name'=>'layers']) {{ __('Move project') }}</button></div></form>
+    @endif
+    <p class="section-actions"><a class="text-link" href="{{ route('metribay.workspaces') }}">{{ __('Manage workspaces') }} →</a>@if($workspaceCreationUrl)<span class="description-divider">/</span><a class="text-link" href="{{ $workspaceCreationUrl }}">{{ __('New workspace') }} →</a>@endif</p>
+    </div>
+</section>
+@endif
 @if(!($canEdit ?? false))<p class="footnote">{{ __('You have read-only access. Ask an owner or administrator to make changes.') }}</p>@endif
 @endsection
