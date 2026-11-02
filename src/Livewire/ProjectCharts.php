@@ -1,0 +1,78 @@
+<?php
+
+namespace Metribay\Core\Livewire;
+
+use Carbon\CarbonImmutable;
+use Illuminate\Contracts\View\View;
+use Livewire\Attributes\Locked;
+use Livewire\Component;
+use Metribay\Core\Contracts\WorkspaceAccess;
+use Metribay\Core\Models\HiddenChart;
+use Metribay\Core\Models\Project;
+use Metribay\Core\Models\ProjectEvent;
+use Metribay\Core\Models\Workspace;
+use Metribay\Core\Services\DashboardData;
+use Metribay\Core\Services\WorkspaceContext;
+
+class ProjectCharts extends Component
+{
+    #[Locked]
+    public int $workspaceId;
+
+    #[Locked]
+    public int $projectId;
+
+    #[Locked]
+    public int $days = 30;
+
+    public function render(): View
+    {
+        abort_unless(auth()->check(), 401);
+        $workspace = Workspace::query()->findOrFail($this->workspaceId);
+        abort_unless(app(WorkspaceAccess::class)->allows(auth()->user(), $workspace, 'view'), 404);
+        abort_unless(in_array($this->days, [7, 30, 90], true), 422);
+        request()->attributes->set('metribay.workspace', $workspace);
+
+        return app(WorkspaceContext::class)->run($workspace, function () use ($workspace) {
+            $project = Project::query()->findOrFail($this->projectId);
+            $data = app(DashboardData::class);
+            $sources = $data->projects($this->days, $project->id)[0]['sources'] ?? [];
+            $events = ProjectEvent::query()->where('project_id', $project->id)->orderByDesc('date')->orderByDesc('id')->get();
+            $hidden = HiddenChart::query()->where('project_id', $project->id)->get();
+            foreach ($sources as &$source) {
+                $range = $source['metrics'][0] ?? null;
+                $source['events'] = $range ? $this->chartEvents($events, (int) $source['id'], CarbonImmutable::parse($range['start_date']), CarbonImmutable::parse($range['end_date'])) : [];
+                // Hidden charts leave the page only; context such as page speed test details still reads every metric.
+                $hiddenKeys = $hidden->where('source_id', (int) $source['id'])->pluck('metric_key')->all();
+                $source['all_metrics'] = $source['metrics'];
+                $source['metrics'] = array_values(array_filter($source['metrics'], fn (array $metric): bool => ! in_array($metric['key'], $hiddenKeys, true)));
+                $source['hidden_count'] = count($hiddenKeys);
+            }
+            unset($source);
+
+            return view('metribay::components.project-charts', ['workspace' => $workspace, 'project' => $project, 'sources' => $sources, 'days' => $this->days, 'hiddenCount' => $hidden->count(), 'justHidden' => $hidden->firstWhere('id', (int) session('chart_hidden'))]);
+        });
+    }
+
+    /**
+     * Event markers for one data source's charts: whole-project events plus its own.
+     *
+     * @param  iterable<ProjectEvent>  $events
+     * @return list<array{date: string, title: string, color: string, automatic: bool}>
+     */
+    private function chartEvents(iterable $events, int $sourceId, CarbonImmutable $from, CarbonImmutable $to): array
+    {
+        $markers = [];
+        foreach ($events as $event) {
+            if ($event->source_id !== null && (int) $event->source_id !== $sourceId) {
+                continue;
+            }
+            foreach ($event->occurrencesBetween($from, $to) as $date) {
+                $markers[] = ['date' => $date, 'title' => $event->title, 'color' => $event->displayColor(), 'automatic' => ! $event->isCustom()];
+            }
+        }
+        usort($markers, fn (array $a, array $b): int => $a['date'] <=> $b['date']);
+
+        return $markers;
+    }
+}

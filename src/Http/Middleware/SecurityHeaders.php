@@ -4,6 +4,7 @@ namespace Metribay\Core\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Metribay\Core\Http\Controllers\ProjectFaviconController;
 
 class SecurityHeaders
 {
@@ -21,6 +22,10 @@ class SecurityHeaders
             }
         }
         $response->headers->set('Content-Security-Policy', "frame-ancestors 'none'; base-uri 'self'; form-action ".implode(' ', $formActions)."; object-src 'none'");
+
+        if ($request->routeIs('metribay.projects.favicon')) {
+            $response->headers->set('Content-Security-Policy', ProjectFaviconController::CONTENT_SECURITY_POLICY);
+        }
 
         return $response;
     }

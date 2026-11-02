@@ -1,4 +1,4 @@
-<div class="overview" wire:poll.15s>
+<div class="overview" data-hourly-refresh>
     @php
         $visibleProjects = collect($projects);
         $sourceList = $visibleProjects->flatMap(fn($item) => $item['sources'] ?? []);
@@ -71,7 +71,7 @@
             <th scope="row" class="project-cell">
                 <span class="project-dot source-status status-{{ $item['status'] === 'empty' ? 'pending' : $item['status'] }}" title="{{ $statusLabels[$item['status']] }}"><span class="status-dot" aria-hidden="true"></span><span class="sr-only">{{ $statusLabels[$item['status']] }}</span></span>
                 <span class="project-cell-text">
-                    <a class="project-link" href="{{ $projectUrl }}">{{ $item['name'] }}</a>
+                    <a class="project-link" href="{{ $projectUrl }}">@if($item['domain'])<img class="project-favicon" src="{{ route('metribay.projects.favicon', ['workspace'=>$workspace->slug, 'project'=>$item['id'], 'v'=>substr(hash('sha256', $item['domain']), 0, 12)]) }}" width="20" height="20" alt="" loading="lazy" decoding="async">@endif<span>{{ $item['name'] }}</span></a>
                     <span class="project-meta">@if($attention)@php($attentionText = trans_choice('{1} :count data source needs attention|[2,*] :count data sources need attention', $attention, ['count' => $attention]))<span class="project-attention" title="{{ $attentionText }}">{{ $attentionText }}</span>@else<span class="project-domain">{{ $item['domain'] ?: __('No domain') }}</span>@endif<span class="project-details-link" aria-hidden="true">{{ __('View project details') }}</span></span>
                 </span>
             </th>

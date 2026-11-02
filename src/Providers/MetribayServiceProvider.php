@@ -24,11 +24,13 @@ use Metribay\Core\Http\Middleware\DiscardAbandonedSetup;
 use Metribay\Core\Http\Middleware\SetLocale;
 use Metribay\Core\Http\Middleware\UseWorkspace;
 use Metribay\Core\Livewire\Dashboard;
+use Metribay\Core\Livewire\ProjectCharts;
 use Metribay\Core\Services\OwnConnectionCredentials;
 use Metribay\Core\Services\OwnGoogleAuthorization;
 use Metribay\Core\Services\OwnPageSpeedCredentials;
 use Metribay\Core\Services\PersonalEntitlements;
 use Metribay\Core\Services\PersonalWorkspaceAccess;
+use Metribay\Core\Services\ProjectFavicon;
 use Metribay\Core\Services\UnrestrictedProviderRequests;
 use Metribay\Core\Services\WorkspaceContext;
 
@@ -71,7 +73,9 @@ class MetribayServiceProvider extends ServiceProvider
         Fortify::verifyEmailView(fn () => view('metribay::auth.verify-email'));
         RateLimiter::for('login', fn (Request $request) => Limit::perMinute(5)->by(Str::lower((string) $request->input('email')).'|'.$request->ip()));
         RateLimiter::for('two-factor', fn (Request $request) => Limit::perMinute(5)->by((string) $request->session()->get('login.id')));
+        $this->app->bind(ProjectFavicon::class, fn () => new ProjectFavicon);
         Livewire::component('metribay-dashboard', Dashboard::class);
+        Livewire::component('metribay-project-charts', ProjectCharts::class);
         View::composer('metribay::layouts.app', function ($view): void {
             $request = request();
             $navigationWorkspace = $request->attributes->get('metribay.workspace');

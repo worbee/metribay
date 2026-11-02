@@ -1,5 +1,6 @@
 import '../css/app.css';
 import { Chart, LineController, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Filler } from 'chart.js';
+import { setupHourlyRefresh } from './hourly-refresh.js';
 
 Chart.register(LineController, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Filler);
 
@@ -259,12 +260,14 @@ function destroyChart(chart) {
 function syncCharts() {
     for (const chart of charts) if (!chart.canvas?.isConnected) destroyChart(chart);
     document.querySelectorAll('canvas[data-metric-chart]').forEach(canvas => {
-        const signature = `${canvas.dataset.chartConfig}|${root.dataset.theme}|${root.dataset.density}`;
+        const chartConfig = canvas.closest('[data-chart-container]').dataset.chartConfig;
+        const signature = `${chartConfig}|${root.dataset.theme}|${root.dataset.density}`;
         const existing = Chart.getChart(canvas);
         if (existing?.metribaySignature === signature) return;
         if (existing) destroyChart(existing);
         try {
-            const config = JSON.parse(canvas.dataset.chartConfig);
+            const config = JSON.parse(chartConfig);
+            canvas.setAttribute('aria-label', config.ariaLabel);
             makeChart(canvas, config, signature);
         } catch (error) {
             console.error('A metric chart could not be rendered.', error);
@@ -424,6 +427,4 @@ function setupSourceForms() {
 document.addEventListener('DOMContentLoaded', setupSourceForms);
 document.addEventListener('livewire:navigated', setupSourceForms);
 
-if (document.querySelector('[data-import-pending]')) {
- setTimeout(() => { if (!document.querySelector('input:focus,textarea:focus')) window.location.reload(); }, 10000);
-}
+setupHourlyRefresh();

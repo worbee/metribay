@@ -644,3 +644,8 @@
 
 .page-speed-results { display: grid; gap: 16px; margin-top: 16px; }
 .page-speed-results > h3 { margin-top: 16px; }
+
+.resource-choices .provider-choice:disabled { opacity: .5; cursor: not-allowed; background: var(--surface); box-shadow: none; transform: none; }
+.project-favicon { width: 20px; height: 20px; object-fit: contain; flex: 0 0 20px; }
+.project-link { display: inline-flex; align-items: center; gap: 8px; }
+.project-link > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }

@@ -6423,7 +6423,6 @@ function ic(e, t, n) {
 	let l = o - a;
 	return l ? s + (c - s) * (t - a) / l : s;
 }
-// resources/js/app.js
 (class extends rc {
 	static id = "timeseries";
 	static defaults = rc.defaults;
@@ -6467,8 +6466,36 @@ function ic(e, t, n) {
 		let t = this._offsets, n = this.getDecimalForPixel(e) / t.factor - t.end;
 		return ic(this._table, n * this._tableRange + this._minPos, !0);
 	}
-}), io.register($r, yo, xo, xs, Ts, gs, $o);
-var ac = document.documentElement, oc = /* @__PURE__ */ new Set(), sc = {
+});
+// resources/js/hourly-refresh.js
+function ac() {
+	let e = /* @__PURE__ */ new WeakMap(), t = !1;
+	async function n() {
+		let n = [...document.querySelectorAll("[data-hourly-refresh]")];
+		for (let t of n) e.has(t) || e.set(t, Date.now());
+		if (!(t || document.hidden)) {
+			t = !0;
+			try {
+				for (let t of n) {
+					let n = e.get(t);
+					if (Date.now() - n < 36e5) continue;
+					let r = window.Livewire?.find(t.getAttribute("wire:id"));
+					if (r) try {
+						await r.$refresh(), e.set(t, Date.now());
+					} catch {
+						e.set(t, Date.now());
+					}
+				}
+			} finally {
+				t = !1;
+			}
+		}
+	}
+	n(), setInterval(n, 6e4), document.addEventListener("visibilitychange", n), document.addEventListener("livewire:navigated", n);
+}
+// resources/js/app.js
+io.register($r, yo, xo, xs, Ts, gs, $o);
+var oc = document.documentElement, sc = /* @__PURE__ */ new Set(), cc = {
 	get(e, t) {
 		try {
 			return localStorage.getItem(`metribay.${e}`) || t;
@@ -6481,32 +6508,32 @@ var ac = document.documentElement, oc = /* @__PURE__ */ new Set(), sc = {
 			localStorage.setItem(`metribay.${e}`, t);
 		} catch {}
 	}
-}, cc = window.matchMedia("(prefers-color-scheme: dark)"), lc = !1, uc = {};
+}, lc = window.matchMedia("(prefers-color-scheme: dark)"), uc = !1, dc = {};
 try {
-	uc = JSON.parse(document.getElementById("metribay-i18n")?.textContent || "{}");
+	dc = JSON.parse(document.getElementById("metribay-i18n")?.textContent || "{}");
 } catch {}
 function $(e, t = {}) {
-	let n = uc[e] ?? e;
+	let n = dc[e] ?? e;
 	for (let [e, r] of Object.entries(t)) n = n.replaceAll(`:${e}`, r);
 	return n;
 }
-function dc() {
-	let e = sc.get("theme", "system");
+function fc() {
+	let e = cc.get("theme", "system");
 	return [
 		"light",
 		"dark",
 		"system"
 	].includes(e) ? e : "system";
 }
-function fc(e = dc(), t = !1) {
+function pc(e = fc(), t = !1) {
 	[
 		"light",
 		"dark",
 		"system"
-	].includes(e) && (t && sc.set("theme", e), ac.dataset.theme = e === "system" ? cc.matches ? "dark" : "light" : e, document.querySelectorAll("[data-theme-input]").forEach((t) => {
+	].includes(e) && (t && cc.set("theme", e), oc.dataset.theme = e === "system" ? lc.matches ? "dark" : "light" : e, document.querySelectorAll("[data-theme-input]").forEach((t) => {
 		t.checked = t.value === e;
 	}), document.querySelectorAll("[data-theme-cycle]").forEach((t) => {
-		let n = e === "system" ? ac.dataset.theme === "light" ? "dark" : "light" : {
+		let n = e === "system" ? oc.dataset.theme === "light" ? "dark" : "light" : {
 			light: "dark",
 			dark: "system"
 		}[e], r = {
@@ -6518,15 +6545,15 @@ function fc(e = dc(), t = !1) {
 			next: r[n]
 		});
 		t.title = i, t.setAttribute("aria-label", i), t.dataset.currentTheme = e;
-	}), Tc());
+	}), Ec());
 }
-cc.addEventListener("change", () => {
-	dc() === "system" && fc();
+lc.addEventListener("change", () => {
+	fc() === "system" && pc();
 });
-function pc(e) {
+function mc(e) {
 	return e != null && e !== "" && Number.isFinite(Number(e)) ? Number(e) : null;
 }
-function mc(e, t = "count", n = !1) {
+function hc(e, t = "count", n = !1) {
 	if (e === null) return $("Unavailable");
 	if (t === "status") return {
 		0: $("Paused"),
@@ -6545,7 +6572,7 @@ function mc(e, t = "count", n = !1) {
 	let i = new Intl.NumberFormat(document.documentElement.lang || "en", r).format(e);
 	return t === "percent" ? `${i}%` : t === "ms" ? `${i} ms` : t === "score" ? `${i}/100` : i;
 }
-function hc(e, t = !1) {
+function gc(e, t = !1) {
 	let n = /* @__PURE__ */ new Date(`${e}T12:00:00Z`);
 	return Number.isNaN(n.getTime()) ? e : new Intl.DateTimeFormat(document.documentElement.lang || "en", {
 		day: "numeric",
@@ -6554,17 +6581,17 @@ function hc(e, t = !1) {
 		timeZone: "UTC"
 	}).format(n);
 }
-function gc() {
-	let e = sc.get("numbers", "full") === "compact";
+function _c() {
+	let e = cc.get("numbers", "full") === "compact";
 	document.querySelectorAll("[data-metric-number]").forEach((t) => {
-		let n = pc(t.dataset.metricNumber);
+		let n = mc(t.dataset.metricNumber);
 		if (n === null) return;
-		let r = mc(n, t.dataset.unit, e);
-		t.textContent !== r && (t.textContent = r), t.title = mc(n, t.dataset.unit, !1);
+		let r = hc(n, t.dataset.unit, e);
+		t.textContent !== r && (t.textContent = r), t.title = hc(n, t.dataset.unit, !1);
 	});
 }
-function _c() {
-	let e = getComputedStyle(ac);
+function vc() {
+	let e = getComputedStyle(oc);
 	return Object.fromEntries([
 		"chart-line",
 		"chart-previous",
@@ -6579,7 +6606,7 @@ function _c() {
 		"event-automatic"
 	].map((t) => [t, e.getPropertyValue(`--${t}`).trim()]));
 }
-var vc = {
+var yc = {
 	id: "metribayEvents",
 	afterDatasetsDraw(e, t, n) {
 		let r = n.events ?? [];
@@ -6595,10 +6622,10 @@ var vc = {
 		i.restore();
 	}
 };
-function yc(e, t, n) {
-	let r = _c(), i = !!t.compact, a = Array.isArray(t.series) ? t.series : [], o = Array.isArray(t.previous) ? t.previous : [], s = a.map((e) => e.date), c = o.some((e) => pc(e.value) !== null), l = i || !Array.isArray(t.events) ? [] : t.events.filter((e) => s.includes(e.date)), u = (e) => l.filter((t) => t.date === e), d = [{
+function bc(e, t, n) {
+	let r = vc(), i = !!t.compact, a = Array.isArray(t.series) ? t.series : [], o = Array.isArray(t.previous) ? t.previous : [], s = a.map((e) => e.date), c = o.some((e) => mc(e.value) !== null), l = i || !Array.isArray(t.events) ? [] : t.events.filter((e) => s.includes(e.date)), u = (e) => l.filter((t) => t.date === e), d = [{
 		label: $("Selected period"),
-		data: a.map((e) => pc(e.value)),
+		data: a.map((e) => mc(e.value)),
 		borderColor: r["chart-line"],
 		backgroundColor: `${r["chart-line"]}0c`,
 		borderWidth: i ? 1.7 : 2,
@@ -6616,7 +6643,7 @@ function yc(e, t, n) {
 	}];
 	c && d.push({
 		label: $("Previous period"),
-		data: s.map((e, t) => pc(o[t]?.value)),
+		data: s.map((e, t) => mc(o[t]?.value)),
 		borderColor: r["chart-previous"],
 		backgroundColor: "transparent",
 		borderDash: [3, 4],
@@ -6635,7 +6662,7 @@ function yc(e, t, n) {
 			labels: s,
 			datasets: d
 		},
-		plugins: [vc],
+		plugins: [yc],
 		options: {
 			responsive: !0,
 			maintainAspectRatio: !1,
@@ -6676,11 +6703,11 @@ function yc(e, t, n) {
 					},
 					callbacks: {
 						title(e) {
-							return e.length ? hc(a[e[0].dataIndex]?.date ?? "", !0) : "";
+							return e.length ? gc(a[e[0].dataIndex]?.date ?? "", !0) : "";
 						},
 						label(e) {
-							let n = (e.datasetIndex === 0 ? a : o)[e.dataIndex], r = mc(pc(e.raw), t.unit);
-							return `${e.datasetIndex === 0 ? t.label : $("Previous (:date)", { date: hc(n?.date ?? "") })}: ${r}${n?.partial ? ` · ${$("partial")}` : ""}`;
+							let n = (e.datasetIndex === 0 ? a : o)[e.dataIndex], r = hc(mc(e.raw), t.unit);
+							return `${e.datasetIndex === 0 ? t.label : $("Previous (:date)", { date: gc(n?.date ?? "") })}: ${r}${n?.partial ? ` · ${$("partial")}` : ""}`;
 						},
 						afterBody(e) {
 							if (!e.length) return [];
@@ -6708,7 +6735,7 @@ function yc(e, t, n) {
 							size: 9
 						},
 						callback(e) {
-							return hc(s[e] ?? "");
+							return gc(s[e] ?? "");
 						}
 					}
 				},
@@ -6731,14 +6758,14 @@ function yc(e, t, n) {
 							size: 9
 						},
 						callback(e) {
-							return mc(e, t.unit, !0);
+							return hc(e, t.unit, !0);
 						}
 					}
 				}
 			}
 		}
 	});
-	return f.metribaySignature = n, oc.add(f), i || (e.tabIndex = 0, e.setAttribute("aria-keyshortcuts", "ArrowLeft ArrowRight"), e.addEventListener("keydown", (n) => {
+	return f.metribaySignature = n, sc.add(f), i || (e.tabIndex = 0, e.setAttribute("aria-keyshortcuts", "ArrowLeft ArrowRight"), e.addEventListener("keydown", (n) => {
 		if (![
 			"ArrowLeft",
 			"ArrowRight",
@@ -6752,20 +6779,20 @@ function yc(e, t, n) {
 				y: 0
 			});
 			else {
-				let i = n.key === "ArrowRight" ? 1 : -1, s = r.metribayCursor ?? r.getActiveElements()[0]?.index ?? (i > 0 ? -1 : a.length), l = Math.max(0, Math.min(a.length - 1, s + i)), d = (e) => r.data.datasets.some((t, n) => r.isDatasetVisible(n) && pc(t.data[e]) !== null);
+				let i = n.key === "ArrowRight" ? 1 : -1, s = r.metribayCursor ?? r.getActiveElements()[0]?.index ?? (i > 0 ? -1 : a.length), l = Math.max(0, Math.min(a.length - 1, s + i)), d = (e) => r.data.datasets.some((t, n) => r.isDatasetVisible(n) && mc(t.data[e]) !== null);
 				for (; !d(l) && l + i >= 0 && l + i < a.length;) l += i;
 				r.metribayCursor = l;
 				let f = e.closest(".metric")?.querySelector("[data-chart-announcement]");
 				if (f) {
 					let e = [];
-					r.isDatasetVisible(0) && e.push(`${hc(a[l]?.date ?? "", !0)}. ${t.label}: ${mc(pc(a[l]?.value), t.unit)}${a[l]?.partial ? `. ${$("Partial date.")}` : ""}`), c && r.isDatasetVisible(1) && e.push(`${$("Previous period")} ${hc(o[l]?.date ?? "", !0)}: ${mc(pc(o[l]?.value), t.unit)}${o[l]?.partial ? `. ${$("Partial date.")}` : ""}`);
+					r.isDatasetVisible(0) && e.push(`${gc(a[l]?.date ?? "", !0)}. ${t.label}: ${hc(mc(a[l]?.value), t.unit)}${a[l]?.partial ? `. ${$("Partial date.")}` : ""}`), c && r.isDatasetVisible(1) && e.push(`${$("Previous period")} ${gc(o[l]?.date ?? "", !0)}: ${hc(mc(o[l]?.value), t.unit)}${o[l]?.partial ? `. ${$("Partial date.")}` : ""}`);
 					for (let t of u(a[l]?.date)) e.push($("Event: :title", { title: t.title }));
 					f.textContent = e.join(". ");
 				}
 				let p = r.data.datasets.map((e, t) => ({
 					datasetIndex: t,
 					index: l
-				})).filter((e) => r.isDatasetVisible(e.datasetIndex) && pc(r.data.datasets[e.datasetIndex].data[l]) !== null);
+				})).filter((e) => r.isDatasetVisible(e.datasetIndex) && mc(r.data.datasets[e.datasetIndex].data[l]) !== null);
 				r.setActiveElements(p), r.tooltip.setActiveElements(p, {
 					x: r.scales.x.getPixelForValue(l),
 					y: r.chartArea.top
@@ -6773,22 +6800,23 @@ function yc(e, t, n) {
 			}
 			r.update("none");
 		}
-	}, { signal: bc(f) })), f;
-}
-function bc(e) {
-	return e.metribayAbort = new AbortController(), e.metribayAbort.signal;
+	}, { signal: xc(f) })), f;
 }
 function xc(e) {
-	e.metribayAbort?.abort(), e.destroy(), oc.delete(e);
+	return e.metribayAbort = new AbortController(), e.metribayAbort.signal;
 }
-function Sc() {
-	for (let e of oc) e.canvas?.isConnected || xc(e);
+function Sc(e) {
+	e.metribayAbort?.abort(), e.destroy(), sc.delete(e);
+}
+function Cc() {
+	for (let e of sc) e.canvas?.isConnected || Sc(e);
 	document.querySelectorAll("canvas[data-metric-chart]").forEach((e) => {
-		let t = `${e.dataset.chartConfig}|${ac.dataset.theme}|${ac.dataset.density}`, n = io.getChart(e);
-		if (n?.metribaySignature !== t) {
-			n && xc(n);
+		let t = e.closest("[data-chart-container]").dataset.chartConfig, n = `${t}|${oc.dataset.theme}|${oc.dataset.density}`, r = io.getChart(e);
+		if (r?.metribaySignature !== n) {
+			r && Sc(r);
 			try {
-				yc(e, JSON.parse(e.dataset.chartConfig), t);
+				let r = JSON.parse(t);
+				e.setAttribute("aria-label", r.ariaLabel), bc(e, r, n);
 			} catch (t) {
 				console.error("A metric chart could not be rendered.", t);
 				let n = document.createElement("p");
@@ -6797,7 +6825,7 @@ function Sc() {
 		}
 	});
 }
-function Cc() {
+function wc() {
 	let e = document.querySelector("[data-project-search]");
 	if (!e) return;
 	let t = e.value.trim().toLocaleLowerCase(), n = 0;
@@ -6807,18 +6835,18 @@ function Cc() {
 	let r = document.querySelector("[data-search-empty]");
 	r && (r.hidden = !t || n > 0);
 }
-function wc() {
+function Tc() {
 	let e = document.querySelector("[data-number-preference]"), t = document.querySelector("[data-density-preference]");
-	e && (e.value = sc.get("numbers", "full")), t && (t.value = sc.get("density", "comfortable")), document.querySelectorAll("[data-theme-input]").forEach((e) => {
-		e.checked = e.value === dc();
+	e && (e.value = cc.get("numbers", "full")), t && (t.value = cc.get("density", "comfortable")), document.querySelectorAll("[data-theme-input]").forEach((e) => {
+		e.checked = e.value === fc();
 	});
 }
-function Tc() {
-	lc || (lc = !0, requestAnimationFrame(() => {
-		lc = !1, Sc(), gc(), Cc();
+function Ec() {
+	uc || (uc = !0, requestAnimationFrame(() => {
+		uc = !1, Cc(), _c(), wc();
 	}));
 }
-function Ec(e, t = !1) {
+function Dc(e, t = !1) {
 	let n = e.querySelector("[data-provider-switch]")?.value;
 	if (!n) return;
 	e.querySelectorAll("[data-provider-panel]").forEach((e) => {
@@ -6836,20 +6864,20 @@ function Ec(e, t = !1) {
 	let i = e.querySelector("[data-provider-timezone]"), a = [...e.querySelectorAll("[data-provider-panel]")].find((e) => e.dataset.providerPanel === n);
 	i && t && a?.dataset.defaultTimezone && (i.value = a.dataset.defaultTimezone);
 }
-function Dc() {
+function Oc() {
 	let e = document.querySelector("[data-preference-status]");
 	e && (e.textContent = $("Preference saved in this browser."));
 }
-function Oc() {
-	fc(), wc(), document.querySelector("[data-validation-errors]")?.focus(), document.querySelectorAll("[data-provider-form]").forEach((e) => Ec(e)), Tc();
+function kc() {
+	pc(), Tc(), document.querySelector("[data-validation-errors]")?.focus(), document.querySelectorAll("[data-provider-form]").forEach((e) => Dc(e)), Ec();
 }
 document.addEventListener("click", (e) => {
 	let t = e.target.closest("[data-dialog-open]");
 	t && document.getElementById(t.dataset.dialogOpen)?.showModal();
 	let n = e.target.closest("[data-dialog-close]");
 	if (n && n.closest("dialog")?.close(), e.target.closest("[data-theme-cycle]")) {
-		let e = dc();
-		fc(e === "system" ? ac.dataset.theme === "light" ? "dark" : "light" : {
+		let e = fc();
+		pc(e === "system" ? oc.dataset.theme === "light" ? "dark" : "light" : {
 			light: "dark",
 			dark: "system"
 		}[e], !0);
@@ -6874,9 +6902,9 @@ document.addEventListener("click", (e) => {
 	});
 }), document.addEventListener("change", (e) => {
 	let t = e.target;
-	t.matches("[data-theme-input]") && (fc(t.value, !0), Dc()), t.matches("[data-number-preference]") && (sc.set("numbers", t.value), gc(), Dc()), t.matches("[data-density-preference]") && (sc.set("density", t.value), ac.dataset.density = t.value, Tc(), Dc()), t.matches("[data-provider-switch]") && Ec(t.closest("form"), !0), t.matches("[data-auto-submit]") && t.form.requestSubmit();
+	t.matches("[data-theme-input]") && (pc(t.value, !0), Oc()), t.matches("[data-number-preference]") && (cc.set("numbers", t.value), _c(), Oc()), t.matches("[data-density-preference]") && (cc.set("density", t.value), oc.dataset.density = t.value, Ec(), Oc()), t.matches("[data-provider-switch]") && Dc(t.closest("form"), !0), t.matches("[data-auto-submit]") && t.form.requestSubmit();
 }), document.addEventListener("input", (e) => {
-	e.target.matches("[data-project-search]") && Cc();
+	e.target.matches("[data-project-search]") && wc();
 }), document.addEventListener("submit", (e) => {
 	let t = e.target;
 	if (t.dataset.confirm && !window.confirm(t.dataset.confirm)) {
@@ -6899,21 +6927,19 @@ document.addEventListener("click", (e) => {
 	document.querySelectorAll("button[aria-busy=\"true\"]").forEach((e) => {
 		e.disabled = !1, e.removeAttribute("aria-busy");
 	});
-}), new MutationObserver(Tc).observe(document.body, {
+}), new MutationObserver(Ec).observe(document.body, {
 	childList: !0,
 	subtree: !0,
 	attributes: !0,
 	attributeFilter: ["data-chart-config"]
-}), document.addEventListener("livewire:navigated", Oc), document.addEventListener("livewire:init", () => {
-	window.Livewire.hook("morphed", Tc);
-}), Oc();
-function kc() {
+}), document.addEventListener("livewire:navigated", kc), document.addEventListener("livewire:init", () => {
+	window.Livewire.hook("morphed", Ec);
+}), kc();
+function Ac() {
 	document.querySelectorAll("[data-resource-search]").forEach((e) => {
 		e.oninput = () => document.querySelectorAll("[data-resource-row]").forEach((t) => {
 			t.hidden = !t.textContent.toLowerCase().includes(e.value.toLowerCase());
 		});
 	});
 }
-document.addEventListener("DOMContentLoaded", kc), document.addEventListener("livewire:navigated", kc), document.querySelector("[data-import-pending]") && setTimeout(() => {
-	document.querySelector("input:focus,textarea:focus") || window.location.reload();
-}, 1e4);
+document.addEventListener("DOMContentLoaded", Ac), document.addEventListener("livewire:navigated", Ac), ac();

@@ -28,8 +28,9 @@ final class SafeHttpClient
 
     /**
      * @param  array<string, mixed>  $options  Only payload/query/header options, never transport configuration.
+     *                                         Redirects are never followed. Asset discovery may inspect them, then revalidate each next URL.
      */
-    public function request(string $method, string $url, array $options = [], int $timeout = 30): Response
+    public function request(string $method, string $url, array $options = [], int $timeout = 30, bool $returnRedirect = false): Response
     {
         if ($timeout < 1 || $timeout > 180) {
             throw new ConnectorException('Unsupported provider timeout.');
@@ -103,7 +104,7 @@ final class SafeHttpClient
             if (strlen($response->body()) > $this->maxBytes) {
                 throw new ConnectorException('Provider response exceeded the size limit.');
             }
-            if ($response->redirect()) {
+            if ($response->redirect() && ! $returnRedirect) {
                 throw new ConnectorException('Provider redirects are not allowed. Use the final HTTPS endpoint.');
             }
 

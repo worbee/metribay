@@ -25,6 +25,7 @@ use Metribay\Core\Models\Connection;
 use Metribay\Core\Models\Project;
 use Metribay\Core\Models\Source;
 use Metribay\Core\Models\Workspace;
+use Metribay\Core\Services\ProjectResources;
 use Metribay\Core\Services\ProviderCatalog;
 use Metribay\Core\Services\WorkspaceContext;
 
@@ -117,6 +118,10 @@ class SourceSetupController
             return redirect()->route('metribay.dashboard', app(WorkspaceContext::class)->current()->slug)->with('status', __('That project is no longer available.'));
         }
         $request->session()->put($this->key($request), $draft);
+        $added = isset($draft['kind']) ? ProjectResources::added($project->id, $draft['kind']) : [];
+        foreach ($draft['resources'] ?? [] as $index => $resource) {
+            $draft['resources'][$index]['added'] = in_array(ProjectResources::key($draft['kind'], (string) $resource['id']), $added, true);
+        }
 
         return view('metribay::source-setup', ['draft' => $draft, 'providers' => ProviderCatalog::all(), 'project' => $project, 'googleAuthorization' => app(GoogleAuthorization::class), 'connections' => Connection::query()->where('kind', $draft['kind'] ?? '')->orderBy('name')->get()]);
     }
@@ -188,6 +193,7 @@ class SourceSetupController
                 abort_if($kind === 'pagespeed', 422);
                 $draft['resource'] = $draft['resources'][$request->integer('resource')] ?? null;
                 abort_unless($draft['resource'], 422);
+                $this->rejectAddedResource($draft);
                 if ($kind === 'ga4') {
                     $this->authorize($request, 'manage_connections');
                     $connection = Connection::query()->where('kind', $kind)->findOrFail($draft['connection_id'] ?? null);
@@ -219,6 +225,7 @@ class SourceSetupController
                 abort_if($kind === 'pagespeed', 422);
                 $values = $request->validate(['resource_id' => ['required', 'string', 'max:500'], 'timezone' => ['required', 'timezone']]);
                 $draft['resource'] = ['id' => $values['resource_id'], 'name' => $values['resource_id'], 'domain' => '', 'timezone' => $kind === 'ga4' ? $values['timezone'] : ProviderCatalog::all()[$kind]['default_timezone']];
+                $this->rejectAddedResource($draft);
                 $draft = $this->deploymentEnvironments($request, $draft);
                 $draft['step'] = 'confirm';
             } elseif ($action === 'back') {
@@ -241,7 +248,8 @@ class SourceSetupController
                 $source = DB::transaction(function () use ($values, $draft, $kind, $config) {
                     $project = Project::query()->where('archived', false)->lockForUpdate()->findOrFail($draft['project_id']);
                     $hash = ProviderCatalog::identityHash($kind, $config, $draft['resource']['timezone']);
-                    if (Source::query()->where('project_id', $project->id)->where('identity_hash', $hash)->exists()) {
+                    if (($kind !== 'pagespeed' && ProjectResources::contains($project->id, $kind, (string) $config[ProjectResources::field($kind)]))
+                        || Source::query()->where('project_id', $project->id)->where('identity_hash', $hash)->exists()) {
                         throw ValidationException::withMessages(['resource' => __('This data source is already in this project.')]);
                     }
 
@@ -259,6 +267,14 @@ class SourceSetupController
         $request->session()->put($key, $draft);
 
         return redirect()->route('metribay.sources.create', app(WorkspaceContext::class)->current()->slug);
+    }
+
+    /** @param array<string, mixed> $draft */
+    private function rejectAddedResource(array $draft): void
+    {
+        if (ProjectResources::contains((int) $draft['project_id'], $draft['kind'], (string) $draft['resource']['id'])) {
+            throw ValidationException::withMessages(['resource' => __('This data source is already in this project.')]);
+        }
     }
 
     /**

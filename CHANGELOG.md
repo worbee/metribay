@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.0 — 2026-11-02
+
+- Refresh the overview and project charts hourly without a page reload, catching up when an overdue tab becomes visible. Keep the reporting period, chart legend choices and open event forms. This replaces the overview's 15-second polling and the first-import page reload.
+- Show cached domain favicons beside project names in the overview. Fetch bounded public HTTPS icons (raster or sandboxed SVG) through the app, with a neutral fallback when no usable icon is available.
+- Gray out and disable resources already added to the current project in all provider pickers. Reject duplicate selections and manual entries before confirmation, and recheck under the project lock when saving.
+
 ## 0.4.1 — 2026-11-02
 
 - Turn each GitHub Actions workflow run into one deployment event per environment instead of one per job and re-run. The event is dated by the run's last success and links to the run; a run whose latest outcome was a failure is skipped. Deployments outside Actions stay one event each, linking to the commit.

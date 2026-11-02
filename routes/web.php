@@ -6,6 +6,7 @@ use Metribay\Core\Http\Controllers\HiddenChartController;
 use Metribay\Core\Http\Controllers\LocaleController;
 use Metribay\Core\Http\Controllers\ProjectController;
 use Metribay\Core\Http\Controllers\ProjectEventController;
+use Metribay\Core\Http\Controllers\ProjectFaviconController;
 use Metribay\Core\Http\Controllers\SettingsController;
 use Metribay\Core\Http\Controllers\SourceSetupController;
 use Metribay\Core\Http\Middleware\UseWorkspace;
@@ -21,6 +22,7 @@ Route::middleware(['web', 'auth', 'auth.session', 'verified'])->group(function (
         Route::get('/', [DashboardController::class, 'index'])->name('metribay.dashboard');
         Route::get('/projects/new', [ProjectController::class, 'create'])->name('metribay.projects.create');
         Route::get('/projects/{project}', [DashboardController::class, 'project'])->name('metribay.projects.show');
+        Route::get('/projects/{project}/favicon', ProjectFaviconController::class)->name('metribay.projects.favicon');
         Route::get('/projects/{project}/settings', [ProjectController::class, 'edit'])->name('metribay.projects.edit');
         Route::get('/sources/google', [SourceSetupController::class, 'google'])->name('metribay.sources.google');
         Route::get('/sources/google/callback', [SourceSetupController::class, 'googleCallback'])->name('metribay.sources.google.callback');
