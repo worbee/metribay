@@ -95,11 +95,13 @@ final class GitHubConnectorTest extends FixtureTestCase
         Http::assertNotSent(fn (Request $request): bool => ($request['variables']['after'] ?? null) === 'never-read');
     }
 
-    public function test_successful_deployments_to_chosen_environments_become_events(): void
+    public function test_successful_deployments_from_the_default_branch_or_a_tag_become_events(): void
     {
         $this->githubFake(deployments: ['' => $this->page([
             $this->deployment('tagged', 'Production', '2026-10-25T08:00:00Z', [['SUCCESS', '2026-10-25T08:05:00Z']], ['name' => 'v2.0.0', 'prefix' => 'refs/tags/']),
             $this->deployment('staging', 'staging', '2026-10-25T07:00:00Z', [['SUCCESS', '2026-10-25T07:05:00Z']]),
+            $this->deployment('feature-branch', 'production', '2026-10-25T06:00:00Z', [['SUCCESS', '2026-10-25T06:05:00Z']], ['name' => 'feature/x', 'prefix' => 'refs/heads/']),
+            $this->deployment('deleted-branch', 'production', '2026-10-25T05:00:00Z', [['SUCCESS', '2026-10-25T05:05:00Z']], null),
             $this->deployment('failed', 'production', '2026-10-24T09:00:00Z', [['FAILURE', '2026-10-24T09:05:00Z']]),
             $this->deployment('replaced', 'production', '2026-10-24T08:00:00Z', [['INACTIVE', '2026-10-25T08:05:00Z'], ['SUCCESS', '2026-10-24T08:04:00Z'], ['IN_PROGRESS', '2026-10-24T08:01:00Z']]),
             $this->deployment('before-window', 'production', '2026-10-21T08:00:00Z', [['SUCCESS', '2026-10-21T08:05:00Z']]),
@@ -114,6 +116,25 @@ final class GitHubConnectorTest extends FixtureTestCase
         $this->assertSame('2026-10-23T00:00:00+00:00', $result->authoritativeEvents['github_deployment']);
         Http::assertSent(fn (Request $request): bool => str_contains($request['query'], 'RepositoryDeployments') && $request['variables']['environments'] === ['production']);
         Http::assertNotSent(fn (Request $request): bool => ($request['variables']['after'] ?? null) === 'never-read');
+    }
+
+    public function test_deployments_from_one_workflow_run_become_one_event_when_the_run_ends_in_success(): void
+    {
+        $this->githubFake(deployments: ['' => $this->page([
+            // Run 900: a failed attempt, its cleanup job, then a successful re-run of every job.
+            $this->deployment('rerun-deploy', 'production', '2026-10-24T10:25:00Z', [['SUCCESS', '2026-10-24T10:30:00Z']], run: 900),
+            $this->deployment('rerun-build', 'production', '2026-10-24T10:15:00Z', [['SUCCESS', '2026-10-24T10:20:00Z']], run: 900),
+            $this->deployment('cleanup', 'production', '2026-10-24T10:05:00Z', [['SUCCESS', '2026-10-24T10:06:00Z']], run: 900),
+            $this->deployment('publish', 'production', '2026-10-24T10:01:00Z', [['FAILURE', '2026-10-24T10:05:00Z']], run: 900),
+            $this->deployment('build', 'production', '2026-10-24T10:00:00Z', [['SUCCESS', '2026-10-24T10:01:00Z']], run: 900),
+            // Run 901 failed in its last job.
+            $this->deployment('failing-deploy', 'production', '2026-10-24T09:05:00Z', [['FAILURE', '2026-10-24T09:10:00Z']], run: 901),
+            $this->deployment('failing-build', 'production', '2026-10-24T09:00:00Z', [['SUCCESS', '2026-10-24T09:04:00Z']], run: 901),
+        ])]);
+        $events = $this->collect(['environments' => ['production']])->events;
+        $this->assertCount(1, $events);
+        $this->assertSame(['origin' => 'github_deployment', 'external_id' => 'run:900:production', 'title' => 'production · a1a1a1a', 'body' => '',
+            'url' => 'https://github.com/example/repo/actions/runs/900', 'occurred_at' => '2026-10-24T10:30:00+00:00'], $events[0]);
     }
 
     public function test_without_environments_no_deployments_are_read(): void
@@ -314,7 +335,7 @@ final class GitHubConnectorTest extends FixtureTestCase
     private function githubFake(array $commits = [], array $pulls = [], array $releases = [], array $info = [], ?callable $override = null, array $deployments = []): void
     {
         $info += ['nameWithOwner' => 'example/repo', 'createdAt' => '2026-01-01T00:00:00Z', 'isEmpty' => false,
-            'hasIssuesEnabled' => true, 'issues' => ['totalCount' => 7], 'defaultBranchRef' => ['target' => ['oid' => 'default-branch-snapshot']]];
+            'hasIssuesEnabled' => true, 'issues' => ['totalCount' => 7], 'defaultBranchRef' => ['name' => 'main', 'target' => ['oid' => 'default-branch-snapshot']]];
         $commits = $commits ?: ['' => $this->page([])];
         $pulls = $pulls ?: ['' => $this->page([])];
         $releases = $releases ?: ['' => $this->page([])];
@@ -368,9 +389,11 @@ final class GitHubConnectorTest extends FixtureTestCase
     }
 
     /** @param list<array{string, string}> $statuses state and time pairs */
-    private function deployment(string $id, string $environment, string $created, array $statuses, ?array $ref = ['name' => 'main', 'prefix' => 'refs/heads/']): array
+    private function deployment(string $id, string $environment, string $created, array $statuses, ?array $ref = ['name' => 'main', 'prefix' => 'refs/heads/'], ?int $run = null): array
     {
+        $log = $run === null ? null : 'https://github.com/example/repo/actions/runs/'.$run.'/job/'.crc32($id);
+
         return ['id' => $id, 'commitOid' => str_repeat('a1', 20), 'createdAt' => $created, 'environment' => $environment, 'ref' => $ref,
-            'statuses' => ['nodes' => array_map(fn (array $status): array => ['state' => $status[0], 'createdAt' => $status[1]], $statuses)]];
+            'statuses' => ['nodes' => array_map(fn (array $status): array => ['state' => $status[0], 'createdAt' => $status[1], 'logUrl' => $log], $statuses)]];
     }
 }

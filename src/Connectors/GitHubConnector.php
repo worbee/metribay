@@ -17,7 +17,7 @@ query RepositoryMetrics($owner: String!, $name: String!) {
   repository(owner: $owner, name: $name) {
     nameWithOwner createdAt isEmpty hasIssuesEnabled
     issues(first: 1, states: OPEN) { totalCount }
-    defaultBranchRef { target { oid } }
+    defaultBranchRef { name target { oid } }
   }
 }
 GRAPHQL;
@@ -65,7 +65,7 @@ GRAPHQL;
 query RepositoryDeployments($owner: String!, $name: String!, $environments: [String!], $after: String) {
   repository(owner: $owner, name: $name) {
     deployments(first: 100, after: $after, environments: $environments, orderBy: {field: CREATED_AT, direction: DESC}) {
-      nodes { id commitOid createdAt environment ref { name prefix } statuses(first: 50) { nodes { state createdAt } } }
+      nodes { id commitOid createdAt environment ref { name prefix } statuses(first: 50) { nodes { state createdAt logUrl } } }
       pageInfo { hasNextPage endCursor }
     }
   }
@@ -165,7 +165,8 @@ GRAPHQL;
         }
         $events = $this->releases($graphql, $variables, $repository, $start, $now, $maximumPages);
         if ($environments !== []) {
-            $events = array_merge($events, $this->deployments($graphql, $variables + ['environments' => $environments], $repository, $start, $now, $maximumPages));
+            $defaultBranch = is_array($info['defaultBranchRef'] ?? null) ? $this->text($info['defaultBranchRef']['name'] ?? null, 'GitHub default branch', 255) : null;
+            $events = array_merge($events, $this->deployments($graphql, $variables + ['environments' => $environments], $repository, $defaultBranch, $start, $now, $maximumPages));
         }
         $daily = [];
         foreach ($values as $date => $metrics) {
@@ -369,16 +370,21 @@ GRAPHQL;
     }
 
     /**
-     * Successful deployments to the chosen environments inside the window, dated by their first success status.
-     * Deployments later replaced by newer ones (inactive) still count: they were live.
+     * Successful deployments to the chosen environments inside the window, from the default branch or a tag.
+     * GitHub Actions records one deployment per job that names an environment, and another set per re-run,
+     * so deployments from the same workflow run become one event. A run counts when a deployment succeeded
+     * after its last failed one; it is dated by its last success and links to the run. Deployments outside
+     * Actions are one event each, linking to the commit. Deployments from other or deleted branches, such as
+     * jobs that only use the environment's secrets on a pull request, are skipped.
      *
      * @param  array<string, mixed>  $variables
      * @return list<array{origin: string, external_id: string, title: string, url: string, occurred_at: string, body: string}>
      */
-    private function deployments(callable $graphql, array $variables, string $repository, CarbonImmutable $start, CarbonImmutable $now, int $maximumPages): array
+    private function deployments(callable $graphql, array $variables, string $repository, ?string $defaultBranch, CarbonImmutable $start, CarbonImmutable $now, int $maximumPages): array
     {
         $wanted = array_map(mb_strtolower(...), $variables['environments']);
-        $events = [];
+        $runPrefix = 'https://github.com/'.strtolower($repository).'/actions/runs/';
+        $groups = [];
         $previousCreated = null;
         foreach ($this->pages($graphql, self::DEPLOYMENTS, $variables, 'deployments', $maximumPages) as $nodes) {
             $lastCreated = null;
@@ -389,40 +395,66 @@ GRAPHQL;
                 }
                 $previousCreated = $lastCreated = $created;
                 $environment = $this->text($row['environment'] ?? null, 'GitHub deployment environment', 255);
-                if (! in_array(mb_strtolower($environment), $wanted, true)) {
+                $ref = $row['ref'] ?? null;
+                $prefix = is_array($ref) ? ($ref['prefix'] ?? null) : null;
+                $refName = is_array($ref) ? $this->text($ref['name'] ?? null, 'GitHub deployment ref', 255) : null;
+                if (! in_array(mb_strtolower($environment), $wanted, true)
+                    || ! ($prefix === 'refs/tags/' || ($prefix === 'refs/heads/' && $defaultBranch !== null && $refName === $defaultBranch))) {
                     continue;
                 }
-                $succeeded = null;
+                $commit = $this->text($row['commitOid'] ?? null, 'GitHub deployment commit');
+                if (! preg_match('/^[0-9a-f]{40}$/D', $commit)) {
+                    throw new ConnectorException('GitHub returned an invalid deployment commit.');
+                }
+                $succeeded = $failed = null;
+                $run = null;
                 foreach ($this->list($this->object($row['statuses'] ?? null, 'GitHub')['nodes'] ?? null, 'GitHub') as $status) {
                     $status = $this->object($status, 'GitHub');
                     $at = $this->timestamp($status['createdAt'] ?? null, 'GitHub');
                     if (! is_string($status['state'] ?? null)) {
                         throw new ConnectorException('GitHub returned an invalid deployment status.');
                     }
-                    if ($status['state'] === 'SUCCESS' && ($succeeded === null || $at < $succeeded)) {
-                        $succeeded = $at;
+                    if ($status['state'] === 'SUCCESS') {
+                        $succeeded = $succeeded === null ? $at : min($succeeded, $at);
+                    } elseif (in_array($status['state'], ['FAILURE', 'ERROR'], true)) {
+                        $failed = $failed === null ? $at : max($failed, $at);
+                    }
+                    $log = $status['logUrl'] ?? null;
+                    if (is_string($log) && str_starts_with(strtolower($log), $runPrefix) && preg_match('~^[0-9]{1,20}(?=/|$)~', substr($log, strlen($runPrefix)), $match)) {
+                        $run = $match[0];
                     }
                 }
-                if ($succeeded === null || $succeeded < $start) {
-                    continue;
-                }
-                if ($succeeded > $now) {
+                if ($succeeded !== null && $succeeded > $now) {
                     throw new ConnectorException('GitHub returned a future deployment date.');
                 }
-                $commit = $this->text($row['commitOid'] ?? null, 'GitHub deployment commit');
-                if (! preg_match('/^[0-9a-f]{40}$/D', $commit)) {
-                    throw new ConnectorException('GitHub returned an invalid deployment commit.');
+                // One run can deploy to several chosen environments; each environment gets its own event.
+                $key = $run !== null ? 'run:'.$run.':'.mb_strtolower($environment) : 'deployment:'.$this->text($row['id'] ?? null, 'GitHub deployment identity', 255);
+                $group = $groups[$key] ?? ['environment' => $environment, 'commit' => $commit, 'tag' => $prefix === 'refs/tags/' ? $refName : null,
+                    'run' => $run, 'created' => $created, 'succeeded' => null, 'failed' => null, 'id' => $row['id']];
+                // Pages are newest first: keep the newest deployment's commit and tag, and the run's latest outcomes.
+                if ($succeeded !== null && ($group['succeeded'] === null || $succeeded > $group['succeeded'])) {
+                    $group['succeeded'] = $succeeded;
                 }
-                $ref = $row['ref'] ?? null;
-                $tag = is_array($ref) && ($ref['prefix'] ?? null) === 'refs/tags/' ? $this->text($ref['name'] ?? null, 'GitHub deployment tag', 255) : null;
-                $events[] = ['origin' => 'github_deployment', 'external_id' => $this->text($row['id'] ?? null, 'GitHub deployment identity', 255),
-                    'title' => mb_substr($environment.' · '.($tag ?? substr($commit, 0, 7)), 0, 200), 'body' => '',
-                    'url' => 'https://github.com/'.$repository.'/commit/'.$commit, 'occurred_at' => $succeeded->toIso8601String()];
+                if ($failed !== null && ($group['failed'] === null || $failed > $group['failed'])) {
+                    $group['failed'] = $failed;
+                }
+                $groups[$key] = $group;
             }
-            // A deployment usually succeeds within minutes of its creation; a day covers slow ones.
+            // A deployment usually succeeds within minutes of its creation; a day covers slow ones and long runs.
             if ($lastCreated !== null && $lastCreated < $start->subDay()) {
                 break;
             }
+        }
+        $events = [];
+        foreach ($groups as $key => $group) {
+            if ($group['succeeded'] === null || $group['succeeded'] < $start
+                || ($group['failed'] !== null && $group['failed'] > $group['succeeded'])) {
+                continue;
+            }
+            $events[] = ['origin' => 'github_deployment', 'external_id' => $group['run'] !== null ? $key : $this->text($group['id'], 'GitHub deployment identity', 255),
+                'title' => mb_substr($group['environment'].' · '.($group['tag'] ?? substr($group['commit'], 0, 7)), 0, 200), 'body' => '',
+                'url' => $group['run'] !== null ? 'https://github.com/'.$repository.'/actions/runs/'.$group['run'] : 'https://github.com/'.$repository.'/commit/'.$group['commit'],
+                'occurred_at' => $group['succeeded']->toIso8601String()];
         }
 
         return $events;

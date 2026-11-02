@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.1 — 2026-11-02
+
+- Turn each GitHub Actions workflow run into one deployment event per environment instead of one per job and re-run. The event is dated by the run's last success and links to the run; a run whose latest outcome was a failure is skipped. Deployments outside Actions stay one event each, linking to the commit.
+- Import only deployments from the repository's default branch or a tag. Deployments from other branches, or whose branch was deleted, are skipped: for example, jobs that only use the production environment's secrets on pull requests. Existing deployment events are replaced at the next sync. No migration or new strings.
+
 ## Unreleased
 
 - Remove **Sync now** from the project page and Project settings, together with the `metribay.sources.sync` route. Data sources are collected on the schedule only (and after setup or a change of GitHub deployment environments). `php artisan metribay:sync` remains for operators. Hosts that referenced the route name, such as Cloud's refresh limits, can drop it once they consume this release.
