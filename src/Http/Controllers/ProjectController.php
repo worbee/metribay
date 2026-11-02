@@ -10,6 +10,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Metribay\Core\Contracts\WorkspaceAccess;
 use Metribay\Core\Models\Connection;
+use Metribay\Core\Models\HiddenChart;
 use Metribay\Core\Models\Project;
 use Metribay\Core\Services\ProjectConfiguration;
 use Metribay\Core\Services\ProviderCatalog;
@@ -50,7 +51,9 @@ class ProjectController
     {
         $project = Project::query()->with(['sources' => fn ($query) => $query->with('connection')->orderBy('label')])->whereKey($request->route('project'))->firstOrFail();
 
-        return view('metribay::project-settings', ['project' => $project, 'connections' => Connection::query()->orderBy('name')->get(), 'providers' => ProviderCatalog::all()]);
+        $hiddenCharts = HiddenChart::query()->with('source')->where('project_id', $project->id)->orderBy('id')->get();
+
+        return view('metribay::project-settings', ['project' => $project, 'connections' => Connection::query()->orderBy('name')->get(), 'providers' => ProviderCatalog::all(), 'hiddenCharts' => $hiddenCharts]);
     }
 
     public function update(Request $request): RedirectResponse

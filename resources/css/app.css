@@ -256,6 +256,21 @@
     .metric-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 7px; }
     .metric-top h3 { font-size: 12px; font-weight: 500; color: var(--text-secondary); letter-spacing: 0; }
     .partial-label { font-size: 9px; letter-spacing: .01em; color: var(--text-muted); border: 1px solid var(--border); border-radius: 3px; padding: 0 4px; line-height: 1.5; }
+    .metric-top-actions { display: flex; align-items: center; gap: 6px; }
+    .chart-hide-form { display: contents; }
+    /* Revealed on hover or keyboard focus; always shown where there is no hover. */
+    .chart-hide { width: 32px; height: 32px; margin: -9px -8px -9px 0; opacity: 0; transition: opacity .12s ease; }
+    .chart-hide .icon { width: 16px; height: 16px; }
+    .metric:hover .chart-hide, .metric:focus-within .chart-hide { opacity: 1; }
+    .chart-hide:focus-visible { opacity: 1; outline: 2px solid var(--accent); outline-offset: 1px; }
+    @media (hover: none) { .chart-hide { opacity: .7; } }
+    @media (prefers-reduced-motion: reduce) { .chart-hide { transition: none; } }
+    .chart-hidden-notice { align-items: center; }
+    .chart-hidden-notice > div { flex: 1; }
+    .hidden-charts-line { display: flex; align-items: center; gap: 7px; color: var(--text-muted); font-size: 12px; padding: 18px 0 0; }
+    .hidden-charts-line > .icon { width: 15px; height: 15px; }
+    .hidden-chart-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .hidden-chart-item .setting-item-heading > .icon { width: 18px; height: 18px; color: var(--text-muted); flex: none; }
     .metric-value-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
     .metric-value { font-variant-numeric: tabular-nums; font-size: 30px; line-height: 1.2; letter-spacing: -.05em; font-weight: 550; }
     .metric-value small { font-size: 14px; margin-left: 4px; font-weight: 450; color: var(--text-muted); letter-spacing: -.015em; }

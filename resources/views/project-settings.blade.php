@@ -25,5 +25,13 @@
     </div>
     </div>
 </section>
+<section class="settings-section" id="hidden-charts" aria-labelledby="hidden-charts-heading">
+    <div class="section-intro"><h2 id="hidden-charts-heading">{{ __('Hidden charts') }}</h2><p>{{ __('Charts hidden from the project page for everyone in this workspace. Their data is still collected.') }}</p></div>
+    <div class="form-width"><div class="settings-list">
+    @forelse($hiddenCharts as $chart)
+    <article class="setting-item hidden-chart-item"><div class="setting-item-heading">@include('metribay::partials/icon',['name'=>'eye-off'])<div><h3>{{ __(\Metribay\Core\Metrics\MetricRegistry::all()[$chart->metric_key]->label ?? $chart->metric_key) }}</h3><p class="muted">{{ $chart->source->label }}<span class="description-divider">/</span>{{ $providers[$chart->source->kind]['label'] ?? $chart->source->kind }}</p></div></div>@if($canEdit ?? false)<form method="POST" action="{{ route('metribay.charts.show',['workspace'=>$workspace->slug,'project'=>$project->id,'chart'=>$chart->id]) }}">@csrf @method('DELETE')<button class="button button-small button-secondary" type="submit">@include('metribay::partials/icon',['name'=>'eye']) {{ __('Show chart') }}</button></form>@endif</article>
+    @empty<div class="inline-empty">@include('metribay::partials/icon',['name'=>'eye'])<span>{{ __('No hidden charts. Hide a chart from the project page with its hide button.') }}</span></div>@endforelse
+    </div></div>
+</section>
 @if(!($canEdit ?? false))<p class="footnote">{{ __('You have read-only access. Ask an owner or administrator to make changes.') }}</p>@endif
 @endsection

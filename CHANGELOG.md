@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.2 — 2026-11-02
+
+- Let editors hide individual charts from a project page for everyone in the workspace. The hide button shows on hover, on keyboard focus, and always on touch screens. Hiding happens straight away and offers **Undo** where the chart was. A quiet "N charts hidden · Show" line links to the new **Hidden charts** section in Project settings, where charts can be shown again. The overview, collection and stored metrics are unchanged. Available in all twelve interface languages.
+- Add the `hidden_charts` table (project, data source, metric key; removed with its project or data source). Rolling back needs `migrate:rollback --step=1` first.
+
 ## 0.3.1 — 2026-11-02
 
 - Compact the signed-in header to one row and move navigation into the profile menu. Keep the last accessible workspace’s links available on account pages, rechecking access; hosts without account controls retain an Overview/Settings menu.

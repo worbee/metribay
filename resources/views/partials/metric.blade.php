@@ -13,7 +13,7 @@
     $chartId = 'chart-'.($sourceId ?? 'metric').'-'.$metric['key'];
 @endphp
 <section @class(['metric', 'metric-compact' => $compact ?? false]) aria-labelledby="{{ $chartId }}-label">
-    <div class="metric-top"><h3 id="{{ $chartId }}-label">{{ $metricLabel }}</h3>@if ($metric['partial'] ?? false)<span class="partial-label" title="{{ __('Some dates or the current reporting day are incomplete') }}">{{ __('Partial') }}</span>@endif</div>
+    <div class="metric-top"><h3 id="{{ $chartId }}-label">{{ $metricLabel }}</h3><div class="metric-top-actions">@if ($metric['partial'] ?? false)<span class="partial-label" title="{{ __('Some dates or the current reporting day are incomplete') }}">{{ __('Partial') }}</span>@endif @if(!empty($hideAction))<form method="POST" action="{{ $hideAction }}" class="chart-hide-form">@csrf<input type="hidden" name="source_id" value="{{ $sourceId }}"><input type="hidden" name="metric_key" value="{{ $metric['key'] }}"><button type="submit" class="icon-button chart-hide" aria-label="{{ __('Hide :chart chart', ['chart' => $metricLabel]) }}" title="{{ __('Hide this chart from the project page') }}">@include('metribay::partials/icon',['name'=>'eye-off'])</button></form>@endif</div></div>
     <div class="metric-value-row">
         <strong class="metric-value" @if(is_numeric($metricValue) && $metricUnit !== 'status') data-metric-number="{{ $metricValue }}" data-unit="{{ $metricUnit }}" @endif>
             @if ($metricValue === null)<span class="missing-value" aria-label="{{ __('No period total available') }}">—</span>

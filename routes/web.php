@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Metribay\Core\Http\Controllers\DashboardController;
+use Metribay\Core\Http\Controllers\HiddenChartController;
 use Metribay\Core\Http\Controllers\LocaleController;
 use Metribay\Core\Http\Controllers\ProjectController;
 use Metribay\Core\Http\Controllers\ProjectEventController;
@@ -41,5 +42,7 @@ Route::middleware(['web', 'auth', 'auth.session', 'verified'])->group(function (
         Route::post('/projects/{project}/events', [ProjectEventController::class, 'store'])->name('metribay.events.store');
         Route::patch('/projects/{project}/events/{event}', [ProjectEventController::class, 'update'])->name('metribay.events.update');
         Route::delete('/projects/{project}/events/{event}', [ProjectEventController::class, 'destroy'])->name('metribay.events.destroy');
+        Route::post('/projects/{project}/hidden-charts', [HiddenChartController::class, 'store'])->name('metribay.charts.hide');
+        Route::delete('/projects/{project}/hidden-charts/{chart}', [HiddenChartController::class, 'destroy'])->name('metribay.charts.show');
     });
 });

@@ -7,6 +7,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Metribay\Core\Contracts\WorkspaceAccess;
+use Metribay\Core\Models\HiddenChart;
 use Metribay\Core\Models\Project;
 use Metribay\Core\Models\ProjectEvent;
 use Metribay\Core\Services\DashboardData;
@@ -36,13 +37,19 @@ class DashboardController
 
         $sources = $projects[0]['sources'] ?? [];
         $events = ProjectEvent::query()->where('project_id', $project->id)->orderByDesc('date')->orderByDesc('id')->get();
+        $hidden = HiddenChart::query()->where('project_id', $project->id)->get();
         foreach ($sources as &$source) {
             $range = $source['metrics'][0] ?? null;
             $source['events'] = $range ? $this->chartEvents($events, (int) $source['id'], CarbonImmutable::parse($range['start_date']), CarbonImmutable::parse($range['end_date'])) : [];
+            // Hidden charts leave the page only; context such as page speed test details still reads every metric.
+            $hiddenKeys = $hidden->where('source_id', (int) $source['id'])->pluck('metric_key')->all();
+            $source['all_metrics'] = $source['metrics'];
+            $source['metrics'] = array_values(array_filter($source['metrics'], fn (array $metric): bool => ! in_array($metric['key'], $hiddenKeys, true)));
+            $source['hidden_count'] = count($hiddenKeys);
         }
         unset($source);
 
-        return view('metribay::project', ['workspace' => app(WorkspaceContext::class)->current(), 'project' => $project, 'sources' => $sources, 'events' => $events, 'days' => $days]);
+        return view('metribay::project', ['workspace' => app(WorkspaceContext::class)->current(), 'project' => $project, 'sources' => $sources, 'events' => $events, 'days' => $days, 'hiddenCount' => $hidden->count(), 'justHidden' => $hidden->firstWhere('id', (int) $request->session()->get('chart_hidden'))]);
     }
 
     /**
