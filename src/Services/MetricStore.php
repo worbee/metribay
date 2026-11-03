@@ -11,6 +11,8 @@ use Metribay\Core\Models\DailyMetric;
 use Metribay\Core\Models\PeriodMetric;
 use Metribay\Core\Models\ProjectEvent;
 use Metribay\Core\Models\SearchQuery;
+use Metribay\Core\Models\SearchQueryMonth;
+use Metribay\Core\Models\SearchQueryMonthRow;
 use Metribay\Core\Models\Source;
 
 class MetricStore
@@ -69,6 +71,34 @@ class MetricStore
         }
     }
 
+    /** @param list<array<string, mixed>> $months */
+    private function queryMonths(Source $source, array $months): void
+    {
+        if ($months !== [] && ! in_array($source->kind, ProviderCatalog::QUERY_PROVIDERS, true)) {
+            throw new InvalidArgumentException('Invalid search query month.');
+        }
+        $seen = [];
+        foreach ($months as $month) {
+            foreach (['month', 'start_date', 'end_date'] as $field) {
+                $this->date(is_string($month[$field] ?? null) ? $month[$field] : '');
+            }
+            $weeks = $month['weeks'] ?? null;
+            if (substr($month['month'], 8) !== '01' || isset($seen[$month['month']]) || $month['start_date'] > $month['end_date'] || substr($month['start_date'], 0, 7) !== substr($month['month'], 0, 7)
+                || substr($month['end_date'], 0, 7) !== substr($month['month'], 0, 7) || ($weeks !== null && (! is_int($weeks) || $weeks < 1 || $weeks > 6)) || ! is_array($month['rows'] ?? null) || ! array_is_list($month['rows'])) {
+                throw new InvalidArgumentException('Invalid search query month.');
+            }
+            $seen[$month['month']] = true;
+            $queries = [];
+            foreach ($month['rows'] as $row) {
+                $this->query($source, ['days' => 30, 'previous' => false, 'is_partial' => false, 'start_date' => $month['start_date'], 'end_date' => $month['end_date']] + (is_array($row) ? $row : []));
+                if (isset($queries[$row['query']])) {
+                    throw new InvalidArgumentException('Duplicate search query.');
+                }
+                $queries[$row['query']] = true;
+            }
+        }
+    }
+
     public function persist(Source $source, CollectionResult $result, CarbonImmutable $now): int
     {
         $allowed = ProviderCatalog::metricKeys($source->kind);
@@ -113,6 +143,7 @@ class MetricStore
         foreach ($result->queries ?? [] as $row) {
             $this->query($source, $row);
         }
+        $this->queryMonths($source, $result->queryMonths);
 
         return DB::transaction(function () use ($source, $result, $now) {
             foreach ($result->replaceDailyDates as $date => $metrics) {
@@ -171,6 +202,18 @@ class MetricStore
                     SearchQuery::query()->insert(array_map(fn (array $row): array => ['workspace_id' => $source->workspace_id, 'source_id' => $source->id, 'days' => $row['days'], 'previous' => $row['previous'],
                         'start_date' => $row['start_date'], 'end_date' => $row['end_date'], 'query' => $row['query'], 'clicks' => $row['clicks'], 'impressions' => $row['impressions'],
                         'position' => $row['position'], 'is_partial' => $row['is_partial'], 'collected_at' => $now], $chunk));
+                }
+            }
+            foreach ($result->queryMonths as $month) {
+                // Archived months are final; a month that is already stored stays as it is.
+                if (SearchQueryMonth::query()->where('source_id', $source->id)->whereDate('month', $month['month'])->exists()) {
+                    continue;
+                }
+                $archive = SearchQueryMonth::query()->create(['source_id' => $source->id, 'month' => $month['month'], 'start_date' => $month['start_date'], 'end_date' => $month['end_date'],
+                    'weeks' => $month['weeks'], 'query_count' => count($month['rows']), 'collected_at' => $now]);
+                foreach (array_chunk($month['rows'], 200) as $chunk) {
+                    SearchQueryMonthRow::query()->insert(array_map(fn (array $row): array => ['search_query_month_id' => $archive->id, 'query' => $row['query'],
+                        'clicks' => $row['clicks'], 'impressions' => $row['impressions'], 'position' => $row['position']], $chunk));
                 }
             }
             $observed = DailyMetric::query()->where('source_id', $source->id)->max('date');

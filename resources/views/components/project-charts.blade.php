@@ -11,20 +11,32 @@
     ]);
     $domainUrl = $project->domain ? (str_contains($project->domain, '://') ? $project->domain : 'https://'.$project->domain) : null;
     $domainUrl = $domainUrl && filter_var($domainUrl, FILTER_VALIDATE_URL) && in_array(parse_url($domainUrl, PHP_URL_SCHEME), ['http', 'https'], true) ? $domainUrl : null;
-    $eventsUrl = route('metribay.events.index', ['workspace'=>$workspace->slug,'project'=>$project->id,'days'=>$days]);
+    // The events page lists 7, 30 or 90 days.
+    $eventsUrl = route('metribay.events.index', ['workspace'=>$workspace->slug,'project'=>$project->id,'days'=>$period->isPreset() ? $days : ($days <= 7 ? 7 : ($days <= 30 ? 30 : 90))]);
+    [$rangeFrom, $rangeTo] = array_map(fn ($date) => $date->toDateString(), $period->window('UTC', \Carbon\CarbonImmutable::now('UTC')));
+    $rangeMax = \Carbon\CarbonImmutable::now('UTC')->addDay()->toDateString();
     $summaryLabels = ['traffic'=>__('Visits'),'search'=>__('Search clicks'),'development'=>__('Commits · PRs'),'issues'=>__('Open issues'),'downloads'=>__('Downloads'),'uptime'=>__('Uptime · 24h'),'speed'=>__('Page speed · lowest')];
 @endphp
 <header class="project-head">
     <div class="project-head-main">
-        <a class="breadcrumb" href="{{ route('metribay.dashboard', ['workspace'=>$workspace->slug,'days'=>$days]) }}">@include('metribay::partials/icon',['name'=>'arrow-left']) {{ __('All projects') }}</a>
+        <a class="breadcrumb" href="{{ route('metribay.dashboard', ['workspace'=>$workspace->slug, ...$period->query()]) }}">@include('metribay::partials/icon',['name'=>'arrow-left']) {{ __('All projects') }}</a>
         <div class="project-title">@if($project->domain)<img class="project-favicon" src="{{ route('metribay.projects.favicon', ['workspace'=>$workspace->slug, 'project'=>$project->id, 'v'=>substr(hash('sha256', $project->domain), 0, 12)]) }}" width="22" height="22" alt="" decoding="async">@endif<h1>{{ $project->name }}</h1>@if($domainUrl)<a class="project-domain" href="{{ $domainUrl }}" target="_blank" rel="noopener noreferrer">{{ $project->domain }} @include('metribay::partials/icon',['name'=>'arrow-up-right'])</a>@elseif($project->domain)<span class="project-domain">{{ $project->domain }}</span>@endif</div>
         @if($sources)
         <p class="project-status"><span @class(['status-dot', 'is-bad' => $attention, 'is-warn' => !$attention && ($statuses['delayed'] ?? 0) + ($statuses['pending'] ?? 0), 'dot-neutral' => count($sources) === ($statuses['disabled'] ?? 0)]) aria-hidden="true"></span><span>{{ trans_choice('{1} :count data source|[2,*] :count data sources', count($sources), ['count' => count($sources)]) }} · @forelse($states as $state => $label)@if(!$loop->first) · @endif@if(in_array($state, ['failed', 'delayed'], true))@php($affected = collect($sources)->where('status', $state)->values())<a class="text-link" href="#{{ $affected[0]['attention_anchor'] }}">{{ $label }}</a>@if($affected->count() > 1) <span class="project-attention-sources">(@foreach($affected as $source)@if(!$loop->first), @endif<a class="text-link" href="#{{ $source['attention_anchor'] }}">{{ $source['label'] }}</a>@endforeach)</span>@endif @else{{ $label }}@endif @empty{{ __('all healthy') }}@endforelse</span>@if($lastSync)<span aria-hidden="true">·</span><span>{{ __('Last sync :time', ['time' => $lastSync->translatedFormat('j M, H:i').' UTC']) }}</span>@endif @if($attention && ($canEdit ?? false))<a class="text-link" href="{{ $settingsUrl }}">{{ __('Review in settings') }}</a>@endif</p>
         @endif
     </div>
     <div class="project-actions">
-        <nav class="period-switch" aria-label="{{ __('Reporting period') }}">@foreach([7, 30, 90] as $option)<a href="{{ route('metribay.projects.show', ['workspace'=>$workspace->slug,'project'=>$project->id,'days'=>$option]) }}" @if($days === $option) aria-current="page" @endif>{{ __(':days days', ['days' => $option]) }}</a>@endforeach</nav>
-        <a class="button button-secondary" href="{{ $eventsUrl }}" title="{{ trans_choice('{0} No events in the last :days days|{1} :count event in the last :days days|[2,*] :count events in the last :days days', $eventCount, ['count' => $eventCount, 'days' => $days]) }}">{{ __('Events') }} <span class="button-count">{{ \Illuminate\Support\Number::format($eventCount, locale: app()->getLocale()) }}</span></a>
+        <nav class="period-switch" aria-label="{{ __('Reporting period') }}"><a href="{{ route('metribay.projects.show', ['workspace'=>$workspace->slug,'project'=>$project->id,'days'=>1]) }}" @if($period->isYesterday()) aria-current="page" @endif>{{ __('Yesterday') }}</a>@foreach(\Metribay\Core\Metrics\Period::PRESETS as $option)<a href="{{ route('metribay.projects.show', ['workspace'=>$workspace->slug,'project'=>$project->id,'days'=>$option]) }}" @if($period->isPreset() && $days === $option) aria-current="page" @endif>{{ __(':days days', ['days' => $option]) }}</a>@endforeach
+            <details class="range-picker" wire:ignore.self><summary @if($period->isCustom()) aria-current="page" @endif>{{ $period->isCustom() ? $period->label() : __('Dates…') }}</summary>
+                <form class="range-form" method="GET" action="{{ route('metribay.projects.show', ['workspace'=>$workspace->slug,'project'=>$project->id]) }}" aria-label="{{ __('Custom range') }}">
+                    <label><span>{{ __('From') }}</span><input type="date" name="from" value="{{ $rangeFrom }}" min="{{ \Metribay\Core\Metrics\Period::EARLIEST }}" max="{{ $rangeMax }}" required></label>
+                    <label><span>{{ __('To') }}</span><input type="date" name="to" value="{{ $rangeTo }}" min="{{ \Metribay\Core\Metrics\Period::EARLIEST }}" max="{{ $rangeMax }}" required></label>
+                    <button class="button button-secondary button-small" type="submit">{{ __('Apply') }}</button>
+                    <p class="field-hint">{{ __('Up to :days days. The same number of days before is the comparison.', ['days' => \Metribay\Core\Metrics\Period::MAX_DAYS]) }}</p>
+                </form>
+            </details>
+        </nav>
+        <a class="button button-secondary" href="{{ $eventsUrl }}" title="{{ trans_choice('{0} No events: :period|{1} :count event: :period|[2,*] :count events: :period', $eventCount, ['count' => $eventCount, 'period' => $period->label()]) }}">{{ __('Events') }} <span class="button-count">{{ \Illuminate\Support\Number::format($eventCount, locale: app()->getLocale()) }}</span></a>
         @if($canEdit ?? false)<button type="button" class="button button-secondary" data-dialog-open="new-event">@include('metribay::partials/icon',['name'=>'plus']) {{ __('Add event') }}</button>@endif
         @if(($canEdit ?? false) && !$project->archived)<a class="button button-secondary" href="{{ route('metribay.sources.create',['workspace'=>$workspace->slug,'project'=>$project->id]) }}">@include('metribay::partials/icon',['name'=>'plus']) {{ __('Add data source') }}</a>@endif
         <a class="button button-secondary button-icon" href="{{ $settingsUrl }}" aria-label="{{ __('Project settings') }}" title="{{ __('Project settings') }}">@include('metribay::partials/icon',['name'=>'settings'])</a>

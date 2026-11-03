@@ -21,12 +21,23 @@ Target: at 1440 × 900 every headline number and the first group fit on the firs
 1. **Compact header** (one block, about 110 px):
    - "All projects" link, favicon, project name (h1, about 26 px), domain link.
    - Status line: number of data sources, last sync, and a single health state ("All data sources healthy" / "1 needs attention" / "1 paused") with attention and delayed counts linking to the affected block on the page. A down monitor targets its visible status strip; collection problems and hidden monitor charts target the source warning. When several sources share a state, named links beside the count reach each one. Target blocks are outlined, and warnings remain visible even if all charts in the group are hidden. The separate **Review in settings** link remains available to editors. Other source details, including timezones and sync times, stay in provider tooltips and Project settings.
-   - Right side: period as a segmented control (7 / 30 / 90 days), secondary buttons **Events** (with the number of event markers in the period; opens the events page), **Add event** and **Add data source**, icon button for Project settings. No primary (pink) button on this page.
+   - Right side: period as a segmented control (**Yesterday** / 7 / 30 / 90 days / **Dates…**; see Reporting period), secondary buttons **Events** (with the number of event markers in the period; opens the events page), **Add event** and **Add data source**, icon button for Project settings. No primary (pink) button on this page.
 2. **Summary row (optional, evaluate in the mockup):** the project's own index row (same columns, numbers, changes and sparklines). Each cell links to its group. It is a recap of the row the user clicked, not a new layer.
 3. **Groups**, in index column order. Each group has a heading, the provider labels it draws from, and one legend (selected period, previous period, events). The legend's event count links to the events page.
 4. **Footnote** (existing data note), unchanged.
 
 Events are not listed on this page: their markers stay on the charts, and clicking one opens it on the project's events page (docs/EVENTS_PAGE.md).
+
+## Reporting period
+
+The overview (a menu) and the project page (the segmented control) share one period, `Metrics\Period`, carried in the URL:
+
+- **Last 7, 30 or 90 days** (`?days=7|30|90`) end today, which may be partial.
+- **Yesterday** (`?days=1`) is the last complete day, compared with the day before. The project page shows every metric as a number tile (no one-point line charts; sparklines need two points). Unique visitors use the day's daily value, which is that day's unique count.
+- **Custom range** (`?from=YYYY-MM-DD&to=YYYY-MM-DD`): calendar dates, both included, up to 731 days and ending no later than today (tomorrow in UTC is accepted for timezones ahead). The overview's **Custom range…** opens From/To fields with **Apply** and **Change dates**; the project page's **Dates…** opens the same fields as a small form. Invalid ranges get a message on the overview and HTTP 422 in the URL.
+- Every period compares with the same number of days just before it. Dates are read in each data source's reporting timezone; a custom range is the same calendar dates everywhere. Health (failed, delayed, monitor down) always reflects today, whatever period is shown.
+- Unique visitors exist only as provider totals for the last 7, 30 and 90 days (and single days); custom ranges show "period total unavailable" with the daily chart. Top queries use the stored window closest in length (7, 30 or 90 days) and say so; a custom range that is exactly an archived month opens that month.
+- Links between the overview, project page and breadcrumb keep the period; the events page receives the nearest of 7/30/90 days.
 
 ## Groups and default sizes
 
@@ -74,8 +85,13 @@ Search Console and Bing data sources also report their top search queries. The *
 - One source switch (**Google Search Console** first, then **Bing Webmaster**) when both are connected; their positions and windows are never merged.
 - Caption: provider, window and **Partial** while Google's latest dates are not final. Query windows end on the provider's latest reported date, so they can end before the page's period: Search Console uses the same number of days (for example 3 Oct – 1 Nov), Bing reports weekly and uses the latest 1, 4 or 13 weeks ("Weekly data: 4 weeks to 30 Oct"). When the listed queries hold less than 95 % of the site's clicks for the same days, the caption says so ("These queries account for 71 % of the site's clicks; Google leaves out rare queries.").
 - The block can be hidden per data source like a chart (hidden-chart key `top_queries`) and is restored from **Hidden charts**. The chosen source, list and expanded state survive the hourly refresh.
+- **Monthly archive.** When months are archived, a menu beside the heading offers the current window (**Last 30 days**) and each archived month, newest first (`?queries=2026-10`). A month is compared with the month before (**vs September 2026**); a second menu picks another archived month or **No comparison** (`?compare=2026-06|none`). The caption names the month and the comparison ("October 2026 · Compared with September 2026"; Bing: "Weekly data: 4 weeks dated in October 2026"). **New** means the query is not among the compared month's stored queries. A source without that month says "No queries were archived for October 2026." Unknown months fall back to the current window.
 
-Storage: `search_queries` holds, per data source and window (7, 30, 90 days and the window before each), the top 500 queries by clicks (Search Console sorts by clicks; previous windows keep only queries of the current one). Every collection replaces the source's rows as one snapshot (`CollectionResult::$queries`). Built by `Services\SearchQueries`; view `partials/search-queries`. Tests: `tests/Feature/SearchQueriesTest.php` and the Search Console/Bing cases in `tests/Connectors/ProviderConnectorsTest.php`.
+Storage: `search_queries` holds, per data source and window (7, 30, 90 days and the window before each), the top 500 queries by clicks (Search Console sorts by clicks; previous windows keep only queries of the current one). Every collection replaces the source's rows as one snapshot (`CollectionResult::$queries`).
+
+The archive is `search_query_months` (one row per source and calendar month: dates covered, Bing's week count, number of queries) with `search_query_month_rows` (query, clicks, impressions, position; top 1,000 per month). A month is written once, after its data is final, and never replaced or pruned (`CollectionResult::$queryMonths`; `SourceConfiguration::$archivedQueryMonths` tells connectors which months exist). Search Console archives complete months whose last day is final, newest first, four per collection, back to its 16-month limit, so a new source fills its history over its first day of syncs. Bing groups its weekly rows by the date of each week and archives a month once a later week exists (the oldest month only if its first week is still kept). Archived months move with their project to another workspace and are deleted with their data source.
+
+Built by `Services\SearchQueries`; view `partials/search-queries`. Tests: `tests/Feature/SearchQueriesTest.php` and the Search Console/Bing cases in `tests/Connectors/ProviderConnectorsTest.php`.
 
 ## Change indicator
 
@@ -86,6 +102,8 @@ Matches the index (`partials/overview-change`): ↗ / ↘ / →, one decimal bel
 - Neutral (never coloured): lines changed.
 
 Large charts also show the previous-period value in words ("468 in the previous 30 days"). No percentage is shown when the previous period is missing or zero (existing rule).
+
+Snapshots (page speed values, open issues, indexed pages, uptime, response time) show a difference in their own unit instead of a percentage: the latest value against the last value of the previous period (`+12` for a score, `−500 ms`, `+0.40 pp` for uptime, `±0` when unchanged; `partials/snapshot-change`). It is coloured by the same polarity from a 5 % relative change. Monitor status has no difference. The overview's uptime column has a sparkline of the lowest daily uptime among a project's monitors, scaled to its own range so small dips show.
 
 ## Page speed
 
@@ -131,5 +149,5 @@ Constraints: sizes snap to the grid; charts reorder within their group and group
 - Partials: `project-group` (heading, sources, legend, source notices, grid), `metric` (sizes `l`, `s`, `n`), `metric-strip` (monitor status), `page-speed`, `source-notice`, `chart-hide`. `overview-change` takes an optional `polarity`; its classes are `is-good` / `is-bad`.
 - Charts stay on Chart.js (`resources/js/app.js`): sizes `l`/`s`/`n`, dashed segment into partial dates with a hollow end point, a shared crosshair by reporting date, and group legends that toggle a series on every chart of the group.
 - Differences from the mockup: small charts also draw event markers (otherwise events tied to a second source would appear on no chart); number-tile sparklines are not anchored at zero; daily-value tables list the newest date first; several "no data" charts each get their own line.
-- Tests: `tests/Feature/ProjectPageLayoutTest.php`.
+- Tests: `tests/Feature/ProjectPageLayoutTest.php`, `tests/Feature/ReportingPeriodTest.php`.
 

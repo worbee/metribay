@@ -5,8 +5,10 @@ namespace Metribay\Core\Livewire;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Locked;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use Metribay\Core\Contracts\WorkspaceAccess;
+use Metribay\Core\Metrics\Period;
 use Metribay\Core\Metrics\ProjectLayout;
 use Metribay\Core\Models\HiddenChart;
 use Metribay\Core\Models\Project;
@@ -27,18 +29,36 @@ class ProjectCharts extends Component
     #[Locked]
     public int $days = 30;
 
+    #[Locked]
+    public string $from = '';
+
+    #[Locked]
+    public string $to = '';
+
+    /** Archived month (Y-m) shown by Top queries instead of the period; empty for the period. */
+    #[Url(as: 'queries', except: '')]
+    public string $queryMonth = '';
+
+    /** Month (Y-m) the archived month is compared with, "none", or empty for the month before. */
+    #[Url(as: 'compare', except: '')]
+    public string $queryCompare = '';
+
+    #[Locked]
+    public bool $monthChecked = false;
+
     public function render(): View
     {
         abort_unless(auth()->check(), 401);
         $workspace = Workspace::query()->findOrFail($this->workspaceId);
         abort_unless(app(WorkspaceAccess::class)->allows(auth()->user(), $workspace, 'view'), 404);
-        abort_unless(in_array($this->days, [7, 30, 90], true), 422);
+        $period = Period::fromInput($this->days, $this->from, $this->to);
+        abort_if($period === null, 422);
         request()->attributes->set('metribay.workspace', $workspace);
 
-        return app(WorkspaceContext::class)->run($workspace, function () use ($workspace) {
+        return app(WorkspaceContext::class)->run($workspace, function () use ($workspace, $period) {
             $project = Project::query()->findOrFail($this->projectId);
             $data = app(DashboardData::class);
-            $projectData = $data->projects($this->days, $project->id)[0] ?? ['sources' => [], 'summary' => []];
+            $projectData = $data->projects($period, $project->id)[0] ?? ['sources' => [], 'summary' => []];
             $sources = $projectData['sources'];
             $events = ProjectEvent::query()->where('project_id', $project->id)->orderByDesc('date')->orderByDesc('id')->get();
             $hidden = HiddenChart::query()->where('project_id', $project->id)->get();
@@ -63,18 +83,30 @@ class ProjectCharts extends Component
                     : 'source-attention-'.$source['id'];
             }
             unset($source);
-            $queries = app(SearchQueries::class)->forSources($sources, $this->days);
+            $searchQueries = app(SearchQueries::class);
+            $queryIds = array_map(fn (array $source): int => (int) $source['id'], array_filter($sources, fn (array $source): bool => ! in_array(SearchQueries::CHART_KEY, $source['hidden_keys'], true)));
+            $months = $searchQueries->months(array_values($queryIds));
+            // Unknown or removed months fall back to the period instead of an error.
+            // A custom range that is exactly an archived month opens on that month, once; the menu can still leave it.
+            if (! $this->monthChecked && $this->queryMonth === '' && in_array($period->calendarMonth(), $months, true)) {
+                $this->queryMonth = (string) $period->calendarMonth();
+            }
+            $this->monthChecked = true;
+            $month = in_array($this->queryMonth, $months, true) ? $this->queryMonth : null;
+            $compare = $month !== null && ($this->queryCompare === 'none' || (in_array($this->queryCompare, $months, true) && $this->queryCompare !== $month)) ? $this->queryCompare : null;
+            $queries = $searchQueries->forSources($sources, $period, $month, $compare);
             foreach ($sources as &$source) {
-                $source['queries'] = in_array(SearchQueries::CHART_KEY, $source['hidden_keys'], true) ? null : ($queries[(int) $source['id']] ?? null);
+                $source['queries'] = in_array((int) $source['id'], $queryIds, true) ? ($queries[(int) $source['id']] ?? null) : null;
             }
             unset($source);
 
-            $today = CarbonImmutable::now('UTC')->startOfDay();
-            $eventCount = $events->sum(fn (ProjectEvent $event): int => count($event->occurrencesBetween($today->subDays($this->days - 1), $today)));
+            [$eventsFrom, $eventsTo] = $period->window('UTC', CarbonImmutable::now('UTC'));
+            $eventCount = $events->sum(fn (ProjectEvent $event): int => count($event->occurrencesBetween($eventsFrom, $eventsTo)));
             $statuses = array_count_values(array_column($sources, 'status'));
             $lastSync = max([0, ...array_filter(array_column($sources, 'last_success_timestamp'))]);
 
-            return view('metribay::components.project-charts', ['workspace' => $workspace, 'project' => $project, 'sources' => $sources, 'rows' => ProjectLayout::rows($sources), 'summary' => $projectData['summary'], 'statuses' => $statuses, 'lastSync' => $lastSync ? CarbonImmutable::createFromTimestampUTC($lastSync) : null, 'days' => $this->days, 'hiddenCount' => $hidden->count(), 'justHidden' => $hidden->firstWhere('id', (int) session('chart_hidden')), 'eventCount' => $eventCount]);
+            return view('metribay::components.project-charts', ['workspace' => $workspace, 'project' => $project, 'sources' => $sources, 'rows' => ProjectLayout::rows($sources, $period->days === 1), 'summary' => $projectData['summary'], 'statuses' => $statuses, 'lastSync' => $lastSync ? CarbonImmutable::createFromTimestampUTC($lastSync) : null, 'days' => $period->days, 'period' => $period,
+                'queryMonths' => $months, 'queryMonth' => $month, 'queryCompare' => $compare, 'hiddenCount' => $hidden->count(), 'justHidden' => $hidden->firstWhere('id', (int) session('chart_hidden')), 'eventCount' => $eventCount]);
         });
     }
 

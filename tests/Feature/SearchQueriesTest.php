@@ -6,10 +6,13 @@ use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Metribay\Core\Connectors\CollectionResult;
+use Metribay\Core\Metrics\Period;
 use Metribay\Core\Metrics\ProjectLayout;
 use Metribay\Core\Models\HiddenChart;
 use Metribay\Core\Models\Project;
 use Metribay\Core\Models\SearchQuery;
+use Metribay\Core\Models\SearchQueryMonth;
+use Metribay\Core\Models\SearchQueryMonthRow;
 use Metribay\Core\Models\Source;
 use Metribay\Core\Models\Workspace;
 use Metribay\Core\Services\MetricStore;
@@ -177,13 +180,129 @@ class SearchQueriesTest extends TestCase
         $this->assertCount(2, ProjectLayout::rows([$search + ['queries' => ['count' => 1]], $downloads]));
     }
 
+    /** @param list<array{0: string, 1: float, 2: float, 3: float|null}> $rows */
+    private function month(string $month, array $rows, ?int $weeks = null): array
+    {
+        $start = CarbonImmutable::parse($month.'-01');
+
+        return ['month' => $start->toDateString(), 'start_date' => $start->toDateString(), 'end_date' => $start->endOfMonth()->toDateString(), 'weeks' => $weeks,
+            'rows' => array_map(fn (array $row): array => ['query' => $row[0], 'clicks' => $row[1], 'impressions' => $row[2], 'position' => $row[3]], $rows)];
+    }
+
+    /** @param list<array<string, mixed>> $months */
+    private function archive(Source $source, array $months): void
+    {
+        $this->scoped(fn () => app(MetricStore::class)->persist($source, new CollectionResult(queryMonths: $months), CarbonImmutable::now('UTC')));
+    }
+
+    public function test_months_are_archived_once_and_kept_when_queries_are_replaced(): void
+    {
+        $source = $this->source();
+        $this->archive($source, [$this->month('2026-09', [['metribay', 9, 90, 3.0], ['dashboard', 1, 40, 8.0]]), $this->month('2026-08', [])]);
+        // A later collection never replaces an archived month, and replacing the current queries leaves the archive alone.
+        $this->archive($source, [$this->month('2026-09', [['other', 1, 1, 1.0]])]);
+        $this->persist($source, []);
+        $months = $this->scoped(fn () => SearchQueryMonth::query()->orderBy('month')->get());
+        $this->assertSame(['2026-08', '2026-09'], $months->map(fn (SearchQueryMonth $month): string => $month->month->format('Y-m'))->all());
+        $this->assertSame([0, 2], $months->pluck('query_count')->all());
+        $this->assertSame(['metribay', 'dashboard'], $months[1]->rows()->orderBy('id')->pluck('query')->all());
+        $this->assertSame(['2026-08', '2026-09'], $this->scoped(fn () => array_reverse(app(SearchQueries::class)->months([$source->id]))));
+    }
+
+    public function test_only_search_providers_archive_valid_months(): void
+    {
+        $search = $this->source();
+        $invalid = [
+            [$this->source('umami', 'Analytics'), $this->month('2026-09', [['q', 1, 1, 1.0]])],
+            [$search, ['month' => '2026-09-02'] + $this->month('2026-09', [])],
+            [$search, ['end_date' => '2026-10-01'] + $this->month('2026-09', [])],
+            [$search, ['weeks' => 9] + $this->month('2026-09', [])],
+            [$search, $this->month('2026-09', [['q', 1, 1, 1.0], ['q', 2, 2, 2.0]])],
+            [$search, $this->month('2026-09', [['q', -1, 1, 1.0]])],
+        ];
+        foreach ($invalid as [$source, $month]) {
+            try {
+                $this->archive($source, [$month]);
+                $this->fail('Expected an invalid month to be rejected.');
+            } catch (\InvalidArgumentException) {
+                $this->assertSame(0, $this->scoped(fn () => SearchQueryMonth::query()->count()));
+            }
+        }
+    }
+
+    public function test_an_archived_month_is_compared_with_the_month_before_or_a_chosen_one(): void
+    {
+        $source = $this->source();
+        $this->archive($source, [
+            $this->month('2026-09', [['metribay', 30, 100, 2.0], ['brand new', 2, 50, 9.0]]),
+            $this->month('2026-08', [['metribay', 20, 80, 3.0]]),
+            $this->month('2026-06', [['metribay', 10, 60, 5.0], ['brand new', 1, 20, 12.0]]),
+        ]);
+        $sources = [['id' => $source->id, 'kind' => 'gsc']];
+        $service = app(SearchQueries::class);
+        $report = $this->scoped(fn () => $service->forSources($sources, 30, '2026-09'))[$source->id];
+        $this->assertSame(['2026-09', '2026-08', false], [$report['month'], $report['compare'], $report['missing']]);
+        $this->assertSame(['2026-09-01', '2026-09-30'], [$report['start_date'], $report['end_date']]);
+        $this->assertEqualsWithDelta(50.0, $report['clicked'][0]['change'], 0.001);
+        $this->assertEqualsWithDelta(1.0, $report['clicked'][0]['position_change'], 0.001);
+        $this->assertTrue($report['clicked'][1]['new']);
+
+        $chosen = $this->scoped(fn () => $service->forSources($sources, 30, '2026-09', '2026-06'))[$source->id];
+        $this->assertSame('2026-06', $chosen['compare']);
+        $this->assertEqualsWithDelta(200.0, $chosen['clicked'][0]['change'], 0.001);
+        $this->assertFalse($chosen['clicked'][1]['new']);
+
+        $none = $this->scoped(fn () => $service->forSources($sources, 30, '2026-09', 'none'))[$source->id];
+        $this->assertNull($none['compare']);
+        $this->assertNull($none['clicked'][0]['change']);
+        // The month before June is not archived: no comparison.
+        $this->assertNull($this->scoped(fn () => $service->forSources($sources, 30, '2026-06'))[$source->id]['compare']);
+        $this->assertTrue($this->scoped(fn () => $service->forSources($sources, 30, '2026-07'))[$source->id]['missing']);
+    }
+
+    public function test_yesterday_and_custom_ranges_show_the_closest_stored_window(): void
+    {
+        $source = $this->source();
+        $this->persist($source, [$this->row('week', 1, 10, 2.0, false, 7), $this->row('month', 2, 20, 2.0), $this->row('quarter', 3, 30, 2.0, false, 90)]);
+        $sources = [['id' => $source->id, 'kind' => 'gsc']];
+        $report = fn (Period $period): array => $this->scoped(fn () => app(SearchQueries::class)->forSources($sources, $period))[$source->id];
+        $this->assertSame(['week', 7, true], [$report(Period::preset(1))['ranked'][0]['query'], $report(Period::preset(1))['days'], $report(Period::preset(1))['fallback']]);
+        $this->assertSame('month', $report(Period::custom('2026-10-01', '2026-10-20'))['ranked'][0]['query']);
+        $this->assertSame('month', $report(Period::custom('2026-10-01', '2026-11-02'))['ranked'][0]['query']);
+        $this->assertSame('quarter', $report(Period::custom('2026-01-01', '2026-10-20'))['ranked'][0]['query']);
+        $this->assertFalse($report(Period::preset(30))['fallback']);
+    }
+
+    public function test_project_page_offers_archived_months_next_to_the_query_lists(): void
+    {
+        $source = $this->source();
+        $this->persist($source, [$this->row('metribay', 3, 10, 1.0), $this->row('metribay', 1, 4, 1.0, false, 7)], $this->siteTotals());
+        $this->archive($source, [$this->month('2026-09', [['metribay', 30, 100, 2.0]]), $this->month('2026-08', [['metribay', 20, 80, 3.0]])]);
+        $url = '/w/search/projects/'.$this->project->id;
+
+        $this->actingAs($this->owner)->get($url)->assertOk()
+            ->assertSeeInOrder(['Top queries', 'wire:model.live="queryMonth"', 'Last 30 days', 'September 2026', 'August 2026', 'Clicked'], false)
+            ->assertDontSee('wire:model.live="queryCompare"', false);
+        $this->get($url.'?queries=2026-09')->assertOk()->assertSee('Compared with August 2026')->assertSee('vs August 2026')
+            ->assertSee('title="Change from August 2026"', false)->assertSee('wire:model.live="queryCompare"', false);
+        // A month that is not archived shows the period.
+        $this->get($url.'?queries=2020-01')->assertOk()->assertDontSee('Compared with')->assertSee('wire:model.live="queryMonth"', false);
+        // A custom range that is exactly an archived month opens on it.
+        $this->get($url.'?from=2026-09-01&to=2026-09-30')->assertOk()->assertSee('Compared with August 2026');
+        $this->get($url.'?days=1')->assertOk()->assertSee('this shows the last 7 days', false);
+    }
+
     public function test_queries_move_with_their_project(): void
     {
         $source = $this->source();
         $this->persist($source, [$this->row('metribay', 3, 10, 1.0)]);
+        $this->archive($source, [$this->month('2026-09', [['metribay', 30, 100, 2.0]])]);
         $target = Workspace::create(['owner_id' => $this->owner->id, 'name' => 'Client', 'slug' => 'client']);
         $moved = app(ProjectTransfer::class)->move($this->workspace, $this->project->id, $target, 1, false);
         $this->assertSame(0, $this->scoped(fn () => SearchQuery::query()->count()));
+        $this->assertSame(0, $this->scoped(fn () => SearchQueryMonth::query()->count()));
+        $this->assertSame(1, app(WorkspaceContext::class)->run($target, fn () => SearchQueryMonth::query()->whereIn('source_id', Source::query()->where('project_id', $moved['project'])->pluck('id'))->count()));
+        $this->assertSame(1, SearchQueryMonthRow::query()->count());
         $this->assertSame(['metribay'], app(WorkspaceContext::class)->run($target, fn () => SearchQuery::query()->whereIn('source_id', Source::query()->where('project_id', $moved['project'])->pluck('id'))->pluck('query')->all()));
     }
 }

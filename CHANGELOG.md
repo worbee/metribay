@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.10.0 — 2026-11-03
+
+- **Monthly top queries archive.** Search Console and Bing data sources now keep each complete calendar month of top queries for good (Search Console: top 1,000 per month, backfilled up to 16 months, four months per sync; Bing: its weekly rows grouped by month). The **Top queries** block gets a menu beside its heading to show an archived month instead of the current window, compared with the month before or any other archived month (**vs August 2026**, **No comparison**). URLs keep the choice (`?queries=2026-10&compare=2026-06`). Additive migration `search_query_months` / `search_query_month_rows`; archived months move with their project.
+- **Yesterday and custom ranges.** The overview menu and the project page's period switch add **Yesterday** (the last complete day, as number tiles) and a custom range of up to 731 calendar dates (`?from=…&to=…`, **Custom range…** / **Dates…**). Each compares with the same number of days before. Links keep the period; health always reflects today. Unique visitors use the day's value for Yesterday and are unavailable for custom ranges; Top queries show the closest stored window and say so, or the archived month a custom range exactly covers. New `Metrics\Period`; `DashboardData::projects()` and `SearchQueries::forSources()` accept a Period (an int still means the last N days).
+- **Snapshot changes and uptime sparkline.** Snapshot metrics (page speed, open issues, indexed pages, uptime, response time) show the difference from the previous period's last value in their own unit (`+12`, `−500 ms`, `+0.40 pp`), coloured by polarity. The overview's uptime column gets a sparkline of the lowest daily uptime. Sparklines with a single point are no longer drawn.
+- Available in all twelve interface languages.
+
 ## 0.9.2 — 2026-11-03
 
 - Link the project header’s attention and delayed counts to the affected monitor status or source warning. When several sources need attention, named links reach each one. Highlight the target, and keep source warnings reachable when all charts are hidden. No migration.

@@ -23,8 +23,16 @@
     @endphp
     <header class="page-heading overview-heading">
         <div class="overview-title"><h1>{{ __('Projects') }}</h1>@if(count($projects))<span class="overview-project-count">{{ $visibleProjects->count() }}</span>@endif</div>
-        <div class="heading-actions"><label class="sr-only" for="overview-period">{{ __('Reporting period') }}</label><select class="period-select" id="overview-period" wire:model.live="days">@foreach([7, 30, 90] as $option)<option value="{{ $option }}">{{ __('Last :days days', ['days' => $option]) }}</option>@endforeach</select>@if($canEdit ?? false)<a class="button button-primary" href="{{ route('metribay.projects.create', $workspace->slug) }}">@include('metribay::partials/icon', ['name'=>'plus']) {{ __('Add project') }}</a>@endif</div>
+        <div class="heading-actions"><label class="sr-only" for="overview-period">{{ __('Reporting period') }}</label><select class="period-select" id="overview-period" wire:change="choosePeriod($event.target.value)" wire:key="overview-period-{{ $period->isCustom() || $editingRange ? 'custom' : $days }}"><option value="1" @selected($period->isYesterday() && !$editingRange)>{{ __('Yesterday') }}</option>@foreach(\Metribay\Core\Metrics\Period::PRESETS as $option)<option value="{{ $option }}" @selected($period->isPreset() && $days === $option && !$editingRange)>{{ __('Last :days days', ['days' => $option]) }}</option>@endforeach<option value="custom" @selected($period->isCustom() || $editingRange)>{{ $period->isCustom() ? $period->label() : __('Custom range…') }}</option></select>@if($period->isCustom() && !$editingRange)<button type="button" class="button button-secondary button-small" wire:click="choosePeriod('custom')">{{ __('Change dates') }}</button>@endif @if($canEdit ?? false)<a class="button button-primary" href="{{ route('metribay.projects.create', $workspace->slug) }}">@include('metribay::partials/icon', ['name'=>'plus']) {{ __('Add project') }}</a>@endif</div>
     </header>
+    @if($editingRange)
+    <form class="range-form" wire:submit="applyRange" aria-label="{{ __('Custom range') }}">
+        <label><span>{{ __('From') }}</span><input type="date" wire:model="draftFrom" min="{{ \Metribay\Core\Metrics\Period::EARLIEST }}" max="{{ $now->addDay()->toDateString() }}" required></label>
+        <label><span>{{ __('To') }}</span><input type="date" wire:model="draftTo" min="{{ \Metribay\Core\Metrics\Period::EARLIEST }}" max="{{ $now->addDay()->toDateString() }}" required></label>
+        <button class="button button-primary button-small" type="submit">{{ __('Apply') }}</button>
+        @error('range')<p class="notice notice-error" role="alert">{{ $message }}</p>@enderror
+    </form>
+    @endif
     @if(($canEdit ?? false) && $activeSources && !collect($projects)->flatMap(fn($project) => $project['sources'])->contains(fn($source) => $source['last_success_at']))
     <section class="setup-checklist" aria-label="{{ __('Dashboard setup') }}"><h2>{{ __('Your first dashboard') }}</h2><ol><li>✓ {{ __('Project created and data source added') }}</li><li>{{ $attentionCount ? __('First import needs attention — review the data source below') : __('First import queued or running') }}</li><li>{{ __('View your metrics when the import finishes') }}</li></ol><p class="field-hint">{{ __('You can leave this page. Importing continues in the background.') }}</p></section>
     @endif
@@ -52,7 +60,7 @@
     @if(count($projects))
     <div class="overview-table-wrap">
     <table class="overview-table">
-        <caption class="sr-only">{{ __('Projects with their headline metrics for the last :days days', ['days' => $days]) }}</caption>
+        <caption class="sr-only">{{ __('Projects with their headline metrics: :period', ['period' => $period->label()]) }}</caption>
         <thead><tr>
             <th scope="col" class="project-column" @if($sort === 'name') aria-sort="{{ $direction === 'asc' ? 'ascending' : 'descending' }}" @endif><button type="button" class="sort-button" wire:click="sortBy('name')">{{ __('Project') }}<span class="sort-indicator" aria-hidden="true">{{ $sort === 'name' ? ($direction === 'asc' ? '↑' : '↓') : '' }}</span></button></th>
             @forelse($columns as $column)
@@ -64,7 +72,7 @@
         <tbody>
         @foreach ($projects as $item)
         @php
-            $projectUrl = route('metribay.projects.show', ['workspace'=>$workspace->slug,'project'=>$item['id'],'days'=>$days]);
+            $projectUrl = route('metribay.projects.show', ['workspace'=>$workspace->slug,'project'=>$item['id'], ...$period->query()]);
             $attention = collect($item['sources'])->whereIn('status', ['failed','delayed'])->count();
         @endphp
         <tr @class(['project-row', 'needs-attention' => $attention]) data-project-name="{{ mb_strtolower($item['name'].' '.($item['domain'] ?? '')) }}" data-row-href="{{ $projectUrl }}" wire:key="project-{{ $item['id'] }}">

@@ -46,9 +46,10 @@ final class ProjectLayout
      * Rows of groups; a row holds one full-width group or two half-width ones.
      *
      * @param  list<array<string, mixed>>  $sources  Project sources from DashboardData, hidden charts already removed.
+     * @param  bool  $singleDay  One day (yesterday) shows number tiles instead of charts.
      * @return list<list<array<string, mixed>>>
      */
-    public static function rows(array $sources): array
+    public static function rows(array $sources, bool $singleDay = false): array
     {
         $groups = [];
         foreach (self::GROUPS as $key => $keys) {
@@ -92,10 +93,10 @@ final class ProjectLayout
             $group = $groups[$i];
             $next = $groups[$i + 1] ?? null;
             if ($group['key'] !== 'page_speed' && $next && $next['key'] !== 'page_speed' && self::fitsHalf($group) && self::fitsHalf($next)) {
-                $rows[] = [self::place($group, true), self::place($next, true)];
+                $rows[] = [self::place($group, true, $singleDay), self::place($next, true, $singleDay)];
                 $i++;
             } else {
-                $rows[] = [self::place($group, false)];
+                $rows[] = [self::place($group, false, $singleDay)];
             }
         }
 
@@ -166,20 +167,20 @@ final class ProjectLayout
      * @param  array{key: string, title: string, sources: list<array<string, mixed>>, cards: list<array<string, mixed>>, lines: list<array<string, mixed>>, queries: list<array<string, mixed>>, events: int}  $group
      * @return array<string, mixed>
      */
-    private static function place(array $group, bool $half): array
+    private static function place(array $group, bool $half, bool $singleDay = false): array
     {
         $group['half'] = $half;
         if ($group['key'] === 'page_speed') {
             return $group;
         }
         $cards = $group['cards'];
-        $leadIndex = array_key_first(array_filter($cards, fn (array $card): bool => ! in_array($card['metric']['key'], self::NUMBER_TILES, true))) ?? false;
+        $leadIndex = $singleDay ? false : (array_key_first(array_filter($cards, fn (array $card): bool => ! in_array($card['metric']['key'], self::NUMBER_TILES, true))) ?? false);
         if ($leadIndex !== false && $leadIndex > 0) {
             array_unshift($cards, ...array_splice($cards, $leadIndex, 1));
         }
         foreach ($cards as $index => &$card) {
             $key = $card['metric']['key'];
-            $card['size'] = in_array($key, self::NUMBER_TILES, true) ? 'n' : ($index === 0 ? ($key === 'monitor_status' ? 'strip' : 'l') : ($key === 'monitor_status' ? 'strip' : 's'));
+            $card['size'] = $key === 'monitor_status' ? 'strip' : ($singleDay || in_array($key, self::NUMBER_TILES, true) ? 'n' : ($index === 0 ? 'l' : 's'));
             $card['span'] = 2;
             $card['rows'] = 1;
             $card['solo'] = false;

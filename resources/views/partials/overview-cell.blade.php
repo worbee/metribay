@@ -5,6 +5,7 @@
 <span @class(['overview-cell', 'uptime-down' => $cell['state'] === 'down', 'uptime-unknown' => $cell['state'] === 'unknown']) title="{{ $breakdown }}">
     @if($cell['total'])<strong class="cell-value">{{ $cell['up'] }}/{{ $cell['total'] }}</strong><span class="sr-only"> {{ __('monitors up') }}</span>@else<span class="missing-value">—</span>@endif
     @if($cell['value'] !== null)<span class="cell-secondary">{{ \Illuminate\Support\Number::format($cell['value'], $cell['value'] < 100 ? 2 : 0, locale: app()->getLocale()) }}%</span>@endif
+    @include('metribay::partials/sparkline', ['series' => $cell['series'] ?? [], 'relative' => true])
 </span>
 @else
 <span class="overview-cell" title="{{ $breakdown }}">

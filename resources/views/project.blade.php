@@ -1,7 +1,7 @@
 @extends('metribay::layouts/app')
 @section('title', $project->name)
 @section('content')
-@livewire('metribay-project-charts', ['workspaceId' => $workspace->id, 'projectId' => $project->id, 'days' => $days])
+@livewire('metribay-project-charts', ['workspaceId' => $workspace->id, 'projectId' => $project->id, 'days' => $period->days, 'from' => $period->from ?? '', 'to' => $period->to ?? ''])
 @if($canEdit ?? false)
 @include('metribay::partials/event-dialog', ['dialogId' => 'new-event', 'eventForm' => null])
 @endif

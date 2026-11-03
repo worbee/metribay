@@ -125,6 +125,29 @@ final class ProviderConnectorsTest extends FixtureTestCase
         $this->assertNull($find(30, true, 'dashboard'));
     }
 
+    public function test_bing_archives_complete_months_by_the_date_of_each_week(): void
+    {
+        $row = fn (string $query, string $date, int $clicks): array => ['Query' => $query, 'Date' => '/Date('.CarbonImmutable::parse($date)->getTimestampMs().')/', 'Impressions' => 10 * $clicks, 'Clicks' => $clicks, 'AvgImpressionPosition' => 4, 'AvgClickPosition' => 4];
+        Http::fake([
+            '*GetRankAndTrafficStats*' => Http::response(['d' => []]),
+            '*GetCrawlStats*' => Http::response(['d' => []]),
+            '*GetQueryStats*' => Http::response(['d' => [
+                // August starts after its first week: Bing no longer keeps that week, so the month is incomplete.
+                $row('metribay', '2026-08-17', 1),
+                $row('metribay', '2026-09-07', 2), $row('metribay', '2026-09-14', 3), $row('dashboard', '2026-09-28', 1),
+                $row('metribay', '2026-10-05', 4), $row('metribay', '2026-10-26', 5),
+                // November is not complete yet.
+                $row('metribay', '2026-11-02', 6),
+            ]]),
+        ]);
+        $result = (new BingConnector($this->http()))->collect(new SourceConfiguration('bing', ['site_url' => 'https://example.com'], 'UTC', null, ['2026-10']), ['api_key' => 'synthetic-secret'], $this->now()->addDays(10));
+
+        $this->assertSame(['2026-09-01'], array_column($result->queryMonths, 'month'));
+        $september = $result->queryMonths[0];
+        $this->assertSame(['2026-09-07', '2026-09-28', 3], [$september['start_date'], $september['end_date'], $september['weeks']]);
+        $this->assertSame([['query' => 'metribay', 'clicks' => 5.0, 'impressions' => 50.0, 'position' => 4.0], ['query' => 'dashboard', 'clicks' => 1.0, 'impressions' => 10.0, 'position' => 4.0]], $september['rows']);
+    }
+
     public function test_bing_provider_errors_never_echo_query_credentials(): void
     {
         Http::fake(['*' => Http::response(['ErrorCode' => 14, 'Message' => 'synthetic-secret'], 400)]);
@@ -473,8 +496,11 @@ final class ProviderConnectorsTest extends FixtureTestCase
         $this->assertFalse($result->daily[0]['is_partial']);
         $this->assertTrue($result->daily[2]['is_partial']);
         // Three query windows ending on the latest reported date; no previous window is read when nothing ranked.
-        Http::assertSentCount(7);
+        // Four complete months (newest first, up to the last final date) are archived per collection.
+        Http::assertSentCount(11);
         $this->assertSame([], $result->queries);
+        $this->assertSame(['2026-09-01', '2026-08-01', '2026-07-01', '2026-06-01'], array_column($result->queryMonths, 'month'));
+        $this->assertSame([], $result->queryMonths[0]['rows']);
     }
 
     public function test_gsc_unknown_finality_marks_every_observation_partial(): void
@@ -512,6 +538,9 @@ final class ProviderConnectorsTest extends FixtureTestCase
             if ($request['dimensions'] === ['date']) {
                 return Http::response(['rows' => [['keys' => ['2026-10-22'], 'impressions' => 40, 'clicks' => 4]]]);
             }
+            if ($request['rowLimit'] === GscConnector::MONTH_LIMIT) {
+                return Http::response(['rows' => [['keys' => ['metribay'], 'clicks' => 9, 'impressions' => 90, 'position' => 3.0]]]);
+            }
             $requests[] = [$request['startDate'], $request['endDate'], $request['rowLimit'], $request['dataState']];
             $current = $request['endDate'] === '2026-10-22';
 
@@ -519,8 +548,12 @@ final class ProviderConnectorsTest extends FixtureTestCase
                 ? [['keys' => ['metribay'], 'clicks' => 3, 'impressions' => 20, 'ctr' => .15, 'position' => 2.5], ['keys' => ['123'], 'clicks' => 0, 'impressions' => 0, 'position' => 0]]
                 : [['keys' => ['metribay'], 'clicks' => 1, 'impressions' => 9, 'position' => 6.1], ['keys' => ['other'], 'clicks' => 5, 'impressions' => 50, 'position' => 1.2]]]);
         });
-        $result = (new GscConnector($this->http()))->collect(new SourceConfiguration('gsc', ['site_url' => 'sc-domain:example.com', 'days' => 3], 'America/Los_Angeles'), $this->googleCredentials(), $this->now()->setTime(1, 0));
+        $result = (new GscConnector($this->http()))->collect(new SourceConfiguration('gsc', ['site_url' => 'sc-domain:example.com', 'days' => 3], 'America/Los_Angeles', null, ['2026-08']), $this->googleCredentials(), $this->now()->setTime(1, 0));
 
+        // Archived months are skipped; four others are read, newest first.
+        $this->assertSame(['2026-09-01', '2026-07-01', '2026-06-01', '2026-05-01'], array_column($result->queryMonths, 'month'));
+        $this->assertSame(['month' => '2026-09-01', 'start_date' => '2026-09-01', 'end_date' => '2026-09-30', 'weeks' => null,
+            'rows' => [['query' => 'metribay', 'clicks' => 9.0, 'impressions' => 90.0, 'position' => 3.0]]], $result->queryMonths[0]);
         $this->assertSame([
             ['2026-10-16', '2026-10-22', 500, 'all'], ['2026-10-09', '2026-10-15', 2000, 'all'],
             ['2026-09-23', '2026-10-22', 500, 'all'], ['2026-08-24', '2026-09-22', 2000, 'all'],

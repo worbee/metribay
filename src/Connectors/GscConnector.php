@@ -14,6 +14,15 @@ final class GscConnector extends AbstractConnector
     /** Rows read from the previous window, only to compare the current queries with it. */
     private const PREVIOUS_LIMIT = 2000;
 
+    /** Queries kept per archived month, so a month compared with another still finds most of the same queries. */
+    public const MONTH_LIMIT = 1000;
+
+    /** Search Console keeps 16 months of data; older months would be incomplete. */
+    public const ARCHIVE_MONTHS = 16;
+
+    /** Months archived per collection, newest first: a new data source fills its history over its first collections. */
+    public const MONTHS_PER_COLLECTION = 4;
+
     public function collect(SourceConfiguration $source, array $credentials, CarbonImmutable $now): CollectionResult
     {
         if ($source->reportingTimezone !== 'America/Los_Angeles') {
@@ -70,7 +79,39 @@ final class GscConnector extends AbstractConnector
             }
         }
 
-        return new CollectionResult(daily: $daily, queries: $this->queries($site, $headers, $all === [] ? null : max(array_keys($all)), $boundary));
+        return new CollectionResult(daily: $daily, queries: $this->queries($site, $headers, $all === [] ? null : max(array_keys($all)), $boundary),
+            queryMonths: $this->queryMonths($site, $headers, $boundary, $source->archivedQueryMonths));
+    }
+
+    /**
+     * Top queries of complete calendar months whose data is final and that are not archived yet.
+     *
+     * @param  array<string, string>  $headers
+     * @param  list<string>  $archived
+     * @return list<array{month: string, start_date: string, end_date: string, weeks: int|null, rows: list<array{query: string, clicks: float, impressions: float, position: float|null}>}>
+     */
+    private function queryMonths(string $site, array $headers, ?string $boundary, array $archived): array
+    {
+        if ($boundary === null) {
+            return [];
+        }
+        $final = CarbonImmutable::parse($boundary);
+        $earliest = $final->subMonthsNoOverflow(self::ARCHIVE_MONTHS);
+        $months = [];
+        // The newest month that ends on or before the last final date.
+        for ($month = $final->addDay()->startOfMonth()->subMonthNoOverflow(); $month->gte($earliest) && count($months) < self::MONTHS_PER_COLLECTION; $month = $month->subMonthNoOverflow()) {
+            if (in_array($month->format('Y-m'), $archived, true)) {
+                continue;
+            }
+            $end = $month->endOfMonth()->startOfDay();
+            $rows = [];
+            foreach ($this->queryRows($site, $headers, $month, $end, self::MONTH_LIMIT) as $text => $row) {
+                $rows[] = ['query' => (string) $text] + $row;
+            }
+            $months[] = ['month' => $month->toDateString(), 'start_date' => $month->toDateString(), 'end_date' => $end->toDateString(), 'weeks' => null, 'rows' => $rows];
+        }
+
+        return $months;
     }
 
     /**

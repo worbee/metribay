@@ -6,6 +6,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Number;
 use Metribay\Core\Metrics\MetricRegistry;
+use Metribay\Core\Metrics\Period;
 use Metribay\Core\Models\DailyMetric;
 use Metribay\Core\Models\PeriodMetric;
 use Metribay\Core\Models\Project;
@@ -15,22 +16,27 @@ class DashboardData
     /** Overview columns in display order, matched by metric capability rather than provider. */
     public const CATEGORIES = ['traffic' => 'visits', 'search' => 'clicks', 'development' => 'commits', 'issues' => 'open_issues', 'downloads' => 'downloads', 'uptime' => 'uptime_24h', 'speed' => 'lab_score'];
 
-    /** @return list<array<string, mixed>> */
-    public function projects(int $days = 30, ?int $projectId = null): array
+    /**
+     * @param  Period|int  $period  A Period, or the number of days that end today.
+     * @return list<array<string, mixed>>
+     */
+    public function projects(Period|int $period = 30, ?int $projectId = null): array
     {
+        $period = $period instanceof Period ? $period : Period::preset($period);
+        $days = $period->days;
         $projects = Project::query()->with(['group', 'sources'])->when($projectId, fn ($q) => $q->whereKey($projectId))->when(! $projectId, fn ($q) => $q->where('archived', false))->orderBy('name')->get();
         $ids = $projects->flatMap(fn ($project) => $project->sources->pluck('id'))->all();
         $now = CarbonImmutable::now('UTC');
-        $start = $now->subDays($days * 2 + 2)->toDateString();
-        $daily = DailyMetric::query()->whereIn('source_id', $ids)->where('date', '>=', $start)->orderBy('date')->get()->groupBy('source_id');
+        $start = $period->earliestDate($now);
+        $last = $period->latestDate($now);
+        $daily = DailyMetric::query()->whereIn('source_id', $ids)->where('date', '>=', $start)->where('date', '<=', $last)->orderBy('date')->get()->groupBy('source_id');
         $periods = PeriodMetric::query()->whereIn('source_id', $ids)->where('start_date', '>=', $start)->get()->groupBy('source_id');
+        $monitors = DailyMetric::query()->whereIn('source_id', $ids)->where('metric', 'monitor_status')->where('date', '>=', $now->subDays(2)->toDateString())->orderBy('date')->get()->groupBy('source_id');
 
-        return $projects->map(function ($project) use ($days, $now, $daily, $periods) {
-            $sources = $project->sources->map(function ($source) use ($days, $now, $daily, $periods) {
-                $end = $now->setTimezone($source->reporting_timezone)->startOfDay();
-                $start = $end->subDays($days - 1);
-                $previousEnd = $start->subDay();
-                $previousStart = $previousEnd->subDays($days - 1);
+        return $projects->map(function ($project) use ($period, $days, $now, $daily, $periods, $monitors) {
+            $sources = $project->sources->map(function ($source) use ($period, $days, $now, $daily, $periods, $monitors) {
+                [$start, $end] = $period->window($source->reporting_timezone, $now);
+                [$previousStart, $previousEnd] = $period->previousWindow($source->reporting_timezone, $now);
                 $rows = $daily->get($source->id, collect())->groupBy('metric');
                 $periodRows = $periods->get($source->id, collect());
                 $metrics = [];
@@ -54,15 +60,20 @@ class DashboardData
                     $value = $this->aggregate($definition->aggregation, $series, $periodRows, $key, $start->toDateString(), $end->toDateString());
                     $prior = $this->aggregate($definition->aggregation, $previous, $periodRows, $key, $previousStart->toDateString(), $previousEnd->toDateString());
                     $known = count(array_filter($series, fn ($point) => $point['value'] !== null));
-                    $period = $periodRows->first(fn ($row) => $row->metric === $key && $row->start_date->toDateString() === $start->toDateString() && $row->end_date->toDateString() === $end->toDateString());
-                    $partial = $definition->aggregation === 'period' ? ($period ? (bool) $period->is_partial : true) : (! $definition->snapshot && ($known < $days || count(array_filter($series, fn ($p) => $p['partial'])) > 0));
+                    $periodRow = $periodRows->first(fn ($row) => $row->metric === $key && $row->start_date->toDateString() === $start->toDateString() && $row->end_date->toDateString() === $end->toDateString());
+                    $partial = $definition->aggregation === 'period' ? ($periodRow ? (bool) $periodRow->is_partial : ($days === 1 && $value !== null ? (bool) $series[0]['partial'] : true)) : (! $definition->snapshot && ($known < $days || count(array_filter($series, fn ($p) => $p['partial'])) > 0));
                     $last = array_values(array_filter($series, fn ($point) => $point['value'] !== null));
                     $observedDate = $last ? end($last)['date'] : null;
-                    $metrics[] = ['key' => $key, 'label' => __($definition->label), 'unit' => $definition->unit, 'value' => $value, 'display_value' => $this->format($key, $value), 'previous' => $prior, 'change' => ! $definition->snapshot && $prior !== null && $prior > 0 && $value !== null ? 100 * ($value - $prior) / $prior : null, 'partial' => $partial, 'series' => $series, 'previous_series' => $previous, 'coverage' => ['known' => $known, 'total' => $days], 'observed_date' => $observedDate, 'start_date' => $start->toDateString(), 'end_date' => $end->toDateString(), 'timezone' => $source->reporting_timezone, 'snapshot' => $definition->snapshot, 'context' => $observedDate ? ($byDate->get($observedDate)->context ?? []) : []];
+                    // Snapshots compare their latest value with the last one of the previous period, as a difference.
+                    $delta = $definition->snapshot && $definition->unit !== 'status' && $prior !== null && $value !== null ? $value - $prior : null;
+                    $metrics[] = ['key' => $key, 'label' => __($definition->label), 'unit' => $definition->unit, 'value' => $value, 'display_value' => $this->format($key, $value), 'previous' => $prior, 'change' => ! $definition->snapshot && $prior !== null && $prior > 0 && $value !== null ? 100 * ($value - $prior) / $prior : null, 'delta' => $delta, 'partial' => $partial, 'series' => $series, 'previous_series' => $previous, 'coverage' => ['known' => $known, 'total' => $days], 'observed_date' => $observedDate, 'start_date' => $start->toDateString(), 'end_date' => $end->toDateString(), 'timezone' => $source->reporting_timezone, 'snapshot' => $definition->snapshot, 'context' => $observedDate ? ($byDate->get($observedDate)->context ?? []) : []];
                 }
-                $status = ! $source->enabled ? 'disabled' : ($source->consecutive_failures > 0 ? 'failed' : (! $source->last_success_at ? 'pending' : ($source->last_success_at->lt($now->subHours($source->kind === 'pagespeed' ? 36 : ($source->kind === 'uptimerobot' ? 2 : 8))) ? 'failed' : (($source->latest_data_date && $source->latest_data_date < $end->subDays(3)->toDateString()) ? 'delayed' : 'healthy'))));
-                $monitor = collect($metrics)->firstWhere('key', 'monitor_status');
-                if ($source->enabled && in_array($monitor['value'] ?? null, [8, 9, 8.0, 9.0], true)) {
+                // Health always looks at today, whatever period is shown.
+                $today = $now->setTimezone($source->reporting_timezone)->startOfDay();
+                $status = ! $source->enabled ? 'disabled' : ($source->consecutive_failures > 0 ? 'failed' : (! $source->last_success_at ? 'pending' : ($source->last_success_at->lt($now->subHours($source->kind === 'pagespeed' ? 36 : ($source->kind === 'uptimerobot' ? 2 : 8))) ? 'failed' : (($source->latest_data_date && $source->latest_data_date < $today->subDays(3)->toDateString()) ? 'delayed' : 'healthy'))));
+                // The current monitor status, also when the period lies in the past.
+                $monitor = $monitors->get($source->id)?->last();
+                if ($source->enabled && in_array($monitor?->value, [8, 9, 8.0, 9.0], true)) {
                     $status = 'failed';
                 }
 
@@ -162,8 +173,15 @@ class DashboardData
         $up = count(array_filter($statuses, fn (?int $status): bool => $status === 2));
         $down = count(array_filter($statuses, fn (?int $status): bool => in_array($status, [8, 9], true)));
         $parts = array_map(fn (array $source): array => ['label' => $source['label'], 'value' => $this->metric($source, 'monitor_status')['display_value'] ?? '—'], $sources);
+        // The lowest daily uptime among the monitors, on dates when every one of them reported.
+        $metrics = array_values(array_filter(array_map(fn (array $source): ?array => $this->metric($source, 'uptime_24h'), $active)));
+        $series = [];
+        foreach ($metrics ? array_keys($metrics[0]['series']) : [] as $i) {
+            $points = array_values(array_filter(array_map(fn (array $metric) => $metric['series'][$i]['value'] ?? null, $metrics), fn ($value) => $value !== null));
+            $series[] = $points && count($points) === count($metrics) ? min($points) : null;
+        }
 
-        return ['key' => 'uptime_24h', 'unit' => 'percent', 'value' => $uptimes ? min($uptimes) : null, 'up' => $up, 'down' => $down, 'total' => count($active), 'state' => $down ? 'down' : ($active && $up === count($active) ? 'up' : 'unknown'), 'parts' => $parts];
+        return ['key' => 'uptime_24h', 'unit' => 'percent', 'value' => $uptimes ? min($uptimes) : null, 'up' => $up, 'down' => $down, 'total' => count($active), 'state' => $down ? 'down' : ($active && $up === count($active) ? 'up' : 'unknown'), 'parts' => $parts, 'series' => $series];
     }
 
     /** @param list<array{label: string, kind: string, enabled: bool, status: string, metrics: list<array<string, mixed>>}> $sources */
@@ -196,7 +214,8 @@ class DashboardData
         if ($aggregation === 'period') {
             $row = $periods->first(fn ($row) => $row->metric === $metric && $row->start_date->toDateString() === $start && $row->end_date->toDateString() === $end);
 
-            return $row?->value;
+            // A single day's daily value is already that day's unique count.
+            return $row !== null ? $row->value : ($start === $end ? ($series[0]['value'] ?? null) : null);
         }
         $values = array_values(array_filter(array_column($series, 'value'), fn ($value) => $value !== null));
         if (! $values) {

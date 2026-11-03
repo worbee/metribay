@@ -13,6 +13,8 @@
     $known = (int) ($metric['coverage']['known'] ?? 0);
     $total = (int) ($metric['coverage']['total'] ?? count($series));
     $hasData = collect($series)->contains(fn($point) => ($point['value'] ?? null) !== null);
+    // A single day (yesterday) is a number, not a line.
+    $drawChart = $hasData && count($series) > 1;
     $snapshot = (bool) ($metric['snapshot'] ?? false);
     // Today's incomplete value is drawn in the chart; the badge is for earlier incomplete dates only.
     $earlierPartial = collect(array_slice($series, 0, -1))->contains(fn($point) => !empty($point['partial']));
@@ -31,17 +33,18 @@
         <div class="metric-value-row">
             <strong class="metric-value">@if ($metricValue === null)<span class="missing-value" aria-label="{{ __('No period total available') }}">—</span>@elseif ($metricUnit === 'status'){{ $statusNames[(int)$metricValue] ?? __('Unknown') }}@elseif($formatted){{ $formatted[0] }}@if($formatted[1])<small>{{ $formatted[1] }}</small>@endif @else<span data-metric-number="{{ $metricValue }}" data-unit="{{ $metricUnit }}">{{ \Illuminate\Support\Number::format((float)$metricValue, fmod((float)$metricValue, 1) !== 0.0 ? 1 : 0, locale: app()->getLocale()) }}</span>@endif</strong>
             @if($quality)<span class="quality quality-{{ $quality }}">{{ $qualityNames[$quality] }}</span>@endif
-            @if($metricUnit !== 'status')@include('metribay::partials/overview-change', ['change' => $metric['change'] ?? null, 'days' => $days, 'polarity' => \Metribay\Core\Metrics\ProjectLayout::polarity($key)])@endif
+            @if($snapshot)@include('metribay::partials/snapshot-change', ['metric' => $metric])
+            @elseif($metricUnit !== 'status')@include('metribay::partials/overview-change', ['change' => $metric['change'] ?? null, 'days' => $days, 'polarity' => \Metribay\Core\Metrics\ProjectLayout::polarity($key)])@endif
         </div>
         @if($previousTotal !== null)<p class="metric-previous">{{ __(':value in the previous :days days', ['value' => \Illuminate\Support\Number::format((float) $previousTotal, fmod((float) $previousTotal, 1) !== 0.0 ? 1 : 0, locale: app()->getLocale()), 'days' => $days]) }}</p>
         @elseif($metricValue === null && $hasData)<p class="metric-previous">{{ __('Daily data available · period total unavailable') }}</p>@endif
     </div>
-    @if ($hasData)
+    @if ($drawChart)
         <div class="chart-wrap" data-chart-container data-chart-config="{{ json_encode($chartConfig, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_THROW_ON_ERROR) }}">
             <canvas data-metric-chart wire:ignore role="img" aria-label="{{ $ariaLabel }}" @if($size !== 'n') aria-describedby="{{ $chartId }}-help" @endif></canvas>
             @if($size !== 'n')<p class="sr-only" id="{{ $chartId }}-help">{{ __('Use the left and right arrow keys to inspect recorded dates. Daily values are also available in the table below.') }}</p><p class="sr-only" aria-live="polite" data-chart-announcement></p>@endif
         </div>
-    @else
+    @elseif(!$hasData)
         <div class="chart-empty"><span>{{ __('No data for this period') }}</span></div>
     @endif
     <div class="metric-foot">

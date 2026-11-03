@@ -6,6 +6,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Metribay\Core\Contracts\WorkspaceAccess;
+use Metribay\Core\Metrics\Period;
 use Metribay\Core\Models\Project;
 use Metribay\Core\Services\WorkspaceContext;
 
@@ -20,17 +21,17 @@ class DashboardController
 
     public function index(Request $request): View
     {
-        $days = $this->days($request);
+        $period = $this->period($request);
 
-        return view('metribay::dashboard', ['workspace' => app(WorkspaceContext::class)->current(), 'days' => $days]);
+        return view('metribay::dashboard', ['workspace' => app(WorkspaceContext::class)->current(), 'days' => $period->days, 'period' => $period]);
     }
 
     public function project(Request $request): View
     {
-        $days = $this->days($request);
+        $period = $this->period($request);
         $project = Project::query()->whereKey($request->route('project'))->firstOrFail();
 
-        return view('metribay::project', ['workspace' => app(WorkspaceContext::class)->current(), 'project' => $project, 'sources' => $project->sources->map(fn ($source) => ['id' => $source->id, 'label' => $source->label])->all(), 'days' => $days]);
+        return view('metribay::project', ['workspace' => app(WorkspaceContext::class)->current(), 'project' => $project, 'sources' => $project->sources->map(fn ($source) => ['id' => $source->id, 'label' => $source->label])->all(), 'days' => $period->days, 'period' => $period]);
     }
 
     public function profile(Request $request): View
@@ -40,11 +41,11 @@ class DashboardController
         return view('metribay::profile', ['user' => $request->user()]);
     }
 
-    private function days(Request $request): int
+    private function period(Request $request): Period
     {
-        $days = (int) $request->query('days', 30);
-        abort_unless(in_array($days, [7, 30, 90], true), 422);
+        $period = Period::fromInput($request->query('days', 30), $request->query('from'), $request->query('to'));
+        abort_if($period === null, 422);
 
-        return $days;
+        return $period;
     }
 }

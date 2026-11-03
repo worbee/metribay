@@ -41,7 +41,9 @@ final class BingConnector extends AbstractConnector
             }
         }
 
-        return new CollectionResult(daily: $daily, queries: $this->queries($site, $key));
+        [$queries, $months] = $this->queries($site, $key, $source->archivedQueryMonths);
+
+        return new CollectionResult(daily: $daily, queries: $queries, queryMonths: $months);
     }
 
     /** The .NET suffix describes the source offset; epoch milliseconds are absolute UTC. */
@@ -55,12 +57,13 @@ final class BingConnector extends AbstractConnector
     }
 
     /**
-     * Weekly query rows summed into windows that end on the latest reported week. Positions are weighted by impressions;
-     * Bing reports -1 when there is no average, which stays unknown.
+     * Weekly query rows summed into windows that end on the latest reported week, and into calendar months by the
+     * date of each week. Positions are weighted by impressions; Bing reports -1 when there is no average, which stays unknown.
      *
-     * @return list<array{days: int, previous: bool, start_date: string, end_date: string, query: string, clicks: float, impressions: float, position: float|null, is_partial: bool}>
+     * @param  list<string>  $archived  Months (Y-m) that are already archived.
+     * @return array{0: list<array{days: int, previous: bool, start_date: string, end_date: string, query: string, clicks: float, impressions: float, position: float|null, is_partial: bool}>, 1: list<array{month: string, start_date: string, end_date: string, weeks: int|null, rows: list<array{query: string, clicks: float, impressions: float, position: float|null}>}>}
      */
-    private function queries(string $site, string $key): array
+    private function queries(string $site, string $key, array $archived = []): array
     {
         $data = $this->json($this->http->request('GET', 'https://ssl.bing.com/webmaster/api.svc/json/GetQueryStats', [
             'query' => ['siteUrl' => $site, 'apikey' => $key],
@@ -77,7 +80,7 @@ final class BingConnector extends AbstractConnector
                 'impressions' => (float) $this->count($row['Impressions'] ?? null, 'Bing queries'), 'position' => (is_int($position) || is_float($position)) && $position > 0 ? (float) $position : null];
         }
         if ($weeks === []) {
-            return [];
+            return [[], []];
         }
         $end = CarbonImmutable::parse(max(array_column($weeks, 'date')));
         $rows = [];
@@ -93,14 +96,47 @@ final class BingConnector extends AbstractConnector
             }
         }
 
-        return $rows;
+        return [$rows, $this->months($weeks, $archived)];
+    }
+
+    /**
+     * Months whose weeks are all reported: a later week exists, and the oldest month only when its first week was kept.
+     *
+     * @param  list<array{date: string, query: string, clicks: float, impressions: float, position: float|null}>  $weeks
+     * @param  list<string>  $archived
+     * @return list<array{month: string, start_date: string, end_date: string, weeks: int|null, rows: list<array{query: string, clicks: float, impressions: float, position: float|null}>}>
+     */
+    private function months(array $weeks, array $archived): array
+    {
+        $dates = array_unique(array_column($weeks, 'date'));
+        sort($dates);
+        $latest = end($dates);
+        $byMonth = [];
+        foreach ($dates as $date) {
+            $byMonth[substr($date, 0, 7)][] = $date;
+        }
+        $months = [];
+        foreach ($byMonth as $month => $monthDates) {
+            $start = CarbonImmutable::parse($month.'-01');
+            $complete = $latest > $start->endOfMonth()->toDateString() && ($month !== array_key_first($byMonth) || $monthDates[0] <= $start->addDays(6)->toDateString());
+            if (! $complete || in_array($month, $archived, true)) {
+                continue;
+            }
+            $rows = [];
+            foreach ($this->sum($weeks, CarbonImmutable::parse($monthDates[0]), CarbonImmutable::parse(end($monthDates)), GscConnector::MONTH_LIMIT) as $text => $row) {
+                $rows[] = ['query' => (string) $text] + $row;
+            }
+            $months[] = ['month' => $start->toDateString(), 'start_date' => $monthDates[0], 'end_date' => end($monthDates), 'weeks' => count($monthDates), 'rows' => $rows];
+        }
+
+        return array_reverse($months);
     }
 
     /**
      * @param  list<array{date: string, query: string, clicks: float, impressions: float, position: float|null}>  $weeks
      * @return array<string, array{clicks: float, impressions: float, position: float|null}>
      */
-    private function sum(array $weeks, CarbonImmutable $from, CarbonImmutable $to): array
+    private function sum(array $weeks, CarbonImmutable $from, CarbonImmutable $to, int $limit = GscConnector::QUERY_LIMIT): array
     {
         $totals = [];
         foreach ($weeks as $week) {
@@ -119,6 +155,6 @@ final class BingConnector extends AbstractConnector
         uasort($totals, fn (array $a, array $b): int => [$b['clicks'], $b['impressions']] <=> [$a['clicks'], $a['impressions']]);
 
         return array_map(fn (array $total): array => ['clicks' => $total['clicks'], 'impressions' => $total['impressions'],
-            'position' => $total['weight'] > 0 ? $total['weighted'] / $total['weight'] : null], array_slice($totals, 0, GscConnector::QUERY_LIMIT, true));
+            'position' => $total['weight'] > 0 ? $total['weighted'] / $total['weight'] : null], array_slice($totals, 0, $limit, true));
     }
 }
