@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.1 — 2026-11-03
+
+- Test fix only: the events link assertion no longer depends on the host's `APP_URL`. No application change.
+
 ## 0.9.0 — 2026-11-03
 
 - **Top queries** for Search Console and Bing data sources: the project page's Search group ends with a block listing **Clicked**, **Ranked** and **Opportunities** (positions 4–20, at least 10 impressions, click-through rate below the site's average) with clicks, impressions, CTR and average position, each compared with the window before; **New** marks queries that were not there before. Ten rows per list with **Show all**, a Google/Bing switch, the provider's window in the caption (Bing is weekly), a note when Google left out rare queries, and a hide button like a chart (`top_queries`). Search Console collects six query reports per sync (7, 30 and 90 days and the window before each); Bing sums its weekly `GetQueryStats`. Migration `search_queries` (additive; projects moved to another workspace keep their queries).

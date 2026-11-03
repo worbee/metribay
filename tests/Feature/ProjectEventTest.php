@@ -61,7 +61,7 @@ class ProjectEventTest extends TestCase
         $this->assertStringContainsString('Add data source', $heading);
         $this->assertStringContainsString('data-dialog-open="new-event"', $heading);
         // The list moved to the events page; the header links there with the period's count.
-        $this->assertStringContainsString('href="http://127.0.0.1:8000/w/events/projects/'.$this->project->id.'/events?days=30"', $heading);
+        $this->assertStringContainsString('href="'.route('metribay.events.index', ['workspace' => 'events', 'project' => $this->project->id, 'days' => 30]).'"', $heading);
         $this->assertStringNotContainsString('event-entries', $html);
     }
 
