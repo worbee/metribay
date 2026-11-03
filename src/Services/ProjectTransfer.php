@@ -17,7 +17,7 @@ use Metribay\Core\Models\Workspace;
 class ProjectTransfer
 {
     /** Tables whose rows belong to exactly one data source. */
-    private const SOURCE_TABLES = ['daily_metrics', 'period_metrics', 'sync_runs'];
+    private const SOURCE_TABLES = ['daily_metrics', 'period_metrics', 'search_queries', 'sync_runs'];
 
     /**
      * Connected accounts used only by this project move along when $moveAccounts is true. Accounts shared

@@ -177,6 +177,9 @@ class ProviderCatalog
     /** Upper bound on GitHub deployment environments per data source. */
     public const MAX_ENVIRONMENTS = 10;
 
+    /** Providers that report their top search queries. */
+    public const QUERY_PROVIDERS = ['gsc', 'bing'];
+
     /**
      * Parses comma-separated GitHub environment names: trimmed, without duplicates (ignoring case), at most ten.
      *

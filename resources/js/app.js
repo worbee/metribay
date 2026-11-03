@@ -173,6 +173,21 @@ function makeChart(canvas, config, signature) {
     const hasPrevious = previous.some(point => finite(point.value) !== null);
     const events = tile || !Array.isArray(config.events) ? [] : config.events.filter(event => labels.includes(event.date));
     const eventsOn = date => events.filter(event => event.date === date);
+    // A marker opens its event on the events page; several on one date open that day.
+    const markerAt = (chart, event) => {
+        if (!config.eventsUrl || !events.length) return null;
+        let nearest = null;
+        for (const date of new Set(events.map(item => item.date))) {
+            const distance = Math.abs(chart.scales.x.getPixelForValue(labels.indexOf(date)) - event.x);
+            if (distance <= 6 && (!nearest || distance < nearest.distance)) nearest = { date, distance };
+        }
+        return nearest?.date ?? null;
+    };
+    const openEvents = date => {
+        const found = eventsOn(date);
+        if (!found.length || !config.eventsUrl) return;
+        window.location.assign(`${config.eventsUrl}${config.eventsUrl.includes('?') ? '&' : '?'}date=${date}#${found.length === 1 ? found[0].anchor : `day-${date}`}`);
+    };
     const known = index => finite(series[index]?.value) !== null;
     const isolated = index => known(index) && !known(index - 1) && !known(index + 1);
     const lastIndex = series.length - 1;
@@ -223,6 +238,8 @@ function makeChart(canvas, config, signature) {
             animation: false,
             normalized: true,
             interaction: { mode: 'index', intersect: false },
+            onClick(event, _elements, current) { const date = markerAt(current, event); if (date) openEvents(date); },
+            onHover(event, _elements, current) { current.canvas.style.cursor = markerAt(current, event) ? 'pointer' : ''; },
             layout: { padding: { top: events.length ? 10 : 4, left: 0, right: tile ? 3 : 2, bottom: tile ? 2 : 0 } },
             plugins: {
                 legend: { display: false },
@@ -284,10 +301,15 @@ function makeChart(canvas, config, signature) {
         canvas.tabIndex = 0;
         canvas.setAttribute('aria-keyshortcuts', 'ArrowLeft ArrowRight');
         canvas.addEventListener('keydown', event => {
-            if (!['ArrowLeft', 'ArrowRight', 'Escape'].includes(event.key)) return;
-            event.preventDefault();
+            if (!['ArrowLeft', 'ArrowRight', 'Escape', 'Enter'].includes(event.key)) return;
             const current = Chart.getChart(canvas);
             if (!current) return;
+            if (event.key === 'Enter') {
+                const date = series[current.metribayCursor]?.date;
+                if (date && eventsOn(date).length) { event.preventDefault(); openEvents(date); }
+                return;
+            }
+            event.preventDefault();
             if (event.key === 'Escape') {
                 current.setActiveElements([]);
                 current.tooltip.setActiveElements([], { x: 0, y: 0 });
@@ -345,6 +367,44 @@ function syncCharts() {
         }
     });
 }
+// Top queries: the chosen source, list and expanded state survive the hourly refresh, which re-renders the block.
+const queryState = new Map();
+function showQueries(block) {
+    const state = queryState.get(block.id) ?? {};
+    const sources = [...block.querySelectorAll('[data-query-source-panel]')];
+    const source = sources.find(panel => panel.dataset.querySourcePanel === state.source) ?? sources[0];
+    if (!source) return;
+    const views = [...block.querySelectorAll('[data-query-view]')];
+    const view = views.some(tab => tab.dataset.queryView === state.view) ? state.view : views.find(tab => tab.getAttribute('aria-selected') === 'true')?.dataset.queryView;
+    const counts = (source.dataset.queryCounts || '').split(',');
+    sources.forEach(panel => { panel.hidden = panel !== source; });
+    block.querySelectorAll('[data-query-source]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.querySource === source.dataset.querySourcePanel)));
+    views.forEach((tab, index) => {
+        const selected = tab.dataset.queryView === view;
+        tab.setAttribute('aria-selected', String(selected));
+        tab.tabIndex = selected ? 0 : -1;
+        tab.setAttribute('aria-controls', `${block.id}-${source.dataset.querySourcePanel}-${tab.dataset.queryView}`);
+        const count = tab.querySelector('[data-query-count]');
+        if (count && counts[index] !== undefined) count.textContent = new Intl.NumberFormat(document.documentElement.lang || 'en').format(Number(counts[index]));
+    });
+    source.querySelectorAll('[data-query-panel]').forEach(panel => {
+        panel.hidden = panel.dataset.queryPanel !== view;
+        const expanded = (state.expanded ?? []).includes(panel.id);
+        panel.querySelectorAll('[data-query-extra]').forEach(row => { row.hidden = !expanded; });
+        const more = panel.querySelector('[data-query-more]');
+        if (more) {
+            more.setAttribute('aria-expanded', String(expanded));
+            more.textContent = expanded ? more.dataset.labelLess : more.dataset.labelMore;
+        }
+    });
+}
+function syncQueries() { document.querySelectorAll('[data-query-block]').forEach(block => { if (queryState.has(block.id)) showQueries(block); }); }
+function updateQueries(block, change) {
+    const state = { expanded: [], ...(queryState.get(block.id) ?? {}) };
+    change(state);
+    queryState.set(block.id, state);
+    showQueries(block);
+}
 function filterProjects() {
     const input = document.querySelector('[data-project-search]');
     if (!input) return;
@@ -371,6 +431,7 @@ function queueSync() {
         scheduled = false;
         syncCharts();
         syncNumbers();
+        syncQueries();
         filterProjects();
     });
 }
@@ -406,9 +467,25 @@ function announcePreference() {
     if (status) status.textContent = t('Preference saved in this browser.');
 }
 
+// A linked event may sit in a collapsed bundle: open it, bring it into view and mark it briefly.
+function revealTarget() {
+    const id = decodeURIComponent(window.location.hash.slice(1));
+    const target = id ? document.getElementById(id) : null;
+    if (!target || target.tagName === 'DIALOG') return;
+    const bundle = target.closest('details');
+    if (bundle && !bundle.open) bundle.open = true;
+    target.scrollIntoView({ block: 'center' });
+    target.classList.add('is-target');
+    setTimeout(() => target.classList.remove('is-target'), 2400);
+}
+window.addEventListener('hashchange', revealTarget);
+
 function initialize() {
     applyTheme();
     syncPreferences();
+    // A form sent from a dialog reopens it when it comes back with errors.
+    document.querySelectorAll('dialog[data-open-on-load]').forEach(dialog => { if (!dialog.open) dialog.showModal(); });
+    revealTarget();
     document.querySelector('[data-validation-errors]')?.focus();
     document.querySelectorAll('[data-provider-form]').forEach(form => syncProviderForm(form));
     queueSync();
@@ -433,6 +510,17 @@ document.addEventListener('click', event => {
             chart.setDatasetVisibility(index, visible);
             chart.update('none');
         });
+    }
+    const queryBlock = event.target.closest('[data-query-block]');
+    const queryView = event.target.closest('[data-query-view]');
+    const querySource = event.target.closest('[data-query-source]');
+    const queryMore = event.target.closest('[data-query-more]');
+    if (queryBlock && queryView) updateQueries(queryBlock, state => { state.view = queryView.dataset.queryView; });
+    if (queryBlock && querySource) updateQueries(queryBlock, state => { state.source = querySource.dataset.querySource; });
+    if (queryBlock && queryMore) {
+        const panel = queryMore.closest('[data-query-panel]');
+        updateQueries(queryBlock, state => { state.expanded = state.expanded.includes(panel.id) ? state.expanded.filter(id => id !== panel.id) : [...state.expanded, panel.id]; });
+        if (queryMore.getAttribute('aria-expanded') === 'false') queryMore.scrollIntoView({ block: 'nearest' });
     }
     // The project name is the real link; the rest of the row is a larger click target for pointer users.
     const row = event.target.closest('[data-row-href]');
@@ -476,6 +564,17 @@ document.addEventListener('submit', event => {
         // Defer until successful submission is underway; disabling a named submitter too early changes request semantics.
         queueMicrotask(() => { if (!event.defaultPrevented) button.disabled = true; });
     }
+});
+document.addEventListener('keydown', event => {
+    // Arrow keys move between tabs of a tab list; the selected tab is the only one in the tab order.
+    const tab = event.target.closest('[role="tab"]');
+    if (!tab || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    const tabs = [...tab.closest('[role="tablist"]').querySelectorAll('[role="tab"]')];
+    const index = tabs.indexOf(tab);
+    const next = tabs[{ ArrowLeft: (index - 1 + tabs.length) % tabs.length, ArrowRight: (index + 1) % tabs.length, Home: 0, End: tabs.length - 1 }[event.key]];
+    event.preventDefault();
+    next.focus();
+    next.click();
 });
 document.addEventListener('keydown', event => { if (event.key === 'Escape') document.querySelectorAll('.account-menu[open]').forEach(menu => { menu.open = false; menu.querySelector('summary')?.focus(); }); });
 document.addEventListener('focusin', event => { document.querySelectorAll('.account-menu[open]').forEach(menu => { if (!menu.contains(event.target)) menu.open = false; }); });

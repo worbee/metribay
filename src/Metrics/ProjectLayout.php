@@ -4,6 +4,7 @@ namespace Metribay\Core\Metrics;
 
 use Illuminate\Support\Number;
 use Metribay\Core\Services\ProviderCatalog;
+use Metribay\Core\Services\SearchQueries;
 
 /**
  * Default layout of a project page: metrics grouped by meaning (in overview column order), one lead chart per group,
@@ -75,12 +76,15 @@ final class ProjectLayout
                     }
                 }
             }
-            $hidden = array_sum(array_map(fn (array $source): int => count(array_intersect($source['hidden_keys'] ?? [], $keys)), $members));
+            $hidden = array_sum(array_map(fn (array $source): int => count(array_intersect($source['hidden_keys'] ?? [], [...$keys, SearchQueries::CHART_KEY])), $members));
+            $queries = array_values(array_filter(array_map(fn (array $source): ?array => $source['queries'] ?? null, $members)));
+            // Search Console first: it reports daily and usually has the larger audience.
+            usort($queries, fn (array $a, array $b): int => array_search($a['source']['kind'], ProviderCatalog::QUERY_PROVIDERS, true) <=> array_search($b['source']['kind'], ProviderCatalog::QUERY_PROVIDERS, true));
             // A group whose charts are all hidden leaves the page; the hidden-charts line at the end still counts them.
-            if ($cards === [] && $lines === [] && $hidden > 0 && ! collect($members)->contains(fn (array $source): bool => ! $source['last_success_at'])) {
+            if ($cards === [] && $lines === [] && $queries === [] && $hidden > 0 && ! collect($members)->contains(fn (array $source): bool => ! $source['last_success_at'])) {
                 continue;
             }
-            $groups[] = ['key' => $key, 'title' => self::TITLES[$key], 'sources' => $members, 'cards' => $cards, 'lines' => $lines, 'events' => self::events($members)];
+            $groups[] = ['key' => $key, 'title' => self::TITLES[$key], 'sources' => $members, 'cards' => $cards, 'lines' => $lines, 'queries' => $queries, 'events' => self::events($members)];
         }
 
         $rows = [];
@@ -141,18 +145,25 @@ final class ProjectLayout
         };
     }
 
-    /** @param array{cards: list<array<string, mixed>>} $group */
+    /** Name of a chart that can be hidden: a metric, or the Top queries block. */
+    public static function chartLabel(string $key): string
+    {
+        return $key === SearchQueries::CHART_KEY ? __('Top queries') : __(MetricRegistry::all()[$key]->label ?? $key);
+    }
+
+    /** @param array{cards: list<array<string, mixed>>, queries: list<array<string, mixed>>} $group */
     private static function fitsHalf(array $group): bool
     {
         $lead = $group['cards'][0]['metric']['key'] ?? null;
 
-        return count($group['cards']) === 1 || ($lead === 'monitor_status' && count($group['cards']) <= 3);
+        // The Top queries table needs the full width.
+        return $group['queries'] === [] && (count($group['cards']) === 1 || ($lead === 'monitor_status' && count($group['cards']) <= 3));
     }
 
     /**
      * Gives every card a size and its column span on a six-column grid.
      *
-     * @param  array{key: string, title: string, sources: list<array<string, mixed>>, cards: list<array<string, mixed>>, lines: list<array<string, mixed>>, events: int}  $group
+     * @param  array{key: string, title: string, sources: list<array<string, mixed>>, cards: list<array<string, mixed>>, lines: list<array<string, mixed>>, queries: list<array<string, mixed>>, events: int}  $group
      * @return array<string, mixed>
      */
     private static function place(array $group, bool $half): array

@@ -1,6 +1,6 @@
 # Project page design
 
-Status: mockup approved by Rob (2026-11-02); released in Core 0.8.0 (production 20261103-01, 2026-11-03). Mockup: [mockups/project-page.html](mockups/project-page.html) (static, synthetic data). The event list is out of scope here and will be redesigned separately; configurability is recorded below but deferred.
+Status: mockup approved by Rob (2026-11-02); released in Core 0.8.0 (production 20261103-01, 2026-11-03). Top queries and the move of the event list to its own page ([EVENTS_PAGE.md](EVENTS_PAGE.md)) followed in Core 0.9.0. Mockup: [mockups/project-page.html](mockups/project-page.html) (static, synthetic data). Configurability is recorded below but deferred.
 
 ## Why
 
@@ -21,10 +21,12 @@ Target: at 1440 × 900 every headline number and the first group fit on the firs
 1. **Compact header** (one block, about 110 px):
    - "All projects" link, favicon, project name (h1, about 26 px), domain link.
    - Status line: number of data sources, last sync, and a single health state ("All data sources healthy" / "1 needs attention" / "1 paused") linking to Project settings. Per-source names, timezones and sync times move out of the page body (they stay in the tooltip of each provider label and in Project settings).
-   - Right side: period as a segmented control (7 / 30 / 90 days), secondary buttons **Add event** and **Add data source**, icon button for Project settings. No primary (pink) button on this page.
+   - Right side: period as a segmented control (7 / 30 / 90 days), secondary buttons **Events** (with the number of event markers in the period; opens the events page), **Add event** and **Add data source**, icon button for Project settings. No primary (pink) button on this page.
 2. **Summary row (optional, evaluate in the mockup):** the project's own index row (same columns, numbers, changes and sparklines). Each cell links to its group. It is a recap of the row the user clicked, not a new layer.
-3. **Groups**, in index column order. Each group has a heading, the provider labels it draws from, and one legend (selected period, previous period, events).
+3. **Groups**, in index column order. Each group has a heading, the provider labels it draws from, and one legend (selected period, previous period, events). The legend's event count links to the events page.
 4. **Footnote** (existing data note), unchanged.
+
+Events are not listed on this page: their markers stay on the charts, and clicking one opens it on the project's events page (docs/EVENTS_PAGE.md).
 
 ## Groups and default sizes
 
@@ -62,6 +64,19 @@ Layout rules:
 - **Provider label:** on each chart only when the group has more than one provider.
 - **Aligned dates:** all charts in a period share the same x-axis; hovering one chart shows a crosshair at the same date in every chart and that day's value in the hovered chart.
 
+## Top queries
+
+Search Console and Bing data sources also report their top search queries. The **Search** group ends with a full-width **Top queries** block (the group is never paired at half width when it has one):
+
+- Lists: **Clicked** (queries with clicks, most clicks first; the default unless nothing was clicked), **Ranked** (every query, most impressions first, including queries without clicks) and **Opportunities** (average position 4–20, at least 10 impressions and a click-through rate below the site's average, most impressions first). The tab counts follow the selected data source.
+- Columns: query, clicks with the change against the window before (index arrows and colours), impressions, CTR, average position with its change in positions (a lower position is better: ↗ means it moved up; coloured from one whole position). Queries missing from the previous window are labelled **New** when that window has data.
+- 10 rows per list; **Show all :count** expands the table in place. Long queries are truncated with the full text on hover; on phones the table scrolls inside its frame.
+- One source switch (**Google Search Console** first, then **Bing Webmaster**) when both are connected; their positions and windows are never merged.
+- Caption: provider, window and **Partial** while Google's latest dates are not final. Query windows end on the provider's latest reported date, so they can end before the page's period: Search Console uses the same number of days (for example 3 Oct – 1 Nov), Bing reports weekly and uses the latest 1, 4 or 13 weeks ("Weekly data: 4 weeks to 30 Oct"). When the listed queries hold less than 95 % of the site's clicks for the same days, the caption says so ("These queries account for 71 % of the site's clicks; Google leaves out rare queries.").
+- The block can be hidden per data source like a chart (hidden-chart key `top_queries`) and is restored from **Hidden charts**. The chosen source, list and expanded state survive the hourly refresh.
+
+Storage: `search_queries` holds, per data source and window (7, 30, 90 days and the window before each), the top 500 queries by clicks (Search Console sorts by clicks; previous windows keep only queries of the current one). Every collection replaces the source's rows as one snapshot (`CollectionResult::$queries`). Built by `Services\SearchQueries`; view `partials/search-queries`. Tests: `tests/Feature/SearchQueriesTest.php` and the Search Console/Bing cases in `tests/Connectors/ProviderConnectorsTest.php`.
+
 ## Change indicator
 
 Matches the index (`partials/overview-change`): ↗ / ↘ / →, one decimal below 10 %, whole numbers from 10 %. Colour applies from 10 % and depends on the metric's polarity:
@@ -84,6 +99,10 @@ Values carry the published thresholds as a quality label (Good / Needs improveme
 - **First import pending:** the group shows its heading with a single line "First import running"; no placeholder charts.
 - **All charts of a group hidden:** the group is omitted; the existing "N charts hidden · Show" line remains at the end of the page.
 - **No sources:** the existing empty state.
+
+## Events
+
+Event markers stay on the large and small charts. The legend's event count and the header's **Events** link open the events page; clicking a marker (or Enter on a focused chart at a date with events) opens that event there. See [EVENTS_PAGE.md](EVENTS_PAGE.md).
 
 ## Responsive
 

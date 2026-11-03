@@ -7,7 +7,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Metribay\Core\Contracts\WorkspaceAccess;
 use Metribay\Core\Models\Project;
-use Metribay\Core\Models\ProjectEvent;
 use Metribay\Core\Services\WorkspaceContext;
 
 class DashboardController
@@ -30,9 +29,8 @@ class DashboardController
     {
         $days = $this->days($request);
         $project = Project::query()->whereKey($request->route('project'))->firstOrFail();
-        $events = ProjectEvent::query()->where('project_id', $project->id)->orderByDesc('date')->orderByDesc('id')->get();
 
-        return view('metribay::project', ['workspace' => app(WorkspaceContext::class)->current(), 'project' => $project, 'events' => $events, 'sources' => $project->sources->map(fn ($source) => ['id' => $source->id, 'label' => $source->label])->all(), 'days' => $days]);
+        return view('metribay::project', ['workspace' => app(WorkspaceContext::class)->current(), 'project' => $project, 'sources' => $project->sources->map(fn ($source) => ['id' => $source->id, 'label' => $source->label])->all(), 'days' => $days]);
     }
 
     public function profile(Request $request): View

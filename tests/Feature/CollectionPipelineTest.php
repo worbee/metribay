@@ -162,6 +162,9 @@ class CollectionPipelineTest extends TestCase
                     $connection->save();
                     $rotated = true;
                 }
+                if (str_contains($request->url(), 'GetQueryStats')) {
+                    return Http::response(['d' => []]);
+                }
                 $row = ['Date' => '/Date(1792800000000)/'];
                 $row += str_contains($request->url(), 'GetCrawlStats') ? ['InIndex' => 8] : ['Impressions' => 4, 'Clicks' => 1];
 

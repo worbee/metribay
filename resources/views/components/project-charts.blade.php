@@ -11,6 +11,7 @@
     ]);
     $domainUrl = $project->domain ? (str_contains($project->domain, '://') ? $project->domain : 'https://'.$project->domain) : null;
     $domainUrl = $domainUrl && filter_var($domainUrl, FILTER_VALIDATE_URL) && in_array(parse_url($domainUrl, PHP_URL_SCHEME), ['http', 'https'], true) ? $domainUrl : null;
+    $eventsUrl = route('metribay.events.index', ['workspace'=>$workspace->slug,'project'=>$project->id,'days'=>$days]);
     $summaryLabels = ['traffic'=>__('Visits'),'search'=>__('Search clicks'),'development'=>__('Commits · PRs'),'issues'=>__('Open issues'),'downloads'=>__('Downloads'),'uptime'=>__('Uptime · 24h'),'speed'=>__('Page speed · lowest')];
 @endphp
 <header class="project-head">
@@ -23,6 +24,7 @@
     </div>
     <div class="project-actions">
         <nav class="period-switch" aria-label="{{ __('Reporting period') }}">@foreach([7, 30, 90] as $option)<a href="{{ route('metribay.projects.show', ['workspace'=>$workspace->slug,'project'=>$project->id,'days'=>$option]) }}" @if($days === $option) aria-current="page" @endif>{{ __(':days days', ['days' => $option]) }}</a>@endforeach</nav>
+        <a class="button button-secondary" href="{{ $eventsUrl }}" title="{{ trans_choice('{0} No events in the last :days days|{1} :count event in the last :days days|[2,*] :count events in the last :days days', $eventCount, ['count' => $eventCount, 'days' => $days]) }}">{{ __('Events') }} <span class="button-count">{{ \Illuminate\Support\Number::format($eventCount, locale: app()->getLocale()) }}</span></a>
         @if($canEdit ?? false)<button type="button" class="button button-secondary" data-dialog-open="new-event">@include('metribay::partials/icon',['name'=>'plus']) {{ __('Add event') }}</button>@endif
         @if(($canEdit ?? false) && !$project->archived)<a class="button button-secondary" href="{{ route('metribay.sources.create',['workspace'=>$workspace->slug,'project'=>$project->id]) }}">@include('metribay::partials/icon',['name'=>'plus']) {{ __('Add data source') }}</a>@endif
         <a class="button button-secondary button-icon" href="{{ $settingsUrl }}" aria-label="{{ __('Project settings') }}" title="{{ __('Project settings') }}">@include('metribay::partials/icon',['name'=>'settings'])</a>
@@ -32,7 +34,7 @@
 @if($summary)
 <nav class="project-summary" aria-label="{{ __('Project summary') }}">@foreach($summaryLabels as $column => $columnLabel)@if(isset($summary[$column]))<a href="#group-{{ \Metribay\Core\Metrics\ProjectLayout::SUMMARY[$column] }}"><span class="summary-label">{{ $columnLabel }}</span>@include('metribay::partials/overview-cell', ['cell' => $summary[$column], 'column' => $column, 'days' => $days])</a>@endif @endforeach</nav>
 @endif
-@if($justHidden)<div class="notice notice-success chart-hidden-notice" role="status">@include('metribay::partials/icon',['name'=>'eye-off'])<div>{{ __(':chart chart hidden from this project.', ['chart' => __(\Metribay\Core\Metrics\MetricRegistry::all()[$justHidden->metric_key]->label ?? $justHidden->metric_key)]) }}</div><form method="POST" action="{{ route('metribay.charts.show',['workspace'=>$workspace->slug,'project'=>$project->id,'chart'=>$justHidden->id]) }}">@csrf @method('DELETE')<input type="hidden" name="return" value="project"><button class="button button-small button-secondary" type="submit">{{ __('Undo') }}</button></form></div>@endif
+@if($justHidden)<div class="notice notice-success chart-hidden-notice" role="status">@include('metribay::partials/icon',['name'=>'eye-off'])<div>{{ __(':chart chart hidden from this project.', ['chart' => \Metribay\Core\Metrics\ProjectLayout::chartLabel($justHidden->metric_key)]) }}</div><form method="POST" action="{{ route('metribay.charts.show',['workspace'=>$workspace->slug,'project'=>$project->id,'chart'=>$justHidden->id]) }}">@csrf @method('DELETE')<input type="hidden" name="return" value="project"><button class="button button-small button-secondary" type="submit">{{ __('Undo') }}</button></form></div>@endif
 <div class="project-groups">
 @forelse ($rows as $row)
 @if(count($row) > 1)<div class="group-pair">@endif

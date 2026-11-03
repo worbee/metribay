@@ -147,6 +147,7 @@ class AzureDevOpsSourceTest extends TestCase
                 'date' => $today, 'occurred_at' => CarbonImmutable::now('UTC'), 'title' => 'production · v1.2.0', 'body' => '', 'url' => 'https://dev.azure.com/fabrikam/Shop/_build/results?buildId=7']);
         });
         $this->actingAs($this->owner)->get('/w/azure/projects/'.$source->project_id)->assertOk()
-            ->assertSee('Pipeline runs succeeded')->assertSee('Pipeline runs failed')->assertSee('production · v1.2.0')->assertSee('Azure DevOps');
+            ->assertSee('Pipeline runs succeeded')->assertSee('Pipeline runs failed')->assertSee('Azure DevOps');
+        $this->get('/w/azure/projects/'.$source->project_id.'/events')->assertOk()->assertSee('production · v1.2.0')->assertSee('Imported from Azure DevOps');
     }
 }

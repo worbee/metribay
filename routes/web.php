@@ -42,6 +42,7 @@ Route::middleware(['web', 'auth', 'auth.session', 'verified'])->group(function (
         Route::post('/sources/{source}/environments', [SettingsController::class, 'environments'])->middleware('throttle:30,1')->name('metribay.sources.environments');
         Route::get('/export', [SettingsController::class, 'export'])->name('metribay.settings.export');
         Route::post('/import', [SettingsController::class, 'import'])->name('metribay.settings.import');
+        Route::get('/projects/{project}/events', [ProjectEventController::class, 'index'])->name('metribay.events.index');
         Route::post('/projects/{project}/events', [ProjectEventController::class, 'store'])->name('metribay.events.store');
         Route::patch('/projects/{project}/events/{event}', [ProjectEventController::class, 'update'])->name('metribay.events.update');
         Route::delete('/projects/{project}/events/{event}', [ProjectEventController::class, 'destroy'])->name('metribay.events.destroy');

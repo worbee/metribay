@@ -20,7 +20,7 @@
     $qualityNames = ['good'=>__('Good'),'needs-improvement'=>__('Needs improvement'),'poor'=>__('Poor')];
     $chartEvents = $size !== 'n' ? array_values(array_filter($card['source']['events'] ?? [], fn($event) => in_array($event['date'], array_column($series, 'date'), true))) : [];
     $ariaLabel = __(':metric by reporting date. :known of :total days available. Missing dates are gaps.', ['metric' => $metricLabel, 'known' => $known, 'total' => $total]);
-    $chartConfig = ['ariaLabel'=>$ariaLabel, 'label'=>$metricLabel, 'unit'=>$metricUnit, 'series'=>$series, 'previous'=>$previousSeries, 'size'=>$size, 'events'=>$chartEvents];
+    $chartConfig = ['ariaLabel'=>$ariaLabel, 'label'=>$metricLabel, 'unit'=>$metricUnit, 'series'=>$series, 'previous'=>$previousSeries, 'size'=>$size, 'events'=>$chartEvents, 'eventsUrl'=>$eventsUrl ?? null];
     $chartId = 'chart-'.$sourceId.'-'.$key;
     $formatted = $metricValue !== null && !in_array($metricUnit, ['count', 'lines', 'status'], true) ? \Metribay\Core\Metrics\ProjectLayout::format((float) $metricValue, $metricUnit) : null;
     $previousTotal = $size === 'l' && !$snapshot ? ($metric['previous'] ?? null) : null;

@@ -7,6 +7,7 @@
 @case('logout') <path d="M10 4H4v16h6m4-12 4 4-4 4m-6-4h13"/> @break
 @case('chevrons') <path d="m8 9 4-4 4 4m-8 6 4 4 4-4"/> @break
 @case('chevron') <path d="m9 5 7 7-7 7"/> @break
+@case('search') <circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/> @break
 @case('plus') <path d="M12 5v14M5 12h14"/> @break
 @case('arrow-up-right') <path d="M7 17 17 7M7 7h10v10"/> @break
 @case('arrow-left') <path d="m10 5-7 7 7 7m-6-7h17"/> @break

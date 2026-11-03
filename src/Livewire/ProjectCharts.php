@@ -13,6 +13,7 @@ use Metribay\Core\Models\Project;
 use Metribay\Core\Models\ProjectEvent;
 use Metribay\Core\Models\Workspace;
 use Metribay\Core\Services\DashboardData;
+use Metribay\Core\Services\SearchQueries;
 use Metribay\Core\Services\WorkspaceContext;
 
 class ProjectCharts extends Component
@@ -52,11 +53,18 @@ class ProjectCharts extends Component
                 $source['hidden_count'] = count($hiddenKeys);
             }
             unset($source);
+            $queries = app(SearchQueries::class)->forSources($sources, $this->days);
+            foreach ($sources as &$source) {
+                $source['queries'] = in_array(SearchQueries::CHART_KEY, $source['hidden_keys'], true) ? null : ($queries[(int) $source['id']] ?? null);
+            }
+            unset($source);
 
+            $today = CarbonImmutable::now('UTC')->startOfDay();
+            $eventCount = $events->sum(fn (ProjectEvent $event): int => count($event->occurrencesBetween($today->subDays($this->days - 1), $today)));
             $statuses = array_count_values(array_column($sources, 'status'));
             $lastSync = max([0, ...array_filter(array_column($sources, 'last_success_timestamp'))]);
 
-            return view('metribay::components.project-charts', ['workspace' => $workspace, 'project' => $project, 'sources' => $sources, 'rows' => ProjectLayout::rows($sources), 'summary' => $projectData['summary'], 'statuses' => $statuses, 'lastSync' => $lastSync ? CarbonImmutable::createFromTimestampUTC($lastSync) : null, 'days' => $this->days, 'hiddenCount' => $hidden->count(), 'justHidden' => $hidden->firstWhere('id', (int) session('chart_hidden'))]);
+            return view('metribay::components.project-charts', ['workspace' => $workspace, 'project' => $project, 'sources' => $sources, 'rows' => ProjectLayout::rows($sources), 'summary' => $projectData['summary'], 'statuses' => $statuses, 'lastSync' => $lastSync ? CarbonImmutable::createFromTimestampUTC($lastSync) : null, 'days' => $this->days, 'hiddenCount' => $hidden->count(), 'justHidden' => $hidden->firstWhere('id', (int) session('chart_hidden')), 'eventCount' => $eventCount]);
         });
     }
 
@@ -64,7 +72,7 @@ class ProjectCharts extends Component
      * Event markers for one data source's charts: whole-project events plus its own.
      *
      * @param  iterable<ProjectEvent>  $events
-     * @return list<array{date: string, title: string, color: string, automatic: bool}>
+     * @return list<array{date: string, title: string, color: string, automatic: bool, anchor: string}>
      */
     private function chartEvents(iterable $events, int $sourceId, CarbonImmutable $from, CarbonImmutable $to): array
     {
@@ -74,7 +82,8 @@ class ProjectCharts extends Component
                 continue;
             }
             foreach ($event->occurrencesBetween($from, $to) as $date) {
-                $markers[] = ['date' => $date, 'title' => $event->title, 'color' => $event->displayColor(), 'automatic' => ! $event->isCustom()];
+                // Where the marker opens on the events page.
+                $markers[] = ['date' => $date, 'title' => $event->title, 'color' => $event->displayColor(), 'automatic' => ! $event->isCustom(), 'anchor' => $event->isCustom() && $event->recurrence ? 'occurrence-'.$event->id.'-'.$date : 'event-'.$event->id];
             }
         }
         usort($markers, fn (array $a, array $b): int => $a['date'] <=> $b['date']);

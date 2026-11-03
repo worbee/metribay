@@ -85,11 +85,44 @@ final class ProviderConnectorsTest extends FixtureTestCase
                 ['Date' => '/Date('.$date24.'-0700)/', 'Impressions' => 10, 'Clicks' => 2],
             ]]),
             '*GetCrawlStats*' => Http::response(['d' => [['Date' => '/Date('.$date23.')/', 'InIndex' => 20]]]),
+            '*GetQueryStats*' => Http::response(['d' => []]),
         ]);
         $result = (new BingConnector($this->http()))->collect(new SourceConfiguration('bing', ['site_url' => 'https://example.com', 'days' => 1]), ['api_key' => 'synthetic-secret'], $this->now());
         $this->assertSame(['clicks' => 0.0, 'impressions' => 0.0, 'indexed_pages' => 20.0], $this->valuesOn($result->daily, '2026-10-23'));
         $this->assertSame(['clicks' => 2.0, 'impressions' => 10.0], $this->valuesOn($result->daily, '2026-10-24'));
         $this->assertSame([], $result->periods);
+        $this->assertSame([], $result->queries);
+    }
+
+    public function test_bing_sums_weekly_queries_into_windows_that_end_on_the_latest_week(): void
+    {
+        $week = fn (int $weeksAgo): string => '/Date('.CarbonImmutable::parse('2026-10-19')->subWeeks($weeksAgo)->getTimestampMs().')/';
+        Http::fake([
+            '*GetRankAndTrafficStats*' => Http::response(['d' => []]),
+            '*GetCrawlStats*' => Http::response(['d' => []]),
+            '*GetQueryStats*' => Http::response(['d' => [
+                ['Query' => 'metribay', 'Date' => $week(0), 'Impressions' => 30, 'Clicks' => 6, 'AvgImpressionPosition' => 2, 'AvgClickPosition' => 2],
+                ['Query' => 'metribay', 'Date' => $week(1), 'Impressions' => 10, 'Clicks' => 1, 'AvgImpressionPosition' => 6, 'AvgClickPosition' => -1],
+                ['Query' => 'dashboard', 'Date' => $week(2), 'Impressions' => 5, 'Clicks' => 0, 'AvgImpressionPosition' => -1, 'AvgClickPosition' => -1],
+                ['Query' => 'metribay', 'Date' => $week(5), 'Impressions' => 8, 'Clicks' => 2, 'AvgImpressionPosition' => 9, 'AvgClickPosition' => 9],
+            ]]),
+        ]);
+        $result = (new BingConnector($this->http()))->collect(new SourceConfiguration('bing', ['site_url' => 'https://example.com']), ['api_key' => 'synthetic-secret'], $this->now());
+        $find = fn (int $days, bool $previous, string $query): ?array => collect($result->queries)->first(fn (array $row): bool => $row['days'] === $days && $row['previous'] === $previous && $row['query'] === $query);
+
+        // One week: only the latest week.
+        $this->assertSame(['clicks' => 6.0, 'impressions' => 30.0, 'position' => 2.0], array_intersect_key($find(7, false, 'metribay'), array_flip(['clicks', 'impressions', 'position'])));
+        $this->assertSame(['2026-10-13', '2026-10-19'], [$find(7, false, 'metribay')['start_date'], $find(7, false, 'metribay')['end_date']]);
+        $this->assertSame(1.0, $find(7, true, 'metribay')['clicks']);
+        $this->assertNull($find(7, false, 'dashboard'));
+        // Four weeks: summed, position weighted by impressions (2×30 + 6×10) / 40 = 3, unknown -1 stays unknown.
+        $this->assertSame(7.0, $find(30, false, 'metribay')['clicks']);
+        $this->assertSame(3.0, $find(30, false, 'metribay')['position']);
+        $this->assertNull($find(30, false, 'dashboard')['position']);
+        $this->assertSame('2026-09-22', $find(30, false, 'metribay')['start_date']);
+        // The previous four weeks contain week five; only queries of the current window are compared.
+        $this->assertSame(2.0, $find(30, true, 'metribay')['clicks']);
+        $this->assertNull($find(30, true, 'dashboard'));
     }
 
     public function test_bing_provider_errors_never_echo_query_credentials(): void
@@ -419,6 +452,9 @@ final class ProviderConnectorsTest extends FixtureTestCase
                 return Http::response(['siteEntry' => [['siteUrl' => 'sc-domain:example.com', 'permissionLevel' => 'siteOwner']]]);
             }
             $this->assertStringContainsString('/sites/sc-domain%3Aexample.com/searchAnalytics/query', $request->url());
+            if ($request['dimensions'] === ['query']) {
+                return Http::response([]);
+            }
             $this->assertSame('2026-10-22', $request['startDate']);
             $this->assertSame('2026-10-24', $request['endDate']);
             if ($request['dataState'] === 'final') {
@@ -436,7 +472,9 @@ final class ProviderConnectorsTest extends FixtureTestCase
         $this->assertSame([], $this->valuesOn($result->daily, '2026-10-23'));
         $this->assertFalse($result->daily[0]['is_partial']);
         $this->assertTrue($result->daily[2]['is_partial']);
-        Http::assertSentCount(4);
+        // Three query windows ending on the latest reported date; no previous window is read when nothing ranked.
+        Http::assertSentCount(7);
+        $this->assertSame([], $result->queries);
     }
 
     public function test_gsc_unknown_finality_marks_every_observation_partial(): void
@@ -449,12 +487,71 @@ final class ProviderConnectorsTest extends FixtureTestCase
                 return Http::response(['siteEntry' => [['siteUrl' => 'https://example.com/']]]);
             }
             $this->assertStringContainsString('https%3A%2F%2Fexample.com%2F', $request->url());
+            if ($request['dimensions'] === ['query']) {
+                return Http::response(['rows' => [['keys' => ['example'], 'impressions' => 1, 'clicks' => 0, 'position' => 4.2]]]);
+            }
 
             return Http::response($request['dataState'] === 'final' ? [] : ['rows' => [['keys' => ['2026-10-23'], 'impressions' => 1, 'clicks' => 0]]]);
         });
         $result = (new GscConnector($this->http()))->collect(new SourceConfiguration('gsc', ['site_url' => 'https://example.com/'], 'America/Los_Angeles'), $this->googleCredentials(), $this->now());
         $this->assertTrue($result->daily[0]['is_partial']);
         $this->assertTrue($result->daily[1]['is_partial']);
+        $this->assertTrue(collect($result->queries)->every(fn (array $row): bool => $row['is_partial']));
+    }
+
+    public function test_gsc_reads_top_queries_for_each_period_and_the_same_queries_before_it(): void
+    {
+        $requests = [];
+        Http::fake(function (Request $request) use (&$requests) {
+            if (str_contains($request->url(), '/token')) {
+                return Http::response(['access_token' => 'token']);
+            }
+            if (str_ends_with($request->url(), '/sites')) {
+                return Http::response(['siteEntry' => [['siteUrl' => 'sc-domain:example.com', 'permissionLevel' => 'siteOwner']]]);
+            }
+            if ($request['dimensions'] === ['date']) {
+                return Http::response(['rows' => [['keys' => ['2026-10-22'], 'impressions' => 40, 'clicks' => 4]]]);
+            }
+            $requests[] = [$request['startDate'], $request['endDate'], $request['rowLimit'], $request['dataState']];
+            $current = $request['endDate'] === '2026-10-22';
+
+            return Http::response(['rows' => $current
+                ? [['keys' => ['metribay'], 'clicks' => 3, 'impressions' => 20, 'ctr' => .15, 'position' => 2.5], ['keys' => ['123'], 'clicks' => 0, 'impressions' => 0, 'position' => 0]]
+                : [['keys' => ['metribay'], 'clicks' => 1, 'impressions' => 9, 'position' => 6.1], ['keys' => ['other'], 'clicks' => 5, 'impressions' => 50, 'position' => 1.2]]]);
+        });
+        $result = (new GscConnector($this->http()))->collect(new SourceConfiguration('gsc', ['site_url' => 'sc-domain:example.com', 'days' => 3], 'America/Los_Angeles'), $this->googleCredentials(), $this->now()->setTime(1, 0));
+
+        $this->assertSame([
+            ['2026-10-16', '2026-10-22', 500, 'all'], ['2026-10-09', '2026-10-15', 2000, 'all'],
+            ['2026-09-23', '2026-10-22', 500, 'all'], ['2026-08-24', '2026-09-22', 2000, 'all'],
+            ['2026-07-25', '2026-10-22', 500, 'all'], ['2026-04-26', '2026-07-24', 2000, 'all'],
+        ], $requests);
+        $rows = collect($result->queries);
+        $this->assertCount(9, $rows);
+        $current = $rows->first(fn (array $row): bool => $row['days'] === 30 && ! $row['previous'] && $row['query'] === 'metribay');
+        $this->assertSame(['clicks' => 3.0, 'impressions' => 20.0, 'position' => 2.5, 'is_partial' => false], array_intersect_key($current, array_flip(['clicks', 'impressions', 'position', 'is_partial'])));
+        // A numeric query stays text; a query without impressions has no position.
+        $this->assertNull($rows->first(fn (array $row): bool => $row['query'] === '123')['position']);
+        // Only queries of the current window are kept from the window before.
+        $this->assertSame(['metribay'], $rows->where('days', 30)->where('previous', true)->pluck('query')->all());
+        $this->assertSame(6.1, $rows->first(fn (array $row): bool => $row['days'] === 30 && $row['previous'])['position']);
+    }
+
+    public function test_gsc_rejects_duplicate_queries(): void
+    {
+        Http::fake(function (Request $request) {
+            if (str_contains($request->url(), '/token')) {
+                return Http::response(['access_token' => 'token']);
+            }
+            if (str_ends_with($request->url(), '/sites')) {
+                return Http::response(['siteEntry' => [['siteUrl' => 'sc-domain:example.com']]]);
+            }
+
+            return Http::response(['rows' => $request['dimensions'] === ['date'] ? [['keys' => ['2026-10-22'], 'impressions' => 1, 'clicks' => 0]]
+                : [['keys' => ['same'], 'impressions' => 1, 'clicks' => 0], ['keys' => ['same'], 'impressions' => 2, 'clicks' => 0]]]);
+        });
+        $this->expectException(ConnectorException::class);
+        (new GscConnector($this->http()))->collect(new SourceConfiguration('gsc', ['site_url' => 'sc-domain:example.com'], 'America/Los_Angeles'), $this->googleCredentials(), $this->now());
     }
 
     public function test_gsc_missing_metric_values_are_unknown_and_rejected(): void

@@ -2,6 +2,7 @@
 
 namespace Metribay\Core\Http\Controllers;
 
+use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -9,6 +10,7 @@ use Illuminate\Validation\ValidationException;
 use Metribay\Core\Contracts\WorkspaceAccess;
 use Metribay\Core\Models\Project;
 use Metribay\Core\Models\ProjectEvent;
+use Metribay\Core\Services\EventTimeline;
 use Metribay\Core\Services\WorkspaceContext;
 
 class ProjectEventController
@@ -45,6 +47,28 @@ class ProjectEventController
         abort_unless($event->isCustom(), 403);
 
         return $event;
+    }
+
+    /** The project's events page: context strip, upcoming events and the filtered timeline. */
+    public function index(Request $request): View
+    {
+        $project = Project::query()->whereKey($request->route('project'))->firstOrFail();
+        $period = (string) $request->query('days', '30');
+        $days = $period === 'all' ? null : (int) $period;
+        abort_unless(in_array($days, EventTimeline::PERIODS, true), 422);
+        $sources = $project->sources()->orderBy('id')->get();
+        $filters = $request->validate([
+            'type' => ['nullable', Rule::in(array_keys(EventTimeline::TYPES))],
+            'source' => ['nullable', Rule::in(['project', ...$sources->pluck('id')->map(fn ($id): string => (string) $id)])],
+            'q' => ['nullable', 'string', 'max:200'],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'date' => ['nullable', 'date_format:Y-m-d'],
+        ]);
+        $timeline = app(EventTimeline::class)->build($project, $days, $filters, (int) ($filters['page'] ?? 1), $filters['date'] ?? null);
+
+        return view('metribay::events', ['workspace' => app(WorkspaceContext::class)->current(), 'project' => $project, 'timeline' => $timeline,
+            'filters' => array_intersect_key($filters, array_flip(['type', 'source', 'q'])), 'period' => $days ?? 'all',
+            'sources' => $sources->map(fn ($source) => ['id' => $source->id, 'label' => $source->label, 'kind' => $source->kind])->all()]);
     }
 
     public function store(Request $request): RedirectResponse

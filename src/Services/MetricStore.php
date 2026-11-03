@@ -10,6 +10,7 @@ use Metribay\Core\Metrics\MetricRegistry;
 use Metribay\Core\Models\DailyMetric;
 use Metribay\Core\Models\PeriodMetric;
 use Metribay\Core\Models\ProjectEvent;
+use Metribay\Core\Models\SearchQuery;
 use Metribay\Core\Models\Source;
 
 class MetricStore
@@ -45,6 +46,27 @@ class MetricStore
         }
 
         return $context;
+    }
+
+    /** @param array<string, mixed> $row */
+    private function query(Source $source, array $row): void
+    {
+        if (! in_array($source->kind, ProviderCatalog::QUERY_PROVIDERS, true) || ! in_array($row['days'] ?? null, [7, 30, 90], true) || ! is_bool($row['previous'] ?? null) || ! is_bool($row['is_partial'] ?? null)) {
+            throw new InvalidArgumentException('Invalid search query window.');
+        }
+        $this->date($row['start_date'] ?? '');
+        $this->date($row['end_date'] ?? '');
+        if ($row['start_date'] > $row['end_date'] || ! is_string($row['query'] ?? null) || trim($row['query']) === '' || mb_strlen($row['query']) > 1000) {
+            throw new InvalidArgumentException('Invalid search query.');
+        }
+        foreach (['clicks', 'impressions'] as $field) {
+            if ((! is_int($row[$field] ?? null) && ! is_float($row[$field] ?? null)) || ! is_finite((float) $row[$field]) || $row[$field] < 0) {
+                throw new InvalidArgumentException('Invalid search query count.');
+            }
+        }
+        if ($row['position'] !== null && ((! is_int($row['position']) && ! is_float($row['position'])) || ! is_finite((float) $row['position']) || $row['position'] <= 0)) {
+            throw new InvalidArgumentException('Invalid search query position.');
+        }
     }
 
     public function persist(Source $source, CollectionResult $result, CarbonImmutable $now): int
@@ -86,6 +108,10 @@ class MetricStore
                     throw new InvalidArgumentException('Only observations can be replaced.');
                 }
             }
+        }
+
+        foreach ($result->queries ?? [] as $row) {
+            $this->query($source, $row);
         }
 
         return DB::transaction(function () use ($source, $result, $now) {
@@ -138,6 +164,14 @@ class MetricStore
                 $kept = array_column(array_filter($result->events, fn (array $event): bool => $event['origin'] === $origin), 'external_id');
                 ProjectEvent::query()->where('source_id', $source->id)->where('origin', $origin)->whereNotIn('external_id', $kept)
                     ->when($since !== null, fn ($query) => $query->where('occurred_at', '>=', CarbonImmutable::parse($since)->utc()))->delete();
+            }
+            if ($result->queries !== null) {
+                SearchQuery::query()->where('source_id', $source->id)->delete();
+                foreach (array_chunk($result->queries, 200) as $chunk) {
+                    SearchQuery::query()->insert(array_map(fn (array $row): array => ['workspace_id' => $source->workspace_id, 'source_id' => $source->id, 'days' => $row['days'], 'previous' => $row['previous'],
+                        'start_date' => $row['start_date'], 'end_date' => $row['end_date'], 'query' => $row['query'], 'clicks' => $row['clicks'], 'impressions' => $row['impressions'],
+                        'position' => $row['position'], 'is_partial' => $row['is_partial'], 'collected_at' => $now], $chunk));
+                }
             }
             $observed = DailyMetric::query()->where('source_id', $source->id)->max('date');
             $finalized = DailyMetric::query()->where('source_id', $source->id)->where('is_partial', false)->whereNotIn('metric', array_keys(array_filter(MetricRegistry::all(), fn ($definition) => $definition->snapshot)))->max('date');

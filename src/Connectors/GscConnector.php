@@ -8,6 +8,12 @@ use Carbon\CarbonImmutable;
 
 final class GscConnector extends AbstractConnector
 {
+    /** Queries kept per reporting window; Search Console returns them by clicks, most first. */
+    public const QUERY_LIMIT = 500;
+
+    /** Rows read from the previous window, only to compare the current queries with it. */
+    private const PREVIOUS_LIMIT = 2000;
+
     public function collect(SourceConfiguration $source, array $credentials, CarbonImmutable $now): CollectionResult
     {
         if ($source->reportingTimezone !== 'America/Los_Angeles') {
@@ -64,6 +70,65 @@ final class GscConnector extends AbstractConnector
             }
         }
 
-        return new CollectionResult(daily: $daily);
+        return new CollectionResult(daily: $daily, queries: $this->queries($site, $headers, $all === [] ? null : max(array_keys($all)), $boundary));
+    }
+
+    /**
+     * Top queries for the 7, 30 and 90 days that end on the latest reported date, plus the same queries in the window before.
+     * Search Console leaves out rare (anonymized) queries, so their clicks can add up to less than the site total.
+     *
+     * @param  array<string, string>  $headers
+     * @return list<array{days: int, previous: bool, start_date: string, end_date: string, query: string, clicks: float, impressions: float, position: float|null, is_partial: bool}>
+     */
+    private function queries(string $site, array $headers, ?string $latest, ?string $boundary): array
+    {
+        if ($latest === null) {
+            return [];
+        }
+        $end = CarbonImmutable::parse($latest);
+        $rows = [];
+        foreach ([7, 30, 90] as $days) {
+            $start = $end->subDays($days - 1);
+            $current = $this->queryRows($site, $headers, $start, $end, self::QUERY_LIMIT);
+            $previousEnd = $start->subDay();
+            $previous = $current === [] ? [] : array_intersect_key($this->queryRows($site, $headers, $previousEnd->subDays($days - 1), $previousEnd, self::PREVIOUS_LIMIT), $current);
+            foreach ([[$current, false, $start, $end], [$previous, true, $previousEnd->subDays($days - 1), $previousEnd]] as [$set, $isPrevious, $from, $to]) {
+                foreach ($set as $text => $row) {
+                    $rows[] = ['days' => $days, 'previous' => $isPrevious, 'start_date' => $from->toDateString(), 'end_date' => $to->toDateString(), 'query' => (string) $text] + $row
+                        + ['is_partial' => $boundary === null || $to->toDateString() > $boundary];
+                }
+            }
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @param  array<string, string>  $headers
+     * @return array<string, array{clicks: float, impressions: float, position: float|null}>
+     */
+    private function queryRows(string $site, array $headers, CarbonImmutable $start, CarbonImmutable $end, int $limit): array
+    {
+        $data = $this->json($this->http->request('POST', 'https://searchconsole.googleapis.com/webmasters/v3/sites/'.rawurlencode($site).'/searchAnalytics/query', [
+            'headers' => $headers, 'json' => [
+                'startDate' => $start->toDateString(), 'endDate' => $end->toDateString(),
+                'dimensions' => ['query'], 'rowLimit' => $limit, 'dataState' => 'all',
+            ],
+        ]), 'Search Console queries');
+        $parsed = [];
+        foreach ($this->list($data['rows'] ?? [], 'Search Console queries') as $raw) {
+            $row = $this->object($raw, 'Search Console queries');
+            $keys = $this->list($row['keys'] ?? null, 'Search Console queries');
+            $text = $keys[0] ?? null;
+            if (count($keys) !== 1 || ! is_string($text) || trim($text) === '' || mb_strlen($text) > 1000 || isset($parsed[$text])) {
+                throw new ConnectorException('Search Console returned an invalid or duplicate query.');
+            }
+            $impressions = $this->number($row['impressions'] ?? null, 'Search Console queries');
+            $position = $row['position'] ?? null;
+            $parsed[$text] = ['clicks' => $this->number($row['clicks'] ?? null, 'Search Console queries'), 'impressions' => $impressions,
+                'position' => $impressions > 0 && (is_int($position) || is_float($position)) && $position > 0 ? (float) $position : null];
+        }
+
+        return $parsed;
     }
 }

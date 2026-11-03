@@ -50,7 +50,7 @@ class ProjectEventTest extends TestCase
         $this->post('/w/events/projects/'.$this->project->id.'/events', ['date' => '2026-10-01', 'title' => 'Bad', 'color' => 'red'])->assertSessionHasErrors('color');
         $this->post('/w/events/projects/'.$this->project->id.'/events', ['date' => '2026-10-01', 'title' => 'Bad', 'recurrence' => 'daily'])->assertSessionHasErrors('recurrence');
         $this->post('/w/events/projects/'.$this->project->id.'/events', ['date' => '2026-10-10', 'title' => 'Bad', 'recurrence' => 'weekly', 'recurrence_until' => '2026-10-01'])->assertSessionHasErrors('recurrence_until');
-        $this->get('/w/events/projects/'.$this->project->id)->assertOk()->assertSee('Events')->assertSee('Monthly newsletter')->assertSee('Repeats monthly')->assertSee('Upcoming')->assertDontSee('Annotation');
+        $this->get('/w/events/projects/'.$this->project->id.'/events')->assertOk()->assertSee('Events')->assertSee('Monthly newsletter')->assertSee('Repeats monthly')->assertSee('Upcoming')->assertDontSee('Annotation');
     }
 
     public function test_add_event_sits_beside_add_data_source(): void
@@ -60,7 +60,20 @@ class ProjectEventTest extends TestCase
         $heading = substr($html, strpos($html, 'class="project-actions"'), strpos($html, '</header>', strpos($html, 'class="project-actions"')) - strpos($html, 'class="project-actions"'));
         $this->assertStringContainsString('Add data source', $heading);
         $this->assertStringContainsString('data-dialog-open="new-event"', $heading);
-        $this->assertStringContainsString('id="events-heading"', $html);
+        // The list moved to the events page; the header links there with the period's count.
+        $this->assertStringContainsString('href="http://127.0.0.1:8000/w/events/projects/'.$this->project->id.'/events?days=30"', $heading);
+        $this->assertStringNotContainsString('event-entries', $html);
+    }
+
+    public function test_events_link_counts_markers_in_the_period(): void
+    {
+        $this->event(['date' => now()->subDays(2)->toDateString(), 'title' => 'Recent']);
+        $this->event(['date' => now()->subDays(20)->toDateString(), 'title' => 'Weekly', 'recurrence' => 'weekly']);
+        $this->event(['date' => now()->subDays(40)->toDateString(), 'title' => 'Old']);
+        $this->event(['date' => now()->addDays(3)->toDateString(), 'title' => 'Future']);
+        // Recent, plus the weekly event's occurrences 20, 13 and 6 days ago.
+        $this->actingAs($this->owner)->get('/w/events/projects/'.$this->project->id)->assertOk()->assertSee('Events <span class="button-count">4</span>', false);
+        $this->get('/w/events/projects/'.$this->project->id.'?days=7')->assertSee('Events <span class="button-count">2</span>', false);
     }
 
     public function test_occurrences_expand_within_a_window_without_drifting(): void
@@ -85,7 +98,8 @@ class ProjectEventTest extends TestCase
         $this->assertCount(1, $release->occurrencesBetween(now()->subDays(30)->toImmutable(), now()->toImmutable()));
         $this->actingAs($this->owner)->patch('/w/events/projects/'.$this->project->id.'/events/'.$release->id, ['date' => '2026-10-01', 'title' => 'Changed'])->assertForbidden();
         $this->delete('/w/events/projects/'.$this->project->id.'/events/'.$release->id)->assertForbidden();
-        $this->get('/w/events/projects/'.$this->project->id)->assertOk()->assertSee('Imported from GitHub')->assertSee('Imported automatically');
+        $this->get('/w/events/projects/'.$this->project->id.'/events')->assertOk()->assertSee('Imported from GitHub')->assertSee('class="event-diamond"', false)
+            ->assertDontSee('data-dialog-open="edit-event-'.$release->id.'"', false);
     }
 
     public function test_charts_receive_markers_for_their_project_and_data_source(): void
@@ -109,7 +123,11 @@ class ProjectEventTest extends TestCase
         $this->assertContains(['Whole project launch'], $titles);
         $this->assertContains(['Second only', 'Whole project launch'], $titles);
         $this->assertNotContains('Future plan', array_merge(...$titles));
-        $this->assertSame('green', collect($configs)->flatMap(fn ($config) => $config['events'])->firstWhere('title', 'Whole project launch')['color']);
+        $launch = collect($configs)->flatMap(fn ($config) => $config['events'])->firstWhere('title', 'Whole project launch');
+        $this->assertSame('green', $launch['color']);
+        // Markers open their event on the events page.
+        $this->assertStringStartsWith('event-', $launch['anchor']);
+        $this->assertStringEndsWith('/w/events/projects/'.$this->project->id.'/events?days=7', $configs[0]['eventsUrl']);
         $this->assertNotSame($first->id, $second->id);
     }
 }

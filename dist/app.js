@@ -6545,7 +6545,7 @@ function mc(e = pc(), t = !1) {
 			next: r[n]
 		});
 		t.title = i, t.setAttribute("aria-label", i), t.dataset.currentTheme = e;
-	}), kc());
+	}), Nc());
 }
 uc.addEventListener("change", () => {
 	pc() === "system" && mc();
@@ -6659,14 +6659,28 @@ function Cc(e, t, n) {
 		"l",
 		"s",
 		"n"
-	].includes(t.size) ? t.size : "l", a = i === "l", o = i === "n", s = Array.isArray(t.series) ? t.series : [], c = !o && Array.isArray(t.previous) ? t.previous : [], l = s.map((e) => e.date), u = c.some((e) => $(e.value) !== null), d = o || !Array.isArray(t.events) ? [] : t.events.filter((e) => l.includes(e.date)), f = (e) => d.filter((t) => t.date === e), p = (e) => $(s[e]?.value) !== null, m = (e) => p(e) && !p(e - 1) && !p(e + 1), h = s.length - 1, g = [{
+	].includes(t.size) ? t.size : "l", a = i === "l", o = i === "n", s = Array.isArray(t.series) ? t.series : [], c = !o && Array.isArray(t.previous) ? t.previous : [], l = s.map((e) => e.date), u = c.some((e) => $(e.value) !== null), d = o || !Array.isArray(t.events) ? [] : t.events.filter((e) => l.includes(e.date)), f = (e) => d.filter((t) => t.date === e), p = (e, n) => {
+		if (!t.eventsUrl || !d.length) return null;
+		let r = null;
+		for (let t of new Set(d.map((e) => e.date))) {
+			let i = Math.abs(e.scales.x.getPixelForValue(l.indexOf(t)) - n.x);
+			i <= 6 && (!r || i < r.distance) && (r = {
+				date: t,
+				distance: i
+			});
+		}
+		return r?.date ?? null;
+	}, m = (e) => {
+		let n = f(e);
+		n.length && t.eventsUrl && window.location.assign(`${t.eventsUrl}${t.eventsUrl.includes("?") ? "&" : "?"}date=${e}#${n.length === 1 ? n[0].anchor : `day-${e}`}`);
+	}, h = (e) => $(s[e]?.value) !== null, g = (e) => h(e) && !h(e - 1) && !h(e + 1), _ = s.length - 1, v = [{
 		label: Q("Selected period"),
 		data: s.map((e) => $(e.value)),
 		borderColor: r["chart-line"],
 		backgroundColor: `${r["chart-line"]}${o ? "14" : "0c"}`,
 		borderWidth: a ? 2 : 1.6,
 		pointRadius(e) {
-			return e.dataIndex === h && s[h]?.partial ? a ? 3 : 2.3 : m(e.dataIndex) ? 2 : 0;
+			return e.dataIndex === _ && s[_]?.partial ? a ? 3 : 2.3 : g(e.dataIndex) ? 2 : 0;
 		},
 		pointHoverRadius: o ? 2.5 : 4,
 		pointBorderWidth: 1.5,
@@ -6682,7 +6696,7 @@ function Cc(e, t, n) {
 		fill: !0,
 		stepped: t.unit === "status"
 	}];
-	u && g.push({
+	u && v.push({
 		label: Q("Previous period"),
 		data: l.map((e, t) => $(c[t]?.value)),
 		borderColor: r["chart-previous"],
@@ -6696,16 +6710,16 @@ function Cc(e, t, n) {
 		fill: !1,
 		stepped: t.unit === "status"
 	});
-	let _ = e.closest("[data-chart-group]");
-	for (let [e, t] of g.entries()) t.hidden = _?.querySelector(`[data-chart-toggle="${e}"]`)?.getAttribute("aria-pressed") === "false";
-	let v = {
+	let y = e.closest("[data-chart-group]");
+	for (let [e, t] of v.entries()) t.hidden = y?.querySelector(`[data-chart-toggle="${e}"]`)?.getAttribute("aria-pressed") === "false";
+	let b = {
 		family: "system-ui",
 		size: 10
-	}, y = new io(e, {
+	}, x = new io(e, {
 		type: "line",
 		data: {
 			labels: l,
-			datasets: g
+			datasets: v
 		},
 		plugins: [yc, Sc],
 		options: {
@@ -6716,6 +6730,13 @@ function Cc(e, t, n) {
 			interaction: {
 				mode: "index",
 				intersect: !1
+			},
+			onClick(e, t, n) {
+				let r = p(n, e);
+				r && m(r);
+			},
+			onHover(e, t, n) {
+				n.canvas.style.cursor = p(n, e) ? "pointer" : "";
 			},
 			layout: { padding: {
 				top: d.length ? 10 : 4,
@@ -6776,7 +6797,7 @@ function Cc(e, t, n) {
 						maxRotation: 0,
 						align: "inner",
 						padding: 8,
-						font: v,
+						font: b,
 						callback(e) {
 							return gc(l[e] ?? "");
 						}
@@ -6786,9 +6807,9 @@ function Cc(e, t, n) {
 						maxRotation: 0,
 						align: "inner",
 						padding: 5,
-						font: v,
+						font: b,
 						callback(e, t) {
-							return t === 0 || t === h ? gc(l[e] ?? "") : "";
+							return t === 0 || t === _ ? gc(l[e] ?? "") : "";
 						}
 					}
 				},
@@ -6806,7 +6827,7 @@ function Cc(e, t, n) {
 						maxTicksLimit: 4,
 						stepSize: t.unit === "status" ? 1 : void 0,
 						padding: 8,
-						font: v,
+						font: b,
 						callback(e) {
 							return hc(e, t.unit, !0);
 						}
@@ -6818,42 +6839,47 @@ function Cc(e, t, n) {
 			}
 		}
 	});
-	return y.metribaySignature = n, y.metribayColors = r, y.metribayCrossDate = bc, cc.add(y), o || (e.tabIndex = 0, e.setAttribute("aria-keyshortcuts", "ArrowLeft ArrowRight"), e.addEventListener("keydown", (n) => {
+	return x.metribaySignature = n, x.metribayColors = r, x.metribayCrossDate = bc, cc.add(x), o || (e.tabIndex = 0, e.setAttribute("aria-keyshortcuts", "ArrowLeft ArrowRight"), e.addEventListener("keydown", (n) => {
 		if (![
 			"ArrowLeft",
 			"ArrowRight",
-			"Escape"
+			"Escape",
+			"Enter"
 		].includes(n.key)) return;
-		n.preventDefault();
 		let r = io.getChart(e);
 		if (r) {
-			if (n.key === "Escape") r.setActiveElements([]), r.tooltip.setActiveElements([], {
-				x: 0,
-				y: 0
-			});
-			else {
-				let i = n.key === "ArrowRight" ? 1 : -1, a = r.metribayCursor ?? r.getActiveElements()[0]?.index ?? (i > 0 ? -1 : s.length), o = Math.max(0, Math.min(s.length - 1, a + i)), l = (e) => r.data.datasets.some((t, n) => r.isDatasetVisible(n) && $(t.data[e]) !== null);
-				for (; !l(o) && o + i >= 0 && o + i < s.length;) o += i;
-				r.metribayCursor = o;
-				let d = e.closest(".metric")?.querySelector("[data-chart-announcement]");
-				if (d) {
-					let e = [];
-					r.isDatasetVisible(0) && e.push(`${gc(s[o]?.date ?? "", !0)}. ${t.label}: ${hc($(s[o]?.value), t.unit)}${s[o]?.partial ? `. ${Q("Partial date.")}` : ""}`), u && r.isDatasetVisible(1) && e.push(`${Q("Previous period")} ${gc(c[o]?.date ?? "", !0)}: ${hc($(c[o]?.value), t.unit)}${c[o]?.partial ? `. ${Q("Partial date.")}` : ""}`);
-					for (let t of f(s[o]?.date)) e.push(Q("Event: :title", { title: t.title }));
-					d.textContent = e.join(". ");
-				}
-				let p = r.data.datasets.map((e, t) => ({
-					datasetIndex: t,
-					index: o
-				})).filter((e) => r.isDatasetVisible(e.datasetIndex) && $(r.data.datasets[e.datasetIndex].data[o]) !== null);
-				r.setActiveElements(p), r.tooltip.setActiveElements(p, {
-					x: r.scales.x.getPixelForValue(o),
-					y: r.chartArea.top
+			if (n.key === "Enter") {
+				let e = s[r.metribayCursor]?.date;
+				e && f(e).length && (n.preventDefault(), m(e));
+			} else {
+				if (n.preventDefault(), n.key === "Escape") r.setActiveElements([]), r.tooltip.setActiveElements([], {
+					x: 0,
+					y: 0
 				});
+				else {
+					let i = n.key === "ArrowRight" ? 1 : -1, a = r.metribayCursor ?? r.getActiveElements()[0]?.index ?? (i > 0 ? -1 : s.length), o = Math.max(0, Math.min(s.length - 1, a + i)), l = (e) => r.data.datasets.some((t, n) => r.isDatasetVisible(n) && $(t.data[e]) !== null);
+					for (; !l(o) && o + i >= 0 && o + i < s.length;) o += i;
+					r.metribayCursor = o;
+					let d = e.closest(".metric")?.querySelector("[data-chart-announcement]");
+					if (d) {
+						let e = [];
+						r.isDatasetVisible(0) && e.push(`${gc(s[o]?.date ?? "", !0)}. ${t.label}: ${hc($(s[o]?.value), t.unit)}${s[o]?.partial ? `. ${Q("Partial date.")}` : ""}`), u && r.isDatasetVisible(1) && e.push(`${Q("Previous period")} ${gc(c[o]?.date ?? "", !0)}: ${hc($(c[o]?.value), t.unit)}${c[o]?.partial ? `. ${Q("Partial date.")}` : ""}`);
+						for (let t of f(s[o]?.date)) e.push(Q("Event: :title", { title: t.title }));
+						d.textContent = e.join(". ");
+					}
+					let p = r.data.datasets.map((e, t) => ({
+						datasetIndex: t,
+						index: o
+					})).filter((e) => r.isDatasetVisible(e.datasetIndex) && $(r.data.datasets[e.datasetIndex].data[o]) !== null);
+					r.setActiveElements(p), r.tooltip.setActiveElements(p, {
+						x: r.scales.x.getPixelForValue(o),
+						y: r.chartArea.top
+					});
+				}
+				r.update("none");
 			}
-			r.update("none");
 		}
-	}, { signal: wc(y) })), y;
+	}, { signal: wc(x) })), x;
 }
 function wc(e) {
 	return e.metribayAbort = new AbortController(), e.metribayAbort.signal;
@@ -6878,7 +6904,41 @@ function Ec() {
 		}
 	});
 }
-function Dc() {
+var Dc = /* @__PURE__ */ new Map();
+function Oc(e) {
+	let t = Dc.get(e.id) ?? {}, n = [...e.querySelectorAll("[data-query-source-panel]")], r = n.find((e) => e.dataset.querySourcePanel === t.source) ?? n[0];
+	if (!r) return;
+	let i = [...e.querySelectorAll("[data-query-view]")], a = i.some((e) => e.dataset.queryView === t.view) ? t.view : i.find((e) => e.getAttribute("aria-selected") === "true")?.dataset.queryView, o = (r.dataset.queryCounts || "").split(",");
+	n.forEach((e) => {
+		e.hidden = e !== r;
+	}), e.querySelectorAll("[data-query-source]").forEach((e) => e.setAttribute("aria-pressed", String(e.dataset.querySource === r.dataset.querySourcePanel))), i.forEach((t, n) => {
+		let i = t.dataset.queryView === a;
+		t.setAttribute("aria-selected", String(i)), t.tabIndex = i ? 0 : -1, t.setAttribute("aria-controls", `${e.id}-${r.dataset.querySourcePanel}-${t.dataset.queryView}`);
+		let s = t.querySelector("[data-query-count]");
+		s && o[n] !== void 0 && (s.textContent = new Intl.NumberFormat(document.documentElement.lang || "en").format(Number(o[n])));
+	}), r.querySelectorAll("[data-query-panel]").forEach((e) => {
+		e.hidden = e.dataset.queryPanel !== a;
+		let n = (t.expanded ?? []).includes(e.id);
+		e.querySelectorAll("[data-query-extra]").forEach((e) => {
+			e.hidden = !n;
+		});
+		let r = e.querySelector("[data-query-more]");
+		r && (r.setAttribute("aria-expanded", String(n)), r.textContent = n ? r.dataset.labelLess : r.dataset.labelMore);
+	});
+}
+function kc() {
+	document.querySelectorAll("[data-query-block]").forEach((e) => {
+		Dc.has(e.id) && Oc(e);
+	});
+}
+function Ac(e, t) {
+	let n = {
+		expanded: [],
+		...Dc.get(e.id) ?? {}
+	};
+	t(n), Dc.set(e.id, n), Oc(e);
+}
+function jc() {
 	let e = document.querySelector("[data-project-search]");
 	if (!e) return;
 	let t = e.value.trim().toLocaleLowerCase(), n = 0;
@@ -6888,18 +6948,18 @@ function Dc() {
 	let r = document.querySelector("[data-search-empty]");
 	r && (r.hidden = !t || n > 0);
 }
-function Oc() {
+function Mc() {
 	let e = document.querySelector("[data-number-preference]"), t = document.querySelector("[data-density-preference]");
 	e && (e.value = lc.get("numbers", "full")), t && (t.value = lc.get("density", "comfortable")), document.querySelectorAll("[data-theme-input]").forEach((e) => {
 		e.checked = e.value === pc();
 	});
 }
-function kc() {
+function Nc() {
 	dc || (dc = !0, requestAnimationFrame(() => {
-		dc = !1, Ec(), _c(), Dc();
+		dc = !1, Ec(), _c(), kc(), jc();
 	}));
 }
-function Ac(e, t = !1) {
+function Pc(e, t = !1) {
 	let n = e.querySelector("[data-provider-switch]")?.value;
 	if (!n) return;
 	e.querySelectorAll("[data-provider-panel]").forEach((e) => {
@@ -6917,12 +6977,21 @@ function Ac(e, t = !1) {
 	let i = e.querySelector("[data-provider-timezone]"), a = [...e.querySelectorAll("[data-provider-panel]")].find((e) => e.dataset.providerPanel === n);
 	i && t && a?.dataset.defaultTimezone && (i.value = a.dataset.defaultTimezone);
 }
-function jc() {
+function Fc() {
 	let e = document.querySelector("[data-preference-status]");
 	e && (e.textContent = Q("Preference saved in this browser."));
 }
-function Mc() {
-	mc(), Oc(), document.querySelector("[data-validation-errors]")?.focus(), document.querySelectorAll("[data-provider-form]").forEach((e) => Ac(e)), kc();
+function Ic() {
+	let e = decodeURIComponent(window.location.hash.slice(1)), t = e ? document.getElementById(e) : null;
+	if (!t || t.tagName === "DIALOG") return;
+	let n = t.closest("details");
+	n && !n.open && (n.open = !0), t.scrollIntoView({ block: "center" }), t.classList.add("is-target"), setTimeout(() => t.classList.remove("is-target"), 2400);
+}
+window.addEventListener("hashchange", Ic);
+function Lc() {
+	mc(), Mc(), document.querySelectorAll("dialog[data-open-on-load]").forEach((e) => {
+		e.open || e.showModal();
+	}), Ic(), document.querySelector("[data-validation-errors]")?.focus(), document.querySelectorAll("[data-provider-form]").forEach((e) => Pc(e)), Nc();
 }
 document.addEventListener("click", (e) => {
 	let t = e.target.closest("[data-dialog-open]");
@@ -6943,21 +7012,32 @@ document.addEventListener("click", (e) => {
 			r?.data.datasets[e] && (r.setDatasetVisibility(e, t), r.update("none"));
 		});
 	}
-	let i = e.target.closest("[data-row-href]");
-	i && !e.target.closest("a, button, input, select, label") && !window.getSelection()?.toString() && (e.metaKey || e.ctrlKey ? window.open(i.dataset.rowHref, "_blank", "noopener") : window.location.assign(i.dataset.rowHref));
-	let a = e.target.closest("[data-two-factor-toggle]");
-	if (a) {
-		let e = a.closest("form"), t = e.querySelector("[data-recovery-field]"), n = e.querySelector("[data-authenticator-field]"), r = t.hidden;
-		t.hidden = !r, n.hidden = r, t.querySelector("input").disabled = !r, n.querySelector("input").disabled = r, t.querySelector("input").required = r, n.querySelector("input").required = !r, a.textContent = Q(r ? "Use an authenticator code" : "Use a recovery code"), (r ? t : n).querySelector("input").focus();
+	let i = e.target.closest("[data-query-block]"), a = e.target.closest("[data-query-view]"), o = e.target.closest("[data-query-source]"), s = e.target.closest("[data-query-more]");
+	if (i && a && Ac(i, (e) => {
+		e.view = a.dataset.queryView;
+	}), i && o && Ac(i, (e) => {
+		e.source = o.dataset.querySource;
+	}), i && s) {
+		let e = s.closest("[data-query-panel]");
+		Ac(i, (t) => {
+			t.expanded = t.expanded.includes(e.id) ? t.expanded.filter((t) => t !== e.id) : [...t.expanded, e.id];
+		}), s.getAttribute("aria-expanded") === "false" && s.scrollIntoView({ block: "nearest" });
+	}
+	let c = e.target.closest("[data-row-href]");
+	c && !e.target.closest("a, button, input, select, label") && !window.getSelection()?.toString() && (e.metaKey || e.ctrlKey ? window.open(c.dataset.rowHref, "_blank", "noopener") : window.location.assign(c.dataset.rowHref));
+	let l = e.target.closest("[data-two-factor-toggle]");
+	if (l) {
+		let e = l.closest("form"), t = e.querySelector("[data-recovery-field]"), n = e.querySelector("[data-authenticator-field]"), r = t.hidden;
+		t.hidden = !r, n.hidden = r, t.querySelector("input").disabled = !r, n.querySelector("input").disabled = r, t.querySelector("input").required = r, n.querySelector("input").required = !r, l.textContent = Q(r ? "Use an authenticator code" : "Use a recovery code"), (r ? t : n).querySelector("input").focus();
 	}
 	document.querySelectorAll(".account-menu[open]").forEach((t) => {
 		t.contains(e.target) || (t.open = !1);
 	});
 }), document.addEventListener("change", (e) => {
 	let t = e.target;
-	t.matches("[data-theme-input]") && (mc(t.value, !0), jc()), t.matches("[data-number-preference]") && (lc.set("numbers", t.value), _c(), jc()), t.matches("[data-density-preference]") && (lc.set("density", t.value), sc.dataset.density = t.value, kc(), jc()), t.matches("[data-provider-switch]") && Ac(t.closest("form"), !0), t.matches("[data-auto-submit]") && t.form.requestSubmit();
+	t.matches("[data-theme-input]") && (mc(t.value, !0), Fc()), t.matches("[data-number-preference]") && (lc.set("numbers", t.value), _c(), Fc()), t.matches("[data-density-preference]") && (lc.set("density", t.value), sc.dataset.density = t.value, Nc(), Fc()), t.matches("[data-provider-switch]") && Pc(t.closest("form"), !0), t.matches("[data-auto-submit]") && t.form.requestSubmit();
 }), document.addEventListener("input", (e) => {
-	e.target.matches("[data-project-search]") && Dc();
+	e.target.matches("[data-project-search]") && jc();
 }), document.addEventListener("submit", (e) => {
 	let t = e.target;
 	if (t.dataset.confirm && !window.confirm(t.dataset.confirm)) {
@@ -6968,6 +7048,21 @@ document.addEventListener("click", (e) => {
 	n && !t.hasAttribute("wire:submit") && (n.dataset.originalLabel = n.textContent, n.setAttribute("aria-busy", "true"), queueMicrotask(() => {
 		e.defaultPrevented || (n.disabled = !0);
 	}));
+}), document.addEventListener("keydown", (e) => {
+	let t = e.target.closest("[role=\"tab\"]");
+	if (!t || ![
+		"ArrowLeft",
+		"ArrowRight",
+		"Home",
+		"End"
+	].includes(e.key)) return;
+	let n = [...t.closest("[role=\"tablist\"]").querySelectorAll("[role=\"tab\"]")], r = n.indexOf(t), i = n[{
+		ArrowLeft: (r - 1 + n.length) % n.length,
+		ArrowRight: (r + 1) % n.length,
+		Home: 0,
+		End: n.length - 1
+	}[e.key]];
+	e.preventDefault(), i.focus(), i.click();
 }), document.addEventListener("keydown", (e) => {
 	e.key === "Escape" && document.querySelectorAll(".account-menu[open]").forEach((e) => {
 		e.open = !1, e.querySelector("summary")?.focus();
@@ -6980,19 +7075,19 @@ document.addEventListener("click", (e) => {
 	document.querySelectorAll("button[aria-busy=\"true\"]").forEach((e) => {
 		e.disabled = !1, e.removeAttribute("aria-busy");
 	});
-}), new MutationObserver(kc).observe(document.body, {
+}), new MutationObserver(Nc).observe(document.body, {
 	childList: !0,
 	subtree: !0,
 	attributes: !0,
 	attributeFilter: ["data-chart-config"]
-}), document.addEventListener("livewire:navigated", Mc), document.addEventListener("livewire:init", () => {
-	window.Livewire.hook("morphed", kc);
-}), Mc();
-function Nc() {
+}), document.addEventListener("livewire:navigated", Lc), document.addEventListener("livewire:init", () => {
+	window.Livewire.hook("morphed", Nc);
+}), Lc();
+function Rc() {
 	document.querySelectorAll("[data-resource-search]").forEach((e) => {
 		e.oninput = () => document.querySelectorAll("[data-resource-row]").forEach((t) => {
 			t.hidden = !t.textContent.toLowerCase().includes(e.value.toLowerCase());
 		});
 	});
 }
-document.addEventListener("DOMContentLoaded", Nc), document.addEventListener("livewire:navigated", Nc), oc();
+document.addEventListener("DOMContentLoaded", Rc), document.addEventListener("livewire:navigated", Rc), oc();

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.0 — 2026-11-03
+
+- **Top queries** for Search Console and Bing data sources: the project page's Search group ends with a block listing **Clicked**, **Ranked** and **Opportunities** (positions 4–20, at least 10 impressions, click-through rate below the site's average) with clicks, impressions, CTR and average position, each compared with the window before; **New** marks queries that were not there before. Ten rows per list with **Show all**, a Google/Bing switch, the provider's window in the caption (Bing is weekly), a note when Google left out rare queries, and a hide button like a chart (`top_queries`). Search Console collects six query reports per sync (7, 30 and 90 days and the window before each); Bing sums its weekly `GetQueryStats`. Migration `search_queries` (additive; projects moved to another workspace keep their queries).
+- **Events page** per project (`/w/{workspace}/projects/{project}/events`, docs/EVENTS_PAGE.md): a context strip with event lanes (Releases, Deployments, Custom) above the period's main line, **Upcoming** with future events and each repeating series once, and a timeline grouped by month and day in which same-day imported deployments collapse into one row ("4 deployments · production"). Filters by type, data source and title, periods 7/30/90 days and **All**, paging, quick add at the top and edit dialogs instead of inline fold-outs.
+- The project page no longer lists events. Its header gets an **Events** link with the number of events in the period, group legends link to the events page, and clicking a chart marker (or Enter on a focused chart) opens that event or day there. Available in all twelve interface languages.
+
 ## 0.8.0 — 2026-11-03
 
 - Redesign the project page (docs/PROJECT_PAGE.md). A compact header with the favicon, domain link, a status line (data sources, attention/delayed/importing/paused counts, last sync), a 7/30/90-day switch and secondary **Add event** / **Add data source** buttons. The project's overview row follows as a summary that links to its groups.
