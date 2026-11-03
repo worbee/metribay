@@ -3,6 +3,7 @@
 ## Unreleased
 
 - **Realistic sample portfolio.** `metribay:demo` now generates seven fictional projects (one per audience, `.example` domains) with 400 days of seeded, deterministic data for every provider metric: seasons and holidays, launch spikes, a search update, bot spikes, missing and provisional days, unique-visitor periods, top queries and monthly archives, release-driven downloads, bursty commits, uptime incidents, page speed that moves after deploys, and matching events. `--fresh` rebuilds a dedicated `demo.sqlite`; `scripts/demo-database.sh` and `scripts/capture-demo.mjs` (Playwright, dev dependency) produce the database and screenshots. See [Demo data](docs/DEMO_DATA.md).
+- Overview: project names and domains are no longer cut short. "View project details" takes no room until a row is hovered or focused, the project column keeps at least 190 px, and long translated column headers wrap.
 - `METRIBAY_COLLECTION_ENABLED=false` switches collection off for an installation: `metribay:sync` dispatches nothing and collection jobs return without contacting providers. Default on; no migration.
 
 ## 0.11.1 — 2026-11-03
