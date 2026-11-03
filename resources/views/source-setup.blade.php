@@ -8,8 +8,8 @@
 <ol class="setup-progress" aria-label="{{ __('Setup progress') }}">@foreach(['provider'=>__('Provider'),'account'=>__('Connected account'),'resources'=>__('What to track'),'confirm'=>__('Confirm')] as $key=>$title)@continue($key === 'account' && ($draft['kind'] ?? '') === 'pagespeed' && !\Metribay\Core\Services\ProviderCatalog::requiresConnection('pagespeed'))<li @if($step === $key) aria-current="step" @endif>{{ $title }}</li>@endforeach</ol>
 <div class="setup-body">
 @if($step === 'provider')
-<h2>{{ __('Where is the data?') }}</h2><p class="muted">{{ __('Choose one provider. You can add more data sources to this project later.') }}</p>
-<div class="provider-choices">@foreach($providers as $kind=>$provider)<form method="POST" action="{{ route('metribay.sources.setup', $workspace->slug) }}">@csrf<input type="hidden" name="action" value="provider"><input type="hidden" name="kind" value="{{ $kind }}"><button class="provider-choice" type="submit"><span>{{ $provider['label'] }}</span><span aria-hidden="true">→</span></button></form>@endforeach</div>
+<h2>{{ __('Where is the data?') }}</h2><p class="muted">{{ __('Choose one provider. You can add more data sources to this project later.') }} {{ __('Numbers show data sources already added to this project.') }}</p>
+<div class="provider-choices">@foreach($providers as $kind=>$provider)<form method="POST" action="{{ route('metribay.sources.setup', $workspace->slug) }}">@csrf<input type="hidden" name="action" value="provider"><input type="hidden" name="kind" value="{{ $kind }}"><button class="provider-choice" type="submit"><span>{{ $provider['label'] }}@if(($providerCounts[$kind] ?? 0) > 0) <span class="provider-count">{{ $providerCounts[$kind] }}</span>@endif</span><span aria-hidden="true">→</span></button></form>@endforeach</div>
 @else
 <div class="section-heading"><h2>{{ $providers[$draft['kind']]['label'] }}</h2><form method="POST" action="{{ route('metribay.sources.setup', $workspace->slug) }}">@csrf<input type="hidden" name="action" value="restart"><button class="button button-quiet button-small">{{ __('Change provider') }}</button></form></div>
 @if($step === 'account')

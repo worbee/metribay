@@ -123,7 +123,7 @@ class SourceSetupController
             $draft['resources'][$index]['added'] = in_array(ProjectResources::key($draft['kind'], (string) $resource['id']), $added, true);
         }
 
-        return view('metribay::source-setup', ['draft' => $draft, 'providers' => ProviderCatalog::all(), 'project' => $project, 'googleAuthorization' => app(GoogleAuthorization::class), 'connections' => Connection::query()->where('kind', $draft['kind'] ?? '')->orderBy('name')->get()]);
+        return view('metribay::source-setup', ['providerCounts' => $project->sources()->get(['kind'])->countBy('kind'), 'draft' => $draft, 'providers' => ProviderCatalog::all(), 'project' => $project, 'googleAuthorization' => app(GoogleAuthorization::class), 'connections' => Connection::query()->where('kind', $draft['kind'] ?? '')->orderBy('name')->get()]);
     }
 
     public function update(Request $request, ResourceDiscovery $discovery): RedirectResponse

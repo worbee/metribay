@@ -810,6 +810,7 @@
 .setup-progress li[aria-current] { color: var(--text); font-weight: 600; }
 .provider-choices { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: .75rem; }
 .provider-choice { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 1rem; text-align: left; padding: 1rem; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); font: inherit; cursor: pointer; transition: border-color .15s ease, background .15s ease; overflow-wrap: anywhere; }
+.provider-count { display: inline-block; margin-inline-start: .4rem; padding: .1rem .45rem; border-radius: 999px; background: var(--border); color: var(--text); font-size: .75rem; font-variant-numeric: tabular-nums; vertical-align: middle; }
 .provider-choice:hover { border-color: currentColor; }
 .provider-choice small { display: block; margin-top: .25rem; }
 .resource-choices { display: grid; gap: .5rem; }

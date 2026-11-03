@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.11.1 — 2026-11-03
+
+- Show a muted count beside providers already used by the current project in Add data source. Counts represent project data sources, including disabled sources, rather than connected accounts; zero counts are omitted. Helper text is translated into all twelve languages.
+
 ## 0.11.0 — 2026-11-03
 
 - Add optional, consent-gated Umami usage measurement with locally bundled CookieConsent, twelve languages, privacy controls and independent Personal/Desktop opt-in. See [Usage analytics](docs/USAGE_ANALYTICS.md).
