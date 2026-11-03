@@ -53,7 +53,7 @@ class CollectSource implements ShouldBeUnique, ShouldQueue
     public function handle(WorkspaceContext $context, Collector $collector): void
     {
         $workspace = Workspace::query()->find($this->workspaceId);
-        if (! $workspace) {
+        if (! $workspace || ! config('metribay.collection.enabled', true)) {
             return;
         }
         $context->run($workspace, function () use ($collector): void {

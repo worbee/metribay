@@ -17,7 +17,7 @@ php artisan metribay:install --email=you@example.com
 php artisan serve --host=127.0.0.1 --port=8000
 ```
 
-The install command asks for a password privately. An operator may instead pass `--password-file=/private/path` (14+characters); never pass passwords as command-line arguments. For a deliberately synthetic preview, run `php artisan metribay:demo --email=you@example.com` outside production. Demo sources are disabled and visibly labeled.
+The install command asks for a password privately. An operator may instead pass `--password-file=/private/path` (14+characters); never pass passwords as command-line arguments. For a deliberately synthetic preview, run `php artisan metribay:demo --email=you@example.com` outside production. Sample projects are visibly labeled and their sources stay paused. A dedicated, realistic demo database for screenshots and tests is described in [docs/DEMO_DATA.md](docs/DEMO_DATA.md).
 
 Run the queue worker and scheduler in separate processes:
 

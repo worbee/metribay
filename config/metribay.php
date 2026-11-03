@@ -30,5 +30,6 @@ return [
     ],
     // Extra route names (patterns allowed) that keep unfinished data source setup, such as host sign-in round trips.
     'source_setup' => ['routes' => []],
-    'collection' => ['revision_overlap_days' => 7, 'days' => 180, 'period_days' => [7, 30, 90]],
+    // Switch collection off for an installation that only shows stored data, such as the demo database (docs/DEMO_DATA.md).
+    'collection' => ['enabled' => (bool) env('METRIBAY_COLLECTION_ENABLED', true), 'revision_overlap_days' => 7, 'days' => 180, 'period_days' => [7, 30, 90]],
 ];

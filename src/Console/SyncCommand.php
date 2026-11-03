@@ -16,6 +16,11 @@ class SyncCommand extends Command
 
     public function handle(WorkspaceContext $context): int
     {
+        if (! config('metribay.collection.enabled', true)) {
+            $this->info('Collection is switched off for this installation (METRIBAY_COLLECTION_ENABLED=false).');
+
+            return self::SUCCESS;
+        }
         $count = 0;
         $failed = 0;
         foreach (Workspace::query()->when($this->option('workspace'), fn ($q) => $q->where('slug', $this->option('workspace')))->cursor() as $workspace) {

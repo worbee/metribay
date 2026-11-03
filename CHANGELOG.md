@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- **Realistic sample portfolio.** `metribay:demo` now generates seven fictional projects (one per audience, `.example` domains) with 400 days of seeded, deterministic data for every provider metric: seasons and holidays, launch spikes, a search update, bot spikes, missing and provisional days, unique-visitor periods, top queries and monthly archives, release-driven downloads, bursty commits, uptime incidents, page speed that moves after deploys, and matching events. `--fresh` rebuilds a dedicated `demo.sqlite`; `scripts/demo-database.sh` and `scripts/capture-demo.mjs` (Playwright, dev dependency) produce the database and screenshots. See [Demo data](docs/DEMO_DATA.md).
+- `METRIBAY_COLLECTION_ENABLED=false` switches collection off for an installation: `metribay:sync` dispatches nothing and collection jobs return without contacting providers. Default on; no migration.
+
 ## 0.11.1 — 2026-11-03
 
 - Show a muted count beside providers already used by the current project in Add data source. Counts represent project data sources, including disabled sources, rather than connected accounts; zero counts are omitted. Helper text is translated into all twelve languages.
