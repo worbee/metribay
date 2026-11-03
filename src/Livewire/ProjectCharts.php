@@ -51,6 +51,16 @@ class ProjectCharts extends Component
                 $source['metrics'] = array_values(array_filter($source['metrics'], fn (array $metric): bool => ! in_array($metric['key'], $hiddenKeys, true)));
                 $source['hidden_keys'] = $hiddenKeys;
                 $source['hidden_count'] = count($hiddenKeys);
+                $monitor = null;
+                foreach ($source['metrics'] as $metric) {
+                    if ($metric['key'] === 'monitor_status') {
+                        $monitor = $metric;
+                        break;
+                    }
+                }
+                $source['attention_anchor'] = empty($source['error_code']) && in_array($monitor['value'] ?? null, [8, 9, 8.0, 9.0], true)
+                    ? 'chart-'.$source['id'].'-monitor_status'
+                    : 'source-attention-'.$source['id'];
             }
             unset($source);
             $queries = app(SearchQueries::class)->forSources($sources, $this->days);

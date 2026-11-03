@@ -285,6 +285,8 @@
     .group-sources { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 8px; margin-top: 3px; color: var(--text-muted); font-size: 11px; }
     .group-source { display: inline-flex; align-items: center; gap: 6px; }
     .quiet-tag.is-warning { color: var(--warning); border-color: currentColor; }
+    .metric-strip[id], .group-notice[id] { scroll-margin-top: 24px; }
+    .metric-strip:target, .group-notice:target { outline: 2px solid var(--warning); outline-offset: 4px; }
     .group-notice { margin-bottom: 12px; padding: 9px 12px; font-size: 12px; }
     .group-notice > .icon { width: 15px; height: 15px; margin-top: 2px; flex: none; }
     .chart-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 14px; }

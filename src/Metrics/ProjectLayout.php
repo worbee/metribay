@@ -81,7 +81,7 @@ final class ProjectLayout
             // Search Console first: it reports daily and usually has the larger audience.
             usort($queries, fn (array $a, array $b): int => array_search($a['source']['kind'], ProviderCatalog::QUERY_PROVIDERS, true) <=> array_search($b['source']['kind'], ProviderCatalog::QUERY_PROVIDERS, true));
             // A group whose charts are all hidden leaves the page; the hidden-charts line at the end still counts them.
-            if ($cards === [] && $lines === [] && $queries === [] && $hidden > 0 && ! collect($members)->contains(fn (array $source): bool => ! $source['last_success_at'])) {
+            if ($cards === [] && $lines === [] && $queries === [] && $hidden > 0 && ! collect($members)->contains(fn (array $source): bool => ! $source['last_success_at'] || in_array($source['status'], ['failed', 'delayed'], true))) {
                 continue;
             }
             $groups[] = ['key' => $key, 'title' => self::TITLES[$key], 'sources' => $members, 'cards' => $cards, 'lines' => $lines, 'queries' => $queries, 'events' => self::events($members)];

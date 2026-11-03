@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.2 — 2026-11-03
+
+- Link the project header’s attention and delayed counts to the affected monitor status or source warning. When several sources need attention, named links reach each one. Highlight the target, and keep source warnings reachable when all charts are hidden. No migration.
+
 ## 0.9.1 — 2026-11-03
 
 - Test fix only: the events link assertion no longer depends on the host's `APP_URL`. No application change.

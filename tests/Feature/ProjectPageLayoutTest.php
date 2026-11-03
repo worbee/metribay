@@ -7,6 +7,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Metribay\Core\Connectors\CollectionResult;
 use Metribay\Core\Metrics\ProjectLayout;
+use Metribay\Core\Models\HiddenChart;
 use Metribay\Core\Models\Project;
 use Metribay\Core\Models\Source;
 use Metribay\Core\Models\Workspace;
@@ -131,6 +132,51 @@ class ProjectPageLayoutTest extends TestCase
         $this->assertSame(['86', '/100'], ProjectLayout::format(86, 'score'));
     }
 
+    public function test_single_attention_link_targets_the_down_monitor(): void
+    {
+        $this->freezeTime();
+        $healthy = $this->source('uptimerobot', 'Web', ['monitor_status' => 2.0]);
+        $down = $this->source('uptimerobot', 'Workers', ['monitor_status' => 9.0]);
+
+        $this->actingAs($this->owner)->get('/w/layout/projects/'.$this->project->id)->assertOk()
+            ->assertSee('href="#chart-'.$down->id.'-monitor_status">1 needs attention</a>', false)
+            ->assertSee('id="chart-'.$down->id.'-monitor_status"', false)
+            ->assertDontSee('href="#chart-'.$healthy->id.'-monitor_status"', false);
+    }
+
+    public function test_multiple_attention_sources_each_link_to_their_own_block(): void
+    {
+        $this->freezeTime();
+        $down = $this->source('uptimerobot', 'Workers', ['monitor_status' => 8.0]);
+        $failed = $this->source('gsc', 'Search account', ['clicks' => 1.0], ['consecutive_failures' => 1, 'error_code' => 'ProviderRequestLimit']);
+        $delayed = $this->source('bing', 'Delayed search', ['clicks' => 1.0]);
+        $this->scoped(fn () => $delayed->forceFill(['latest_data_date' => CarbonImmutable::now('UTC')->subDays(5)->toDateString()])->save());
+
+        $this->actingAs($this->owner)->get('/w/layout/projects/'.$this->project->id)->assertOk()
+            ->assertSee('2 need attention')
+            ->assertSee('href="#chart-'.$down->id.'-monitor_status">Workers</a>', false)
+            ->assertSee('href="#source-attention-'.$failed->id.'">Search account</a>', false)
+            ->assertSee('id="source-attention-'.$failed->id.'"', false)
+            ->assertSee('href="#source-attention-'.$delayed->id.'">1 delayed</a>', false)
+            ->assertSee('id="source-attention-'.$delayed->id.'"', false);
+    }
+
+    public function test_hidden_charts_leave_an_attention_warning_target(): void
+    {
+        $this->freezeTime();
+        $down = $this->source('uptimerobot', 'Workers', ['monitor_status' => 9.0]);
+        $this->scoped(function () use ($down) {
+            foreach (['monitor_status', 'uptime_24h', 'response_time_24h'] as $key) {
+                HiddenChart::create(['project_id' => $this->project->id, 'source_id' => $down->id, 'metric_key' => $key]);
+            }
+        });
+
+        $this->actingAs($this->owner)->get('/w/layout/projects/'.$this->project->id)->assertOk()
+            ->assertSee('href="#source-attention-'.$down->id.'">1 needs attention</a>', false)
+            ->assertSee('id="source-attention-'.$down->id.'"', false)
+            ->assertDontSee('id="chart-'.$down->id.'-monitor_status"', false);
+    }
+
     public function test_page_shows_compact_header_summary_groups_and_coloured_changes(): void
     {
         $this->source('umami', 'Website', ['visits' => 12.0, 'visitors' => 9.0, 'pageviews' => 30.0]);
@@ -149,7 +195,7 @@ class ProjectPageLayoutTest extends TestCase
         });
 
         $html = $this->actingAs($this->owner)->get('/w/layout/projects/'.$this->project->id.'?days=7')->assertOk()
-            ->assertSee('4 data sources · 1 needs attention')->assertSee('Review in settings')
+            ->assertSee('4 data sources · ')->assertSee('1 needs attention')->assertSee('Review in settings')
             ->assertSee('class="project-summary"', false)->assertSee('href="#group-audience"', false)
             ->assertSeeInOrder(['id="group-audience-heading"', 'id="group-search-heading"', 'id="group-development-heading"', 'id="group-reliability-heading"'], false)
             ->assertSee('Google Search Console</strong> · ', false)->assertSee('class="status-strip"', false)->assertSee('Up on 7 of 7 recorded days')

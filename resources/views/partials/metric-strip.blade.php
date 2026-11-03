@@ -11,7 +11,7 @@
     $chartId = 'chart-'.$sourceId.'-'.$metric['key'];
     $summary = __('Up on :up of :known recorded days', ['up' => $up, 'known' => $recorded->count()]);
 @endphp
-<section @class(['metric', 'metric-strip', 'span-'.($card['span'] ?? 6)]) aria-labelledby="{{ $chartId }}-label" wire:key="{{ $chartId }}">
+<section id="{{ $chartId }}" @class(['metric', 'metric-strip', 'span-'.($card['span'] ?? 6)]) aria-labelledby="{{ $chartId }}-label" wire:key="{{ $chartId }}">
     <div class="metric-head">
         <div class="metric-top"><h3 id="{{ $chartId }}-label">{{ $metricLabel }}</h3>@if(!empty($card['label']))<span class="metric-source">{{ $card['label'] }}</span>@endif @include('metribay::partials/chart-hide', ['metric' => $metric, 'sourceId' => $sourceId])</div>
         <div class="metric-value-row"><strong class="metric-value"><span class="status-dot strip-{{ $state($value) }}" aria-hidden="true"></span>{{ $value === null ? __('Unknown') : ($statusNames[(int) $value] ?? __('Unknown')) }}</strong><span class="metric-previous">{{ $summary }}</span></div>
