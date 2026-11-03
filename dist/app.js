@@ -7030,7 +7030,7 @@ document.addEventListener("click", (e) => {
 		let e = l.closest("form"), t = e.querySelector("[data-recovery-field]"), n = e.querySelector("[data-authenticator-field]"), r = t.hidden;
 		t.hidden = !r, n.hidden = r, t.querySelector("input").disabled = !r, n.querySelector("input").disabled = r, t.querySelector("input").required = r, n.querySelector("input").required = !r, l.textContent = Q(r ? "Use an authenticator code" : "Use a recovery code"), (r ? t : n).querySelector("input").focus();
 	}
-	document.querySelectorAll(".account-menu[open]").forEach((t) => {
+	document.querySelectorAll(".account-menu[open], .range-picker[open]").forEach((t) => {
 		t.contains(e.target) || (t.open = !1);
 	});
 }), document.addEventListener("change", (e) => {
@@ -7064,11 +7064,11 @@ document.addEventListener("click", (e) => {
 	}[e.key]];
 	e.preventDefault(), i.focus(), i.click();
 }), document.addEventListener("keydown", (e) => {
-	e.key === "Escape" && document.querySelectorAll(".account-menu[open]").forEach((e) => {
+	e.key === "Escape" && document.querySelectorAll(".account-menu[open], .range-picker[open]").forEach((e) => {
 		e.open = !1, e.querySelector("summary")?.focus();
 	});
 }), document.addEventListener("focusin", (e) => {
-	document.querySelectorAll(".account-menu[open]").forEach((t) => {
+	document.querySelectorAll(".account-menu[open], .range-picker[open]").forEach((t) => {
 		t.contains(e.target) || (t.open = !1);
 	});
 }), window.addEventListener("pageshow", () => {

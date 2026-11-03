@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.1 — 2026-11-03
+
+- The project page's **Dates…** picker closes when you click elsewhere, move focus away or press Esc (Esc returns focus to **Dates…**), like the profile menu. No migration.
+
 ## 0.10.0 — 2026-11-03
 
 - **Monthly top queries archive.** Search Console and Bing data sources now keep each complete calendar month of top queries for good (Search Console: top 1,000 per month, backfilled up to 16 months, four months per sync; Bing: its weekly rows grouped by month). The **Top queries** block gets a menu beside its heading to show an archived month instead of the current window, compared with the month before or any other archived month (**vs August 2026**, **No comparison**). URLs keep the choice (`?queries=2026-10&compare=2026-06`). Additive migration `search_query_months` / `search_query_month_rows`; archived months move with their project.
