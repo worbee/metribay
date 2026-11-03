@@ -42,7 +42,7 @@
     @include('metribay::partials/flash')
     @hasSection('content') @yield('content') @else {{ $slot ?? '' }} @endif
 </main>
-<footer class="app-footer"><span>Metribay · {{ ($edition ?? config('metribay.edition')) === 'cloud' ? 'Cloud' : __('Personal edition') }}</span><span>{{ __('Missing data stays missing.') }}</span><a href="{{ $marketingUrl ?? config('metribay.marketing_url', 'https://metribay.com') }}">metribay.com @include('metribay::partials/icon', ['name' => 'arrow-up-right'])</a></footer>
+<footer class="app-footer"><span>Metribay · {{ ($edition ?? config('metribay.edition')) === 'cloud' ? 'Cloud' : __('Personal edition') }}</span><span>{{ __('Missing data stays missing.') }}</span><a href="{{ $marketingUrl ?? config('metribay.marketing_url', 'https://metribay.com') }}">metribay.com @include('metribay::partials/icon', ['name' => 'arrow-up-right'])</a>@include('metribay::partials/privacy-link')</footer>
 @include('metribay::partials/scripts')
 </body>
 </html>

@@ -2,6 +2,12 @@
 
 return [
     'account_enabled' => true,
+    // Optional first-party usage measurement; no tracker request before the user's choice.
+    'analytics' => [
+        'enabled' => env('METRIBAY_ANALYTICS_ENABLED', true),
+        'script_url' => 'https://s.worbee.com/script.js',
+        'website_id' => 'e2ab0564-e9ab-4a86-b4cc-12bb0c8369f5',
+    ],
     'edition' => env('METRIBAY_EDITION', 'personal'),
     'marketing_url' => env('METRIBAY_MARKETING_URL', 'https://metribay.com'),
     // Self-hosted operators register their own app. Managed service configuration stays in its host.

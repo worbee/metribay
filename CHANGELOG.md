@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.11.0 — 2026-11-03
+
+- Add optional, consent-gated Umami usage measurement with locally bundled CookieConsent, twelve languages, privacy controls and independent Personal/Desktop opt-in. See [Usage analytics](docs/USAGE_ANALYTICS.md).
+
 ## 0.10.1 — 2026-11-03
 
 - The project page's **Dates…** picker closes when you click elsewhere, move focus away or press Esc (Esc returns focus to **Dates…**), like the profile menu. No migration.

@@ -832,3 +832,6 @@
 .project-favicon { width: 20px; height: 20px; object-fit: contain; flex: 0 0 20px; }
 .project-link { display: inline-flex; align-items: center; gap: 8px; }
 .project-link > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+.privacy-settings { border: 0; background: none; color: inherit; font: inherit; text-decoration: underline; cursor: pointer; padding: .35rem; }
+#cc-main { --cc-font-family: inherit; --cc-btn-primary-bg: #8d3156; --cc-btn-primary-border-color: #8d3156; --cc-btn-primary-hover-bg: #702543; --cc-btn-primary-hover-border-color: #702543; }

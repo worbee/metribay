@@ -11,7 +11,7 @@
     @include('metribay::partials/flash')
     @yield('content')
 </main>
-<footer class="auth-footer"><span>{{ __('Your projects. A clearer picture.') }}</span>@include('metribay::partials/language-select', ['compact' => true])<a href="{{ $marketingUrl ?? config('metribay.marketing_url', 'https://metribay.com') }}">metribay.com</a></footer>
+<footer class="auth-footer"><span>{{ __('Your projects. A clearer picture.') }}</span>@include('metribay::partials/language-select', ['compact' => true])<a href="{{ $marketingUrl ?? config('metribay.marketing_url', 'https://metribay.com') }}">metribay.com</a>@include('metribay::partials/privacy-link')</footer>
 @include('metribay::partials/scripts')
 </body>
 </html>

@@ -19,7 +19,7 @@ export default defineConfig({
     plugins: [{
         name: 'metribay-brand-assets',
         closeBundle() {
-            const licenses = ['chart.js', '@kurkle/color'].map(name => `${name}\n${readFileSync(resolve(import.meta.dirname, `node_modules/${name}/LICENSE.md`), 'utf8')}`).join('\n\n---\n\n');
+            const licenses = ['chart.js', '@kurkle/color', 'vanilla-cookieconsent'].map(name => `${name}\n${readFileSync(resolve(import.meta.dirname, `node_modules/${name}/${name === 'vanilla-cookieconsent' ? 'LICENSE' : 'LICENSE.md'}`), 'utf8')}`).join('\n\n---\n\n');
             writeFileSync(resolve(import.meta.dirname, 'dist/THIRD_PARTY_LICENSES.txt'), licenses);
             for (const file of ['metribay-lockup-light.svg', 'metribay-lockup-dark.svg', 'metribay-favicon.svg', 'apple-touch-icon.png']) {
                 copyFileSync(resolve(import.meta.dirname, `resources/images/${file}`), resolve(import.meta.dirname, `dist/${file}`));
