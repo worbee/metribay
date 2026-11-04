@@ -119,6 +119,7 @@ final class SamplePortfolio
                     * Shape::spike($ago, 141, 0.8, 3) * Calendar::weekday($date, 0.55) * Calendar::holiday($date, 0.5),
                 ['pages' => 2.3, 'returning' => 1.12, 'loyalty' => 0.18]),
             $sources->uptime('https://quillform.example', ['monitor' => '781662043', 'connected' => 260, 'response' => 340, 'incidents' => [137 => 12]]),
+            $sources->feed('Blog', 'https://quillform.example/feed'),
         ], [
             $this->event(141, '4.0 launch post', 'green', 'Announcement on the blog and the plugin directory.'),
             $this->event($talk, 'WordCamp talk: forms people finish', 'violet', 'Recording and slides linked from the docs.'),
@@ -151,6 +152,10 @@ final class SamplePortfolio
                 fn (int $ago, CarbonImmutable $date): float => 1350 * $shape($ago, $date) * Shape::spike($ago, 39, 2.4, 1.6), ['pages' => 2.9, 'returning' => 1.25, 'loyalty' => 0.3]),
             $sources->search('gsc', 'sc-domain:driftwood.example', ['site_url' => 'sc-domain:driftwood.example', 'days' => 180],
                 fn (int $ago, CarbonImmutable $date): float => 5000 * $shape($ago, $date), $queries, ['coverage' => 0.62]),
+            $sources->sitemap('Docs', 'https://driftwood.example/sitemap.xml', [
+                'https://driftwood.example/docs', 'https://driftwood.example/docs/install', 'https://driftwood.example/docs/states',
+                'https://driftwood.example/docs/guards', 'https://driftwood.example/docs/persist', 'https://driftwood.example/docs/react',
+            ]),
             $sources->search('bing', 'https://driftwood.example/', ['site_url' => 'https://driftwood.example/', 'days' => 180],
                 fn (int $ago, CarbonImmutable $date): float => 520 * $shape($ago, $date), $queries,
                 ['coverage' => 0.55, 'indexed' => fn (int $ago): float => 140 + 4 * intdiv(18 * ($this->days - $ago), $this->days)]),

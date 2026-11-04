@@ -2,9 +2,14 @@
 @section('title', __('Events').' · '.$project->name)
 @section('content')
 @php
-    $typeNames = ['release' => __('Releases'), 'deployment' => __('Deployments'), 'custom' => __('Custom')];
-    $originNames = ['github_release' => 'GitHub', 'github_deployment' => 'GitHub', 'azure_devops_deployment' => 'Azure DevOps'];
-    $originTypes = ['github_release' => __('Release'), 'github_deployment' => __('Deployment'), 'azure_devops_deployment' => __('Deployment')];
+    $typeNames = ['release' => __('Releases'), 'content' => __('Content'), 'deployment' => __('Deployments'), 'custom' => __('Custom')];
+    $originNames = ['github_release' => 'GitHub', 'github_deployment' => 'GitHub', 'azure_devops_deployment' => 'Azure DevOps', 'feed_item' => 'RSS / Atom', 'sitemap_url' => 'Sitemap'];
+    $originTypes = ['github_release' => __('Release'), 'github_deployment' => __('Deployment'), 'azure_devops_deployment' => __('Deployment'), 'feed_item' => __('Published item'), 'sitemap_url' => __('Published URL')];
+    $bundleLabel = fn (string $type, int $count): string => match ($type) {
+        'deployment' => trans_choice('{1} :count deployment|[2,*] :count deployments', $count, ['count' => $count]),
+        'content' => trans_choice('{1} :count published item|[2,*] :count published items', $count, ['count' => $count]),
+        default => trans_choice('{1} :count release|[2,*] :count releases', $count, ['count' => $count]),
+    };
     $repeatNames = ['weekly' => __('Repeats weekly'), 'monthly' => __('Repeats monthly'), 'yearly' => __('Repeats yearly')];
     $sourceLabels = collect($sources)->pluck('label', 'id');
     $base = ['workspace' => $workspace->slug, 'project' => $project->id];
@@ -94,7 +99,7 @@
                 @php($event = $entry['event'])
                 @if(isset($entry['bundle']))
                 <li class="event-entry is-imported">
-                    <details class="event-bundle"><summary><p class="event-title">@include('metribay::partials/event-mark', ['event' => $event]){{ $entry['type'] === 'deployment' ? trans_choice('{1} :count deployment|[2,*] :count deployments', count($entry['bundle']), ['count' => count($entry['bundle'])]) : trans_choice('{1} :count release|[2,*] :count releases', count($entry['bundle']), ['count' => count($entry['bundle'])]) }}@if($entry['environment']) · {{ $entry['environment'] }}@endif</p><p class="event-meta">{{ __('Imported from :provider', ['provider' => $originNames[$event->origin] ?? $event->origin]) }}@if($event->source_id)<span aria-hidden="true">·</span>{{ $sourceLabels[$event->source_id] ?? '' }}@endif<span class="bundle-toggle"><span aria-hidden="true">·</span> {{ __('Show all') }}</span></p></summary>
+                    <details class="event-bundle"><summary><p class="event-title">@include('metribay::partials/event-mark', ['event' => $event]){{ $bundleLabel($entry['type'], count($entry['bundle'])) }}@if($entry['environment']) · {{ $entry['environment'] }}@endif</p><p class="event-meta">{{ __('Imported from :provider', ['provider' => $originNames[$event->origin] ?? $event->origin]) }}@if($event->source_id)<span aria-hidden="true">·</span>{{ $sourceLabels[$event->source_id] ?? '' }}@endif<span class="bundle-toggle"><span aria-hidden="true">·</span> {{ __('Show all') }}</span></p></summary>
                         <ol class="bundle-list">@foreach($entry['bundle'] as $item)<li id="event-{{ $item->id }}">@if($item->occurred_at)<time datetime="{{ $item->occurred_at->toIso8601String() }}">{{ $item->occurred_at->format('H:i') }}</time>@endif @if($safeUrl($item->url))<a class="text-link" href="{{ $item->url }}" target="_blank" rel="noopener noreferrer">{{ $item->title }}</a>@else<span>{{ $item->title }}</span>@endif</li>@endforeach</ol>
                     </details>
                 </li>

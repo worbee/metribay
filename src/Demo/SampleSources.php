@@ -679,6 +679,54 @@ final class SampleSources
         return $this->today('UTC')->subDays($ago)->setTime($noise->int($from, $to - 1), $noise->int(0, 59), $noise->int(0, 59));
     }
 
+    /** A blog feed: a few dated posts, with days the feed does not mention left unknown. */
+    public function feed(string $label, string $url): SampleSource
+    {
+        $today = $this->today('UTC');
+        $daily = [];
+        $events = [];
+        for ($ago = $this->first(null); $ago >= 0; $ago -= 14) {
+            $date = $today->subDays($ago);
+            $count = $ago === 0 ? 1 : 2;
+            $daily[] = $this->row('published_items', $date, $count, $ago === 0);
+            for ($n = 0; $n < $count; $n++) {
+                $events[] = ['origin' => 'feed_item', 'external_id' => 'post-'.$ago.'-'.$n, 'title' => 'Note '.$ago, 'body' => '',
+                    'url' => 'https://quillform.example/blog/note-'.$ago.'-'.$n, 'occurred_at' => $this->moment($ago, 'feed:'.$n, 9, 16)->toIso8601String()];
+            }
+        }
+
+        return $this->source('feed', $label, ['url' => $url, 'days' => 180], 'UTC', [new CollectionResult(daily: $daily, events: $events,
+            authoritativeEvents: ['feed_item' => $today->subDays($this->first(null))->toIso8601String()])], 44);
+    }
+
+    /**
+     * A documentation sitemap: the current URL count, plus lastmod dates inside the window.
+     *
+     * @param  list<string>  $pages
+     */
+    public function sitemap(string $label, string $url, array $pages): SampleSource
+    {
+        $today = $this->today('UTC');
+        $daily = [$this->row('published_urls', $today, count($pages), false)];
+        $events = [];
+        foreach ($pages as $index => $page) {
+            $ago = ($index + 1) * 9;
+            $dated = $ago <= $this->first(null);
+            if ($dated && $index % 5 !== 0) {
+                $date = $today->subDays($ago);
+                $daily[] = $this->row('published_items', $date, 1, false);
+                $occurred = $this->moment($ago, 'sitemap:'.$index, 8, 18)->toIso8601String();
+            } else {
+                $occurred = null;
+            }
+            $events[] = ['origin' => 'sitemap_url', 'external_id' => hash('sha256', $page), 'title' => parse_url($page, PHP_URL_PATH) ?: $page,
+                'body' => '', 'url' => $page, 'occurred_at' => $occurred];
+        }
+
+        return $this->source('sitemap', $label, ['url' => $url, 'days' => 180], 'UTC', [new CollectionResult(daily: $daily, events: $events,
+            authoritativeEvents: ['sitemap_url' => null], replaceDailyDates: [$today->toDateString() => ['published_urls']])], 46);
+    }
+
     /**
      * @param  array<string, mixed>  $config
      * @param  list<CollectionResult>  $results

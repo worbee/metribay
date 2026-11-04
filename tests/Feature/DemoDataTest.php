@@ -70,7 +70,7 @@ class DemoDataTest extends TestCase
         foreach (array_keys(ProviderCatalog::all()) as $kind) {
             $this->assertEqualsCanonicalizing(ProviderCatalog::metricKeys($kind), array_keys($metrics[$kind] ?? []), $kind);
         }
-        $this->assertEqualsCanonicalizing(['github_release', 'github_deployment', 'azure_devops_deployment'], array_keys($origins));
+        $this->assertEqualsCanonicalizing(['github_release', 'github_deployment', 'azure_devops_deployment', 'feed_item', 'sitemap_url'], array_keys($origins));
     }
 
     public function test_stored_samples_keep_the_rules_of_real_data(): void

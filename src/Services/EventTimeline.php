@@ -20,10 +20,10 @@ class EventTimeline
     public const PERIODS = [7, 30, 90, null];
 
     /** Event types and the origins they cover, in lane order. */
-    public const TYPES = ['release' => ['github_release'], 'deployment' => ['github_deployment', 'azure_devops_deployment'], 'custom' => ['manual']];
+    public const TYPES = ['release' => ['github_release'], 'content' => ['feed_item', 'sitemap_url'], 'deployment' => ['github_deployment', 'azure_devops_deployment'], 'custom' => ['manual']];
 
     /** Main line candidates, most telling first. */
-    private const LINE_METRICS = ['visits', 'clicks', 'commits', 'downloads', 'pageviews', 'impressions', 'prs_merged'];
+    private const LINE_METRICS = ['visits', 'clicks', 'commits', 'downloads', 'published_items', 'pageviews', 'impressions', 'prs_merged'];
 
     /** Timeline entries (single events, occurrences or bundles) per page. */
     public const PER_PAGE = 60;
