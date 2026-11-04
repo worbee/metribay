@@ -59,6 +59,7 @@ jobs:
           docker run -d --name metribay -p 8080:8080 -e APP_KEY="$(docker run --rm metribay:ci key)" metribay:ci demo
           for attempt in $(seq 1 30); do curl -fsS -o /dev/null http://127.0.0.1:8080/up && break; sleep 2; done
           curl -fsS -o /dev/null http://127.0.0.1:8080/up
-          curl -fsS http://127.0.0.1:8080/login | grep -q 'Metribay'
+          # The demo signs visitors in and shows its banner on the overview.
+          curl -fsSL -c /tmp/demo-cookies -b /tmp/demo-cookies http://127.0.0.1:8080/ | grep -q 'This is a demo with fictional data'
       - if: failure()
         run: docker logs metribay
