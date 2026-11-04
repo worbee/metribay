@@ -3,7 +3,10 @@
 namespace Metribay\Core\Providers;
 
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Contracts\Http\Kernel;
+use Illuminate\Foundation\Http\Kernel as HttpKernel;
 use Illuminate\Http\Request;
+use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
@@ -20,6 +23,7 @@ use Metribay\Core\Contracts\GoogleAuthorization;
 use Metribay\Core\Contracts\PageSpeedCredentials;
 use Metribay\Core\Contracts\ProviderRequests;
 use Metribay\Core\Contracts\WorkspaceAccess;
+use Metribay\Core\Http\Middleware\DemoMode;
 use Metribay\Core\Http\Middleware\DiscardAbandonedSetup;
 use Metribay\Core\Http\Middleware\SetLocale;
 use Metribay\Core\Http\Middleware\UseWorkspace;
@@ -55,9 +59,18 @@ class MetribayServiceProvider extends ServiceProvider
         $this->loadJsonTranslationsFrom(__DIR__.'/../../lang');
         // Framework validation, auth and password messages are unnamespaced, so add them as a shared path.
         $this->callAfterResolving('translation.loader', fn ($loader) => $loader->addPath(__DIR__.'/../../lang'));
-        $router = $this->app['router'];
-        $router->pushMiddlewareToGroup('web', SetLocale::class);
-        $router->pushMiddlewareToGroup('web', DiscardAbandonedSetup::class);
+        // Through the HTTP kernel, so the group survives whether the kernel is built before or after boot.
+        // The demo signs visitors in and refuses changes before authentication and route model binding run.
+        $web = function (Kernel $kernel): void {
+            if (! $kernel instanceof HttpKernel) {
+                return;
+            }
+            foreach ([SetLocale::class, DiscardAbandonedSetup::class, DemoMode::class] as $middleware) {
+                $kernel->appendMiddlewareToGroup('web', $middleware);
+            }
+            $kernel->addToMiddlewarePriorityAfter(StartSession::class, DemoMode::class);
+        };
+        $this->app->resolved(Kernel::class) ? $web($this->app->make(Kernel::class)) : $this->app->afterResolving(Kernel::class, $web);
         $this->loadRoutesFrom(__DIR__.'/../../routes/web.php');
         $this->publishes([__DIR__.'/../../dist' => public_path('vendor/metribay')], 'metribay-assets');
         Fortify::createUsersUsing(Actions\CreateUser::class);

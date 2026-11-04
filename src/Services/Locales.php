@@ -22,7 +22,7 @@ final class Locales
     public static function forRequest(Request $request): string
     {
         $user = $request->user();
-        if ($user && self::supported($user->locale ?? null)) {
+        if ($user && ! config('metribay.demo.enabled') && self::supported($user->locale ?? null)) {
             return $user->locale;
         }
         if ($request->hasSession() && self::supported($request->session()->get(self::SESSION_KEY))) {

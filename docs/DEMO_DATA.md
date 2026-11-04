@@ -14,7 +14,7 @@ scripts/demo-database.sh
 
 This rebuilds the ignored SQLite file `standalone/database/demo.sqlite` from scratch (about 10 seconds): `migrate:fresh`, a sample owner, the workspace **Sample portfolio** and seven projects with 400 days of history up to today. Run it again whenever the dates should move to today; health states (for example "Last sync") age from the moment of generation, so regenerate right before taking screenshots. Extra arguments are passed on, for example `scripts/demo-database.sh --seed=7 --days=200`.
 
-Sign in with `demo@metribay.example` / `sample-portfolio-only`. That account exists only in the demo database; `metribay:demo` refuses to run in production.
+Sign in with `demo@metribay.example` / `sample-portfolio-only`. That account exists only in the demo database; `metribay:demo` refuses to run in production. For a public, read-only copy with automatic sign-in, see [DEMO.md](DEMO.md).
 
 The script runs `php artisan metribay:demo --fresh` with `DB_DATABASE` pointing at the demo file and `METRIBAY_COLLECTION_ENABLED=false`. `--fresh` refuses any database that is not SQLite or whose file name does not end in `demo.sqlite`, and refuses while collection is switched on.
 

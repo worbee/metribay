@@ -1,8 +1,9 @@
 export const CONVERSION_EVENTS = ['signup_submitted', 'signup_completed'];
+const EDITIONS = ['cloud', 'personal', 'desktop', 'demo'];
 const PAGES = ['home', 'overview', 'project', 'new-project', 'project-settings', 'settings', 'profile', 'events', 'add-source', 'workspaces', 'new-workspace', 'login', 'signup', 'check-email'];
 
 export function consentCookieName(edition) {
-    return edition === 'cloud' ? 'cc_cookie' : `metribay_${edition === 'desktop' ? 'desktop' : 'personal'}_usage`;
+    return edition === 'cloud' ? 'cc_cookie' : `metribay_${['desktop', 'demo'].includes(edition) ? edition : 'personal'}_usage`;
 }
 
 export function analyticsAllowed(cookie, name) {
@@ -15,7 +16,7 @@ export function analyticsAllowed(cookie, name) {
 
 // Construct a new object: never inherit a browser URL, title, referrer or arbitrary event properties.
 export function usagePayload(config, event = null) {
-    if (!PAGES.includes(config.page) || !['cloud', 'personal', 'desktop'].includes(config.edition)) return null;
+    if (!PAGES.includes(config.page) || !EDITIONS.includes(config.edition)) return null;
     if (event !== null && !CONVERSION_EVENTS.includes(event)) return null;
     return {
         website: config.website,

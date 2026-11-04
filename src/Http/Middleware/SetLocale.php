@@ -13,7 +13,8 @@ class SetLocale
     {
         // A guest arriving with ?lang= (such as from the marketing site) chooses that language for the session.
         $requested = $request->query('lang');
-        if (! $request->user() && $request->hasSession() && Locales::supported($requested)) {
+        // The demo's visitors share one account, so their language stays in the session.
+        if ((! $request->user() || DemoMode::enabled()) && $request->hasSession() && Locales::supported($requested)) {
             $request->session()->put(Locales::SESSION_KEY, $requested);
         }
         app()->setLocale(Locales::forRequest($request));

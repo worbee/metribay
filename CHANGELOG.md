@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.14.0 — 2026-11-04
+
+- **Demo mode** for a public, read-only Metribay ([docs/DEMO.md](docs/DEMO.md)), running at https://demo.metribay.com. `METRIBAY_DEMO=true` signs visitors in as the sample owner, refuses every change with "Not available in the demo." before it reaches a controller, keeps the language in the session and shows a banner with trial and self-hosting links. `DB_READ_ONLY=true` opens SQLite read-only. The Docker `demo` role now serves read-only with automatic sign-in, and the new `demo-refresh` role rebuilds and swaps the database without downtime. Usage analytics count the demo as its own `demo` edition when enabled.
+- Core's web middleware (language, abandoned setup, demo) is registered through the HTTP kernel, so it also applies when the kernel is built after Core boots, as in tests.
+- New strings in all twelve languages. No migration.
+
 ## 0.13.0 — 2026-11-04
 
 - **Delete a project.** Project settings end with a **Delete project** section that warns that all historic data goes with it. The workspace owner confirms, and the project, its data sources, events, hidden charts, metric history, top queries and monthly query archive are deleted (`DELETE /w/{workspace}/projects/{project}`, `metribay.projects.destroy`). Connected accounts stay. Editors see who can delete; viewers see nothing.

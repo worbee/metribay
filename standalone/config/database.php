@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Str;
 use Pdo\Mysql;
+use Pdo\Sqlite;
 
 return [
 
@@ -42,6 +43,8 @@ return [
             'journal_mode' => env('DB_JOURNAL_MODE'),
             'synchronous' => null,
             'transaction_mode' => 'DEFERRED',
+            // The public demo opens its database read-only, so nothing can be written (docs/DEMO.md).
+            'options' => env('DB_READ_ONLY', false) ? [Sqlite::ATTR_OPEN_FLAGS => Sqlite::OPEN_READONLY] : [],
         ],
 
         'mysql' => [

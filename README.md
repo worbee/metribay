@@ -50,7 +50,7 @@ The Docker image has a fictional sample portfolio built in. Seven made-up projec
 docker run --rm -p 127.0.0.1:8080:8080 -e APP_KEY="$(docker run --rm ghcr.io/worbee/metribay key)" ghcr.io/worbee/metribay demo
 ```
 
-Open http://127.0.0.1:8080 and sign in as `demo@metribay.example` with the password `sample-portfolio-only`.
+Open http://127.0.0.1:8080: the demo signs you in, and nothing you click can change it. Or skip Docker and look around at https://demo.metribay.com.
 
 ## Install
 

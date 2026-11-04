@@ -13,6 +13,12 @@
         } }}</div>
     </div>
 @endif
+@if (session(\Metribay\Core\Http\Middleware\DemoMode::NOTICE_KEY))
+    <div class="notice notice-warning" role="status">
+        @include('metribay::partials/icon', ['name' => 'alert'])
+        <div>{{ session(\Metribay\Core\Http\Middleware\DemoMode::NOTICE_KEY) }}</div>
+    </div>
+@endif
 @if ($errors->any())
     <div class="notice notice-error" role="alert" tabindex="-1" data-validation-errors>
         @include('metribay::partials/icon', ['name' => 'alert'])

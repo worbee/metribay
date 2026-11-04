@@ -18,14 +18,16 @@ test('usage payload contains only coarse route data and no original browser or p
     assert.equal(usagePayload(config, 'signup_completed').name, 'signup_completed');
 });
 
-test('Personal and Desktop have independent local consent and never disclose local hostnames', () => {
-    for (const edition of ['personal', 'desktop']) {
+test('Personal, Desktop and the demo have independent local consent and never disclose local hostnames', () => {
+    for (const edition of ['personal', 'desktop', 'demo']) {
         const name = consentCookieName(edition);
         assert.notEqual(name, 'cc_cookie');
         assert.equal(analyticsAllowed(cookie(['analytics']), name), false);
         assert.equal(usagePayload({ ...config, edition }).hostname, `metribay.${edition}`);
     }
     assert.notEqual(consentCookieName('personal'), consentCookieName('desktop'));
+    assert.notEqual(consentCookieName('personal'), consentCookieName('demo'));
+    assert.equal(usagePayload({ ...config, edition: 'demo' }).url, `/demo/${config.page}`);
 });
 
 import { createUsageTracker } from '../../resources/js/usage-tracker.js';

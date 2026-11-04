@@ -174,6 +174,11 @@
     .notice-warning { background: var(--warning-soft); border-color: transparent; color: var(--warning); }
     .notice-error { background: var(--error-soft); border-color: transparent; color: var(--error); }
     .notice ul { padding-left: 18px; margin-top: 4px; }
+    .demo-banner { background: var(--surface-soft); border-bottom: 1px solid var(--border); font-size: 13px; color: var(--text-secondary); }
+    .demo-banner-inner { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; max-width: 1440px; margin: 0 auto; padding: 8px var(--gutter); }
+    .demo-banner-inner > .icon { width: 16px; height: 16px; flex: none; color: var(--accent); }
+    .demo-banner-inner p { flex: 1 1 260px; margin: 0; }
+    .demo-banner-actions { display: flex; flex-wrap: wrap; gap: 8px; }
     .notice li + li { margin-top: 3px; }
     .overview-heading { margin-bottom: 12px; gap: 16px; }
     .overview-title { display: flex; align-items: center; gap: 9px; min-width: 0; }

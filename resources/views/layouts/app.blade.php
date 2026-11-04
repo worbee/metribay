@@ -38,6 +38,18 @@
         </div>
     </div>
 </header>
+@if(config('metribay.demo.enabled'))
+<aside class="demo-banner" aria-label="{{ __('Demo') }}">
+    <div class="demo-banner-inner">
+        @include('metribay::partials/icon', ['name' => 'info'])
+        <p>{{ __('This is a demo with fictional data. Changes are turned off.') }}</p>
+        <div class="demo-banner-actions">
+            <a class="button button-primary button-small" href="{{ config('metribay.demo.trial_url') }}">{{ __('Start a 14-day trial') }}</a>
+            <a class="button button-secondary button-small" href="{{ config('metribay.demo.source_url') }}">{{ __('Self-host it') }}</a>
+        </div>
+    </div>
+</aside>
+@endif
 <main id="main" class="app-main" tabindex="-1">
     @include('metribay::partials/flash')
     @hasSection('content') @yield('content') @else {{ $slot ?? '' }} @endif

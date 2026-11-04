@@ -1,5 +1,5 @@
 #!/bin/sh
-# Container roles for the Metribay image: web, worker, scheduler, demo, key, healthcheck.
+# Container roles for the Metribay image: web, worker, scheduler, demo, demo-refresh, key, healthcheck.
 # Anything else runs as a command, for example: php artisan metribay:install. See docs/DOCKER.md.
 set -eu
 cd /app/standalone
@@ -23,6 +23,23 @@ prepare() {
     php artisan optimize --quiet
 }
 
+# Builds the fictional portfolio into a fresh SQLite file that the demo then only reads.
+build_demo() {
+    rm -f "$1" "$1-wal" "$1-shm"
+    (umask 022 && touch "$1")
+    # A separate, uncached configuration: the served demo's cache points at the read-only file.
+    env APP_CONFIG_CACHE=/tmp/metribay-demo-build-config.php APP_ENV=local DB_CONNECTION=sqlite DB_DATABASE="$1" DB_READ_ONLY=false DB_JOURNAL_MODE=delete \
+        METRIBAY_COLLECTION_ENABLED=false METRIBAY_DEMO=false CACHE_STORE=array SESSION_DRIVER=array QUEUE_CONNECTION=sync \
+        php artisan metribay:demo --fresh --no-interaction
+    chmod 0444 "$1"
+}
+
+demo_environment() {
+    export DB_CONNECTION=sqlite DB_DATABASE="$data/demo.sqlite" DB_READ_ONLY=true DB_JOURNAL_MODE=delete \
+        METRIBAY_DEMO=true METRIBAY_COLLECTION_ENABLED=false METRIBAY_ANALYTICS_ENABLED="${METRIBAY_ANALYTICS_ENABLED:-false}" \
+        SESSION_DRIVER=file CACHE_STORE=file QUEUE_CONNECTION=sync MAIL_MAILER=log
+}
+
 serve() {
     if [ "${METRIBAY_MIGRATE:-true}" = true ]; then
         php artisan migrate --force --no-interaction
@@ -44,15 +61,19 @@ case "${1:-web}" in
         exec php artisan schedule:work
         ;;
     demo)
-        # Fictional sample portfolio (docs/DEMO_DATA.md), rebuilt on every start. Not for real data.
-        export DB_CONNECTION=sqlite DB_DATABASE="$data/demo.sqlite" METRIBAY_COLLECTION_ENABLED=false METRIBAY_ANALYTICS_ENABLED=false
-        rm -f "$DB_DATABASE" "$DB_DATABASE-wal" "$DB_DATABASE-shm"
+        # Read-only sample portfolio (docs/DEMO.md): automatic sign-in, every change refused, rebuilt on start.
+        demo_environment
         prepare demo
-        php artisan config:clear --quiet
-        APP_ENV=local php artisan metribay:demo --fresh
+        build_demo "$data/demo.sqlite"
         php artisan optimize --quiet
-        echo 'Sign in with demo@metribay.example / sample-portfolio-only'
-        serve
+        echo 'Demo ready: open the server address and you are signed in as the sample owner.'
+        METRIBAY_MIGRATE=false serve
+        ;;
+    demo-refresh)
+        # Rebuild the demo database next to the served one, then swap it in. For a nightly cron in a demo container.
+        build_demo "$data/next-demo.sqlite"
+        mv -f "$data/next-demo.sqlite" "$data/demo.sqlite"
+        echo 'Demo data rebuilt.'
         ;;
     key)
         php -r 'echo "base64:", base64_encode(random_bytes(32)), PHP_EOL;'

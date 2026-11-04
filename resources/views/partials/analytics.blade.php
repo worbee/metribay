@@ -1,6 +1,6 @@
 @php
     $analyticsPage = \Metribay\Core\Services\UsageAnalytics::page(request());
-    $analyticsEdition = in_array(config('metribay.edition'), ['cloud', 'desktop'], true) ? config('metribay.edition') : 'personal';
+    $analyticsEdition = config('metribay.demo.enabled') ? 'demo' : (in_array(config('metribay.edition'), ['cloud', 'desktop'], true) ? config('metribay.edition') : 'personal');
     $analyticsEvent = session('analytics_event');
     $analyticsStrings = ['Privacy settings', 'Your privacy choices', 'Share usage statistics?', 'Help improve Metribay by sharing limited usage statistics. This is optional and stays off unless you agree.', 'With your permission, we use Umami to measure visits and how Metribay is used. No advertising or session recordings. Your choice applies to this website and Metribay Cloud.', 'Accept analytics', 'Reject analytics', 'Preferences', 'Save preferences', 'Necessary', 'Required for sign-in, security and remembering this choice.', 'Analytics', 'Optional page views and usage events sent to s.worbee.com. No names, emails or project data.', 'Privacy policy', 'Close', 'The analytics server receives your IP address to process requests.'];
 @endphp

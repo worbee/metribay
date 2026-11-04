@@ -14,7 +14,7 @@ docker build -t ghcr.io/worbee/metribay:latest .
 docker run --rm -p 127.0.0.1:8080:8080 -e APP_KEY="$(docker run --rm ghcr.io/worbee/metribay key)" ghcr.io/worbee/metribay demo
 ```
 
-Open http://127.0.0.1:8080 and sign in with `demo@metribay.example` / `sample-portfolio-only`. The `demo` role rebuilds the fictional sample portfolio from [DEMO_DATA.md](DEMO_DATA.md) on every start, with collection and usage analytics switched off. Don't put real data in it.
+Open http://127.0.0.1:8080: the demo signs you in. The `demo` role rebuilds the fictional sample portfolio from [DEMO_DATA.md](DEMO_DATA.md) on every start and serves it read-only, with collection and usage analytics switched off ([DEMO.md](DEMO.md)). The same thing runs at https://demo.metribay.com.
 
 ## Run it
 
@@ -82,7 +82,8 @@ docker compose -f docker/compose.yaml up -d --build
 | `web` (default) | Prepares storage, caches configuration, migrates, serves on 8080 |
 | `worker` | `queue:work` with a 900 second job timeout |
 | `scheduler` | `schedule:work` |
-| `demo` | Rebuilds and serves the sample portfolio |
+| `demo` | Rebuilds the sample portfolio and serves it read-only, signed in ([DEMO.md](DEMO.md)) |
+| `demo-refresh` | Rebuilds the demo database in a running `demo` container and swaps it in |
 | `key` | Prints a new `APP_KEY` |
 | anything else | Runs as a command in `/app/standalone`, for example `php artisan metribay:sync --inline` |
 

@@ -10,6 +10,13 @@ return [
         'website_id' => 'e2ab0564-e9ab-4a86-b4cc-12bb0c8369f5',
     ],
     'edition' => env('METRIBAY_EDITION', 'personal'),
+    // Public demo with the sample portfolio (docs/DEMO.md): automatic sign-in, every change refused.
+    'demo' => [
+        'enabled' => (bool) env('METRIBAY_DEMO', false),
+        'email' => env('METRIBAY_DEMO_EMAIL', 'demo@metribay.example'),
+        'trial_url' => env('METRIBAY_DEMO_TRIAL_URL', 'https://app.metribay.com/register'),
+        'source_url' => env('METRIBAY_DEMO_SOURCE_URL', 'https://github.com/worbee/metribay'),
+    ],
     'marketing_url' => env('METRIBAY_MARKETING_URL', 'https://metribay.com'),
     // Self-hosted operators register their own app. Managed service configuration stays in its host.
     'google' => ['enabled' => true, 'client_id' => env('METRIBAY_GOOGLE_CLIENT_ID'), 'client_secret' => env('METRIBAY_GOOGLE_CLIENT_SECRET'), 'redirect_uri' => env('METRIBAY_GOOGLE_REDIRECT_URI')],
