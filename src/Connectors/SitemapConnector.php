@@ -21,6 +21,10 @@ final class SitemapConnector extends ContentConnector
 
     private const NAMESPACE = 'http://www.sitemaps.org/schemas/sitemap/0.9';
 
+    private const DOCUMENT_LIMIT_ERROR = 'This sitemap index lists more sitemaps than Metribay can read. No partial totals were accepted.';
+
+    private const URL_LIMIT_ERROR = 'This sitemap has more URLs than Metribay can store. No partial totals were accepted.';
+
     public function collect(SourceConfiguration $source, array $credentials, CarbonImmutable $now): CollectionResult
     {
         $this->utcOnly($source, 'Sitemap');
@@ -32,25 +36,19 @@ final class SitemapConnector extends ContentConnector
         $root = $this->fetch($url, $seen);
         $name = $root->documentElement?->localName;
         if ($name === 'sitemapindex') {
-            $children = $this->entries($root, 'sitemap');
-            if (count($children) > self::MAX_DOCUMENTS - 1) {
-                throw new ConnectorException('This sitemap index lists more sitemaps than Metribay can read. No partial totals were accepted.');
-            }
+            $children = $this->entries($root, 'sitemap', self::MAX_DOCUMENTS - 1);
             $urls = [];
             foreach ($children as $child) {
                 $document = $this->fetch($child['loc'], $seen);
                 if ($document->documentElement?->localName !== 'urlset') {
                     throw new ConnectorException('A sitemap index must list sitemap files, not another index.');
                 }
-                $urls = [...$urls, ...$this->entries($document, 'url')];
+                $urls = [...$urls, ...$this->entries($document, 'url', self::MAX_URLS - count($urls))];
             }
         } elseif ($name === 'urlset') {
-            $urls = $this->entries($root, 'url');
+            $urls = $this->entries($root, 'url', self::MAX_URLS);
         } else {
             throw new ConnectorException('This URL did not return a sitemap or a sitemap index.');
-        }
-        if (count($urls) > self::MAX_URLS) {
-            throw new ConnectorException('This sitemap has more URLs than Metribay can store. No partial totals were accepted.');
         }
         $counts = [];
         $events = [];
@@ -103,11 +101,11 @@ final class SitemapConnector extends ContentConnector
         if (isset($seen[$url])) {
             throw new ConnectorException('The sitemap pointed at a document that was already read.');
         }
-        if (count($seen) >= self::MAX_DOCUMENTS) {
-            throw new ConnectorException('This sitemap index lists more sitemaps than Metribay can read. No partial totals were accepted.');
+        [$body, $final] = $this->document($url, 'The sitemap');
+        if (isset($seen[$final])) {
+            throw new ConnectorException('The sitemap pointed at a document that was already read.');
         }
         $seen[$url] = true;
-        [$body, $final] = $this->document($url, 'The sitemap');
         $seen[$final] = true;
         $previous = libxml_use_internal_errors(true);
         $document = new DOMDocument;
@@ -128,7 +126,7 @@ final class SitemapConnector extends ContentConnector
     /**
      * @return list<array{loc: string, lastmod: string|null}>
      */
-    private function entries(DOMDocument $document, string $wrapper): array
+    private function entries(DOMDocument $document, string $wrapper, int $remaining): array
     {
         $root = $document->documentElement;
         $namespace = $root?->namespaceURI;
@@ -139,6 +137,9 @@ final class SitemapConnector extends ContentConnector
         foreach ($nodes as $node) {
             if ($node->parentNode !== $root) {
                 continue;
+            }
+            if (count($entries) >= $remaining) {
+                throw new ConnectorException($wrapper === 'sitemap' ? self::DOCUMENT_LIMIT_ERROR : self::URL_LIMIT_ERROR);
             }
             $loc = null;
             $lastmod = null;

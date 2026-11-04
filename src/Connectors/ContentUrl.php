@@ -41,7 +41,8 @@ final class ContentUrl
             throw new ConnectorException('Use a public HTTPS address without credentials or a fragment.');
         }
         $parts = parse_url(trim($url));
-        if ($parts === false || ! in_array($parts['scheme'] ?? '', $schemes, true) || ($parts['port'] ?? 443) !== 443
+        $defaultPort = ($parts['scheme'] ?? '') === 'http' ? 80 : 443;
+        if ($parts === false || ! in_array($parts['scheme'] ?? '', $schemes, true) || ($parts['port'] ?? $defaultPort) !== $defaultPort
             || ! isset($parts['host']) || isset($parts['user']) || isset($parts['pass']) || isset($parts['fragment'])) {
             throw new ConnectorException('Use a public HTTPS address without credentials or a fragment.');
         }

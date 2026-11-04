@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Metribay\Core\Connectors;
 
 use Carbon\CarbonImmutable;
+use GuzzleHttp\Psr7\Uri;
+use GuzzleHttp\Psr7\UriResolver;
 use SimplePie\Item;
 use SimplePie\SimplePie;
 
@@ -23,7 +25,7 @@ final class FeedConnector extends ContentConnector
         $configuration = new SourceConfiguration($source->kind, $source->config, $source->reportingTimezone);
         [$start, $today] = $this->window($configuration, $now, 1, 180);
         $now = $now->utc();
-        [$body] = $this->document($url, 'The feed');
+        [$body, $final] = $this->document($url, 'The feed');
         $feed = new SimplePie;
         $feed->set_raw_data($body);
         $feed->enable_cache(false);
@@ -70,7 +72,7 @@ final class FeedConnector extends ContentConnector
                 'external_id' => $id,
                 'title' => $title !== '' ? $title : 'Untitled',
                 'body' => $this->plain((string) $item->get_description(), 4000),
-                'url' => $this->link($item->get_permalink()),
+                'url' => $this->link($item->get_permalink(), $final),
                 'occurred_at' => $published->toIso8601String(),
             ];
         }
@@ -96,14 +98,14 @@ final class FeedConnector extends ContentConnector
         return $id;
     }
 
-    private function link(mixed $url): string
+    private function link(mixed $url, string $base): string
     {
         if (! is_string($url) || $url === '') {
             return '';
         }
         try {
-            return ContentUrl::page($url);
-        } catch (ConnectorException) {
+            return ContentUrl::page((string) UriResolver::resolve(new Uri($base), new Uri($url)));
+        } catch (ConnectorException|\InvalidArgumentException) {
             return '';
         }
     }

@@ -7,6 +7,7 @@ namespace Metribay\Core\Tests\Connectors;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Metribay\Core\Connectors\CollectionResult;
 use Metribay\Core\Connectors\ConnectorException;
 use Metribay\Core\Connectors\ContentUrl;
 use Metribay\Core\Connectors\FeedConnector;
@@ -116,6 +117,34 @@ final class ContentConnectorsTest extends FixtureTestCase
         Http::assertSentCount(2);
     }
 
+    public function test_relative_entry_links_use_the_final_feed_address(): void
+    {
+        Http::fake([
+            'https://example.com/feed' => Http::response('', 302, ['Location' => 'https://cdn.example/news/updates/feed.xml']),
+            'https://cdn.example/news/updates/feed.xml' => Http::response(str_replace(['<link>https://example.com/</link>', 'https://example.com/hello'], ['', '../hello'], $this->rss())),
+        ]);
+
+        $this->assertContains('https://cdn.example/news/hello', array_column($this->feed('https://example.com/feed')->events, 'url'));
+        Http::assertSentCount(2);
+    }
+
+    public function test_sitemap_index_enforces_the_combined_url_limit(): void
+    {
+        $urlset = static fn (int $start, int $length): string => '<urlset>'.implode('', array_map(
+            static fn (int $number): string => "<url><loc>https://example.com/page/{$number}</loc></url>",
+            range($start, $start + $length - 1),
+        )).'</urlset>';
+        Http::fake([
+            'https://example.com/sitemap.xml' => Http::response('<sitemapindex><sitemap><loc>https://example.com/first.xml</loc></sitemap><sitemap><loc>https://example.com/second.xml</loc></sitemap></sitemapindex>'),
+            'https://example.com/first.xml' => Http::response($urlset(1, 1200)),
+            'https://example.com/second.xml' => Http::response($urlset(1201, 801)),
+        ]);
+
+        $this->expectException(ConnectorException::class);
+        $this->expectExceptionMessage('more URLs');
+        $this->sitemap('https://example.com/sitemap.xml');
+    }
+
     public function test_a_rate_limit_stops_the_run(): void
     {
         Http::fake(['https://example.com/feed' => Http::response('', 429)]);
@@ -135,7 +164,7 @@ final class ContentConnectorsTest extends FixtureTestCase
         $this->assertSame(ProviderCatalog::identityHash('github', ['repository' => 'a/b', 'convert_to_events' => false], 'UTC'), ProviderCatalog::identityHash('github', ['repository' => 'a/b'], 'UTC'));
         $this->assertFalse(ProviderCatalog::requiresConnection('sitemap'));
         $this->assertSame(['github_release'], ProviderCatalog::eventPreferenceOrigins('github'));
-        $stripped = ProviderCatalog::withoutConvertedEvents('github', ['convert_to_events' => false], new \Metribay\Core\Connectors\CollectionResult(
+        $stripped = ProviderCatalog::withoutConvertedEvents('github', ['convert_to_events' => false], new CollectionResult(
             events: [
                 ['origin' => 'github_release', 'external_id' => 'r', 'title' => 'v1', 'url' => 'https://example.com/r', 'occurred_at' => '2026-10-24T00:00:00Z'],
                 ['origin' => 'github_deployment', 'external_id' => 'd', 'title' => 'production', 'url' => 'https://example.com/d', 'occurred_at' => '2026-10-24T00:00:00Z'],
@@ -168,12 +197,12 @@ final class ContentConnectorsTest extends FixtureTestCase
             XML;
     }
 
-    private function feed(string $url): \Metribay\Core\Connectors\CollectionResult
+    private function feed(string $url): CollectionResult
     {
         return (new FeedConnector($this->http()))->collect(new SourceConfiguration('feed', ['url' => $url, 'days' => 25], 'UTC'), [], CarbonImmutable::parse('2026-10-25T10:00:00Z'));
     }
 
-    private function sitemap(string $url): \Metribay\Core\Connectors\CollectionResult
+    private function sitemap(string $url): CollectionResult
     {
         return (new SitemapConnector($this->http()))->collect(new SourceConfiguration('sitemap', ['url' => $url, 'days' => 25], 'UTC'), [], CarbonImmutable::parse('2026-10-25T10:00:00Z'));
     }
