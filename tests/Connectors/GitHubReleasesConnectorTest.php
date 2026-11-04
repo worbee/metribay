@@ -6,6 +6,7 @@ namespace Metribay\Core\Tests\Connectors;
 
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Metribay\Core\Connectors\CollectionResult;
 use Metribay\Core\Connectors\ConnectorException;
 use Metribay\Core\Connectors\GitHubConnector;
 use Metribay\Core\Connectors\GitHubReleasesConnector;
@@ -130,7 +131,7 @@ final class GitHubReleasesConnectorTest extends FixtureTestCase
     }
 
     /** @param  array<string, mixed>  $credentials */
-    private function collect(array $credentials = []): \Metribay\Core\Connectors\CollectionResult
+    private function collect(array $credentials = []): CollectionResult
     {
         return (new GitHubReleasesConnector($this->http()))->collect(
             new SourceConfiguration('github_releases', ['repository' => 'example/repo'], 'UTC'),
