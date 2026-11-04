@@ -107,7 +107,12 @@ class MetricStore
                 throw new InvalidArgumentException('Metric does not belong to this provider.');
             }$this->date($row['date']);
             $this->value($row['metric'], $row['value']);
-            if (isset($row['context'])) {
+            if (MetricRegistry::get($row['metric'])->unit === 'currency') {
+                $context = $this->context($row['context'] ?? []);
+                if (array_keys($context) !== ['currency'] || ! is_string($context['currency']) || ! preg_match('/^[A-Z]{3}$/D', $context['currency'])) {
+                    throw new InvalidArgumentException('Invalid metric currency.');
+                }
+            } elseif (isset($row['context'])) {
                 $allowedContext = ['type', 'url', 'audited_url', 'device', 'lighthouse_version', 'tested_at', 'field_status', 'history_status', 'scope', 'percentile', 'collection_start', 'collection_end'];
                 if ($source->kind !== 'pagespeed' || array_diff(array_keys($row['context']), $allowedContext)) {
                     throw new InvalidArgumentException('Invalid metric context.');

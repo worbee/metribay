@@ -1,5 +1,5 @@
 @php
-    $providerNames = ['ga4'=>'Google Analytics','gsc'=>'Google Search Console','bing'=>'Bing Webmaster','umami'=>'Umami Analytics','github'=>'GitHub','azure_devops'=>'Azure DevOps','wporg'=>'WordPress.org','uptimerobot'=>'UptimeRobot','pagespeed'=>'PageSpeed Insights'];
+    $providerNames = ['ga4'=>'Google Analytics','gsc'=>'Google Search Console','bing'=>'Bing Webmaster','umami'=>'Umami Analytics','github'=>'GitHub','azure_devops'=>'Azure DevOps','wporg'=>'WordPress.org','uptimerobot'=>'UptimeRobot','pagespeed'=>'PageSpeed Insights','paddle'=>'Paddle Billing'];
     $groupId = 'group-'.$group['key'];
     $multiple = count($group['sources']) > 1;
     $charts = collect($group['cards'])->whereIn('size', ['l', 's']);
@@ -10,6 +10,7 @@
         <div>
             <h2 id="{{ $groupId }}-heading">{{ __($group['title']) }}</h2>
             <p class="group-sources">@foreach($group['sources'] as $source)@if(!$loop->first)<span aria-hidden="true">·</span>@endif<span class="group-source" id="source-{{ $source['id'] }}" title="{{ $source['label'] }} · {{ $source['reporting_timezone'] ?? __('Data source reporting timezone') }}@if($source['last_success_at']) · {{ __('Synced :time', ['time' => $source['last_success_at']]) }}@endif">{{ $providerNames[$source['kind']] ?? $source['kind'] }}@if($multiple && $group['key'] !== 'page_speed') · {{ $source['label'] }}@endif @if(!$source['enabled'])<span class="quiet-tag">{{ __('Paused') }}</span>@elseif($source['status'] === 'pending')<span class="quiet-tag">{{ __('Importing') }}</span>@elseif($source['status'] === 'failed')<span class="quiet-tag is-warning">{{ __('Needs attention') }}</span>@endif</span>@endforeach</p>
+            @if($group['key'] === 'revenue')<p class="field-hint">{{ __('Whole Paddle account. Net revenue is after tax and fees, before refunds and chargebacks.') }}</p>@endif
         </div>
         @if($charts->isNotEmpty())
         <div class="chart-legend" aria-label="{{ __('Chart series') }}"><button type="button" wire:ignore data-chart-toggle="0" aria-pressed="true"><span class="legend-swatch"></span>{{ $period->label() }}</button>@if($hasPrevious)<button type="button" wire:ignore data-chart-toggle="1" aria-pressed="true"><span class="legend-swatch legend-swatch-previous"></span>{{ __('Previous period') }}</button>@endif @if($group['events'])<a class="legend-events" href="{{ $eventsUrl }}"><span class="legend-swatch legend-swatch-event"></span>{{ trans_choice('{1} :count event|[2,*] :count events', $group['events'], ['count' => $group['events']]) }}</a>@endif</div>

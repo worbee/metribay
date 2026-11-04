@@ -33,6 +33,9 @@ class Collector
             // Git history is always recomputed across the configured window (force pushes/late merges).
             if (! $full && $source->last_success_at && ! in_array($source->kind, ['github', 'azure_devops', 'uptimerobot', 'pagespeed'], true)) {
                 $today = $now->setTimezone($source->reporting_timezone)->startOfDay();
+                if ($source->kind === 'paddle') {
+                    $today = $today->subDay();
+                }
                 $days = $source->config[$source->kind === 'wporg' ? 'limit' : 'days'] ?? 180;
                 $overlap = (int) config('metribay.collection.revision_overlap_days', 7);
                 $from = $source->last_success_at->setTimezone($source->reporting_timezone)->startOfDay()->subDays($overlap)->max($today->subDays($days - 1));

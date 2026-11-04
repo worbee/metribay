@@ -64,6 +64,18 @@ class DashboardData
                     $partial = $definition->aggregation === 'period' ? ($periodRow ? (bool) $periodRow->is_partial : ($days === 1 && $value !== null ? (bool) $series[0]['partial'] : true)) : (! $definition->snapshot && ($known < $days || count(array_filter($series, fn ($p) => $p['partial'])) > 0));
                     $last = array_values(array_filter($series, fn ($point) => $point['value'] !== null));
                     $observedDate = $last ? end($last)['date'] : null;
+                    if ($definition->unit === 'currency') {
+                        $currencies = array_unique(array_column(array_column($last, 'context'), 'currency'));
+                        $previousCurrencies = array_unique(array_column(array_column($previous, 'context'), 'currency'));
+                        $currency = $last ? (end($last)['context']['currency'] ?? null) : null;
+                        if ($definition->aggregation === 'sum' && count($currencies) > 1) {
+                            $value = null;
+                        }
+                        if ($currency === null || $previousCurrencies !== [$currency] || count($currencies) > 1) {
+                            $prior = null;
+                            $previous = [];
+                        }
+                    }
                     // Snapshots compare their latest value with the last one of the previous period, as a difference.
                     $delta = $definition->snapshot && $definition->unit !== 'status' && $prior !== null && $value !== null ? $value - $prior : null;
                     $metrics[] = ['key' => $key, 'label' => __($definition->label), 'unit' => $definition->unit, 'value' => $value, 'display_value' => $this->format($key, $value), 'previous' => $prior, 'change' => ! $definition->snapshot && $prior !== null && $prior > 0 && $value !== null ? 100 * ($value - $prior) / $prior : null, 'delta' => $delta, 'partial' => $partial, 'series' => $series, 'previous_series' => $previous, 'coverage' => ['known' => $known, 'total' => $days], 'observed_date' => $observedDate, 'start_date' => $start->toDateString(), 'end_date' => $end->toDateString(), 'timezone' => $source->reporting_timezone, 'snapshot' => $definition->snapshot, 'context' => $observedDate ? ($byDate->get($observedDate)->context ?? []) : []];

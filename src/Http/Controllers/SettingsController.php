@@ -111,6 +111,9 @@ class SettingsController
     {
         $this->authorize($request);
         $values = $request->validate(['project_id' => ['required', 'integer'], 'kind' => ['required', Rule::in(array_keys(ProviderCatalog::all()))], 'label' => ['required', 'string', 'max:120'], 'connection_id' => ['nullable', 'integer'], 'reporting_timezone' => ['required', 'timezone'], 'config' => ['required', 'array']]);
+        if ($values['kind'] === 'paddle') {
+            throw ValidationException::withMessages(['kind' => __('Add Paddle from the project’s data source setup.')]);
+        }
         Project::query()->findOrFail($values['project_id']);
         $config = ProviderCatalog::source($values['kind'], $values['config'], $values['reporting_timezone']);
         if (ProviderCatalog::requiresConnection($values['kind'])) {
@@ -135,6 +138,9 @@ class SettingsController
         $changedEnvironments = DB::transaction(function () use ($request, $values): ?Source {
             $source = Source::query()->lockForUpdate()->whereKey($request->route('source'))->firstOrFail();
             $this->version($request, $source);
+            if ($source->kind === 'paddle') {
+                $this->authorize($request, 'manage_access');
+            }
             $connectionId = $source->connection_id;
             if ($request->has('connection_id') && ProviderCatalog::requiresConnection($source->kind)) {
                 $connection = Connection::query()->whereKey($values['connection_id'] ?? null)->where('kind', $source->kind)->first();
@@ -240,7 +246,8 @@ class SettingsController
         } catch (\Throwable) {
             throw ValidationException::withMessages(['file' => __('Choose a valid Metribay configuration JSON file.')]);
         }
-        $transfer->import($document);
+        $shareRevenue = $request->boolean('share_revenue') && app(WorkspaceAccess::class)->allows($request->user(), app(WorkspaceContext::class)->current(), 'manage_access');
+        $transfer->import($document, $shareRevenue);
 
         return back()->with('status', __('Configuration imported. Data sources without a matching connected account are paused.'));
     }

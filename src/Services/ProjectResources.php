@@ -11,7 +11,7 @@ final class ProjectResources
     {
         return match ($kind) {
             'umami' => 'website_id', 'ga4' => 'property_id', 'gsc', 'bing' => 'site_url',
-            'github', 'azure_devops' => 'repository', 'uptimerobot' => 'monitor_id', 'wporg' => 'slug', 'pagespeed' => 'url',
+            'github', 'azure_devops' => 'repository', 'uptimerobot' => 'monitor_id', 'wporg' => 'slug', 'pagespeed' => 'url', 'paddle' => 'paddle_account',
             default => throw new \InvalidArgumentException('Unknown provider.'),
         };
     }

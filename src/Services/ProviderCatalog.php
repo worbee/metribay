@@ -6,7 +6,9 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Metribay\Core\Connectors\AzureDevOpsConnector;
 use Metribay\Core\Connectors\ConnectorException;
+use Metribay\Core\Connectors\PaddleConnector;
 use Metribay\Core\Connectors\PageSpeedUrl;
+use Metribay\Core\Connectors\ProviderRequestLimit;
 use Metribay\Core\Contracts\PageSpeedCredentials;
 
 class ProviderCatalog
@@ -23,6 +25,7 @@ class ProviderCatalog
             'wporg' => ['WordPress.org', [], [], ['slug', 'limit'], 'UTC'],
             'github' => ['GitHub', ['token', 'client_id', 'installation_id', 'private_key'], ['token', 'private_key'], ['repository', 'days', 'environments'], 'UTC'],
             'uptimerobot' => ['UptimeRobot', ['api_key'], ['api_key'], ['monitor_id'], 'UTC'],
+            'paddle' => ['Paddle Billing', ['api_key'], ['api_key'], ['paddle_account', 'days'], 'UTC'],
             'azure_devops' => ['Azure DevOps', ['organization', 'token'], ['token'], ['repository', 'days', 'environments'], 'UTC'],
         ];
         $out = [];
@@ -46,7 +49,7 @@ class ProviderCatalog
             throw ValidationException::withMessages(['config' => __('Unsupported data source setting.')]);
         }
         Validator::make(['timezone' => $timezone], ['timezone' => ['required', 'timezone']])->validate();
-        if (in_array($kind, ['umami', 'bing', 'github', 'uptimerobot', 'pagespeed', 'azure_devops'], true) && ! in_array($timezone, ['UTC', 'Etc/UTC', 'Etc/GMT', 'GMT'], true)) {
+        if (in_array($kind, ['umami', 'bing', 'github', 'uptimerobot', 'pagespeed', 'azure_devops', 'paddle'], true) && ! in_array($timezone, ['UTC', 'Etc/UTC', 'Etc/GMT', 'GMT'], true)) {
             throw ValidationException::withMessages(['reporting_timezone' => __('This provider reports calendar dates in UTC.')]);
         }
         if ($kind === 'gsc' && $timezone !== 'America/Los_Angeles') {
@@ -63,6 +66,7 @@ class ProviderCatalog
             'uptimerobot' => ['monitor_id' => ['required', 'regex:/^[0-9]+$/']],
             'azure_devops' => ['repository' => ['required', 'string', 'max:129', 'regex:~^[^/\\\\\x00-\x1F\x7F]{1,64}/[^/\\\\\x00-\x1F\x7F]{1,64}$~uD'],
                 'environments' => ['sometimes', 'array', 'list', 'max:'.self::MAX_ENVIRONMENTS], 'environments.*' => ['required', 'string', 'max:255', 'regex:/^[^\x00-\x1F\x7F,]+$/u']],
+            'paddle' => ['paddle_account' => ['required', 'regex:'.PaddleConnector::ACCOUNT_PATTERN]],
             'pagespeed' => ['url' => ['required', 'string', 'max:500'], 'strategy' => ['required', 'in:mobile,desktop']],
             default => throw ValidationException::withMessages(['kind' => __('Choose a supported provider.')]),
         };
@@ -135,7 +139,7 @@ class ProviderCatalog
             }
         }
         $required = match ($kind) {
-            'umami' => ['base_url', 'username', 'password'],'azure_devops' => ['organization', 'token'],'bing','uptimerobot','pagespeed' => ['api_key'],'github' => isset($values['token']) ? ['token'] : ['client_id', 'installation_id', 'private_key'],'gsc','ga4' => isset($values['service_account']) ? ['service_account'] : ['client_id', 'client_secret', 'refresh_token'],default => throw ValidationException::withMessages(['kind' => __('Choose a supported provider.')])
+            'umami' => ['base_url', 'username', 'password'],'azure_devops' => ['organization', 'token'],'bing','uptimerobot','pagespeed','paddle' => ['api_key'],'github' => isset($values['token']) ? ['token'] : ['client_id', 'installation_id', 'private_key'],'gsc','ga4' => isset($values['service_account']) ? ['service_account'] : ['client_id', 'client_secret', 'refresh_token'],default => throw ValidationException::withMessages(['kind' => __('Choose a supported provider.')])
         };
         foreach ($required as $key) {
             if (empty($values[$key])) {
@@ -149,6 +153,16 @@ class ProviderCatalog
                 throw ValidationException::withMessages(['values.organization' => __('Use your Azure DevOps organization name, as in dev.azure.com/organization.')]);
             }
             $values['token'] = trim($values['token']);
+        }
+        if ($kind === 'paddle') {
+            $values['api_key'] = trim($values['api_key']);
+            try {
+                app(PaddleConnector::class)->accountId($values);
+            } catch (ProviderRequestLimit $exception) {
+                throw ValidationException::withMessages(['values.api_key' => $exception->getMessage()]);
+            } catch (ConnectorException) {
+                throw ValidationException::withMessages(['values.api_key' => __('Use a valid Paddle API key with only Metrics (Read).')]);
+            }
         }
         if ($kind === 'pagespeed') {
             Validator::make($values, ['api_key' => ['required', 'string', 'max:200']])->validate();
@@ -253,6 +267,7 @@ class ProviderCatalog
     public static function metricKeys(string $kind): array
     {
         return match ($kind) {
+            'paddle' => ['paddle_revenue', 'paddle_mrr', 'paddle_active_subscribers'],
             'umami','ga4' => ['visitors', 'visits', 'pageviews'],'gsc' => ['impressions', 'clicks'],'bing' => ['impressions', 'clicks', 'indexed_pages'],'wporg' => ['downloads'],'github' => ['commits', 'prs_merged', 'loc_changed', 'open_issues'],'uptimerobot' => ['monitor_status', 'uptime_24h', 'response_time_24h'],'azure_devops' => ['commits', 'prs_merged', 'pipeline_runs_succeeded', 'pipeline_runs_failed', 'open_issues'],'pagespeed' => ['lab_score', 'lab_lcp', 'lab_cls', 'lab_tbt', 'crux_lcp', 'crux_inp', 'crux_cls', 'crux_origin_lcp', 'crux_origin_inp', 'crux_origin_cls'],default => []
         };
     }

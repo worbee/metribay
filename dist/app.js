@@ -7497,7 +7497,7 @@ Nu.addEventListener("change", () => {
 function $(e) {
 	return e != null && e !== "" && Number.isFinite(Number(e)) ? Number(e) : null;
 }
-function Ru(e, t = "count", n = !1) {
+function Ru(e, t = "count", n = !1, r = null) {
 	if (e === null) return Q("Unavailable");
 	if (t === "status") return {
 		0: Q("Paused"),
@@ -7506,15 +7506,20 @@ function Ru(e, t = "count", n = !1) {
 		8: Q("Seems down"),
 		9: Q("Down")
 	}[e] ?? String(e);
-	let r = { maximumFractionDigits: t === "score" ? 0 : t === "ratio" ? 3 : t === "percent" ? 2 : +!Number.isInteger(e) };
+	if (t === "currency" && r) return new Intl.NumberFormat(document.documentElement.lang || "en", {
+		style: "currency",
+		currency: r,
+		notation: n && Math.abs(e) >= 1e3 ? "compact" : "standard"
+	}).format(e);
+	let i = { maximumFractionDigits: t === "score" ? 0 : t === "ratio" ? 3 : t === "percent" ? 2 : +!Number.isInteger(e) };
 	n && Math.abs(e) >= 1e3 && ![
 		"percent",
 		"ms",
 		"score",
 		"ratio"
-	].includes(t) && (r.notation = "compact", r.maximumFractionDigits = 1);
-	let i = new Intl.NumberFormat(document.documentElement.lang || "en", r).format(e);
-	return t === "percent" ? `${i}%` : t === "ms" ? `${i} ms` : t === "score" ? `${i}/100` : i;
+	].includes(t) && (i.notation = "compact", i.maximumFractionDigits = 1);
+	let a = new Intl.NumberFormat(document.documentElement.lang || "en", i).format(e);
+	return t === "percent" ? `${a}%` : t === "ms" ? `${a} ms` : t === "score" ? `${a}/100` : a;
 }
 function zu(e, t = !1) {
 	let n = /* @__PURE__ */ new Date(`${e}T12:00:00Z`);
@@ -7716,7 +7721,7 @@ function Ku(e, t, n) {
 							return e.length ? zu(s[e[0].dataIndex]?.date ?? "", !0) : "";
 						},
 						label(e) {
-							let n = (e.datasetIndex === 0 ? s : c)[e.dataIndex], r = Ru($(e.raw), t.unit);
+							let n = (e.datasetIndex === 0 ? s : c)[e.dataIndex], r = Ru($(e.raw), t.unit, !1, t.currency);
 							return `${e.datasetIndex === 0 ? t.label : Q("Previous (:date)", { date: zu(n?.date ?? "") })}: ${r}${n?.partial ? ` · ${Q("partial")}` : ""}`;
 						},
 						afterBody(e) {
@@ -7773,7 +7778,7 @@ function Ku(e, t, n) {
 						padding: 8,
 						font: b,
 						callback(e) {
-							return Ru(e, t.unit, !0);
+							return Ru(e, t.unit, !0, t.currency);
 						}
 					} : {
 						display: !1,
@@ -7807,7 +7812,7 @@ function Ku(e, t, n) {
 					let d = e.closest(".metric")?.querySelector("[data-chart-announcement]");
 					if (d) {
 						let e = [];
-						r.isDatasetVisible(0) && e.push(`${zu(s[o]?.date ?? "", !0)}. ${t.label}: ${Ru($(s[o]?.value), t.unit)}${s[o]?.partial ? `. ${Q("Partial date.")}` : ""}`), u && r.isDatasetVisible(1) && e.push(`${Q("Previous period")} ${zu(c[o]?.date ?? "", !0)}: ${Ru($(c[o]?.value), t.unit)}${c[o]?.partial ? `. ${Q("Partial date.")}` : ""}`);
+						r.isDatasetVisible(0) && e.push(`${zu(s[o]?.date ?? "", !0)}. ${t.label}: ${Ru($(s[o]?.value), t.unit, !1, t.currency)}${s[o]?.partial ? `. ${Q("Partial date.")}` : ""}`), u && r.isDatasetVisible(1) && e.push(`${Q("Previous period")} ${zu(c[o]?.date ?? "", !0)}: ${Ru($(c[o]?.value), t.unit, !1, t.currency)}${c[o]?.partial ? `. ${Q("Partial date.")}` : ""}`);
 						for (let t of f(s[o]?.date)) e.push(Q("Event: :title", { title: t.title }));
 						d.textContent = e.join(". ");
 					}

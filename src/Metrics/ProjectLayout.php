@@ -14,6 +14,7 @@ final class ProjectLayout
 {
     /** Groups in overview column order; metrics lead first. */
     public const GROUPS = [
+        'revenue' => ['paddle_revenue', 'paddle_mrr', 'paddle_active_subscribers'],
         'audience' => ['visits', 'visitors', 'pageviews'],
         'search' => ['clicks', 'impressions', 'indexed_pages'],
         'development' => ['commits', 'prs_merged', 'loc_changed', 'pipeline_runs_succeeded', 'pipeline_runs_failed', 'open_issues'],
@@ -22,7 +23,7 @@ final class ProjectLayout
         'page_speed' => ['lab_score', 'lab_lcp', 'lab_cls', 'lab_tbt', 'crux_lcp', 'crux_inp', 'crux_cls', 'crux_origin_lcp', 'crux_origin_inp', 'crux_origin_cls'],
     ];
 
-    public const TITLES = ['audience' => 'Audience', 'search' => 'Search', 'development' => 'Development', 'distribution' => 'Distribution', 'reliability' => 'Reliability', 'page_speed' => 'Page speed'];
+    public const TITLES = ['revenue' => 'Revenue', 'audience' => 'Audience', 'search' => 'Search', 'development' => 'Development', 'distribution' => 'Distribution', 'reliability' => 'Reliability', 'page_speed' => 'Page speed'];
 
     /** Overview columns and the group each one summarises. */
     public const SUMMARY = ['traffic' => 'audience', 'search' => 'search', 'development' => 'development', 'issues' => 'development', 'downloads' => 'distribution', 'uptime' => 'reliability', 'speed' => 'page_speed'];

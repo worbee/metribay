@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Connect Paddle Billing to see net revenue, MRR and active paying subscribers. The metrics-only key keeps individual customer data in Paddle.
+
 ## 0.14.0 — 2026-11-04
 
 - **Demo mode** for a public, read-only Metribay ([docs/DEMO.md](docs/DEMO.md)), running at https://demo.metribay.com. `METRIBAY_DEMO=true` signs visitors in as the sample owner, refuses every change with "Not available in the demo." before it reaches a controller, keeps the language in the session and shows a banner with trial and self-hosting links. `DB_READ_ONLY=true` opens SQLite read-only. The Docker `demo` role now serves read-only with automatic sign-in, and the new `demo-refresh` role rebuilds and swaps the database without downtime. Usage analytics count the demo as its own `demo` edition when enabled.

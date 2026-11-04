@@ -14,6 +14,11 @@ class ResourceDiscovery extends AbstractConnector
      */
     public function discover(string $kind, array $credentials, string $search = ''): array
     {
+        if ($kind === 'paddle') {
+            $id = (new PaddleConnector($this->http))->accountId($credentials);
+
+            return [['id' => $id, 'name' => __('Whole Paddle account'), 'domain' => '', 'timezone' => 'UTC']];
+        }
         if ($kind === 'umami') {
             return (new UmamiResourceDiscovery($this->http))->discover($credentials);
         }

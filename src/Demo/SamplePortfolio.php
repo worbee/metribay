@@ -63,6 +63,7 @@ final class SamplePortfolio
             $sources->github('tallybird/app', fn (int $ago, CarbonImmutable $date): float => 3.2 * Calendar::weekday($date, 0.45) * Calendar::holiday($date, 0.8),
                 ['repository' => 'tallybird/app', 'prs' => 0.12, 'loc' => 38, 'issues' => ['start' => 12, 'opened' => 0.42, 'closed' => 0.42], 'connected' => 160,
                     'releases' => $releases, 'deployments' => ['environment' => 'production', 'chance' => 0.55]]),
+            $sources->paddle(),
             $sources->uptime('https://tallybird.example', ['monitor' => '793104528', 'connected' => 210, 'response' => 280, 'incidents' => [23 => 34]]),
             $sources->pageSpeed(fn (int $ago): array => match (true) {
                 $ago <= 12 => ['lcp' => 3100, 'tbt' => 210, 'cls' => 0.03],
