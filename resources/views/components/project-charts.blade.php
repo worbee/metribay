@@ -15,7 +15,7 @@
     $eventsUrl = route('metribay.events.index', ['workspace'=>$workspace->slug,'project'=>$project->id,'days'=>$period->isPreset() ? $days : ($days <= 7 ? 7 : ($days <= 30 ? 30 : 90))]);
     [$rangeFrom, $rangeTo] = array_map(fn ($date) => $date->toDateString(), $period->window('UTC', \Carbon\CarbonImmutable::now('UTC')));
     $rangeMax = \Carbon\CarbonImmutable::now('UTC')->addDay()->toDateString();
-    $summaryLabels = ['traffic'=>__('Visits'),'search'=>__('Search clicks'),'development'=>__('Commits · PRs'),'issues'=>__('Open issues'),'downloads'=>__('Downloads'),'release_downloads'=>__('Release downloads'),'uptime'=>__('Uptime · 24h'),'speed'=>__('Page speed · lowest')];
+    $summaryLabels = ['traffic'=>__('Visits'),'search'=>__('Search clicks'),'development'=>__('Commits · PRs'),'issues'=>__('Open issues'),'downloads'=>__('Downloads'),'release_downloads'=>__('Release downloads'),'content'=>__('Items published'),'published_urls'=>__('Published URLs'),'uptime'=>__('Uptime · 24h'),'speed'=>__('Page speed · lowest')];
 @endphp
 <header class="project-head">
     <div class="project-head-main">

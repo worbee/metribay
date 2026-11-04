@@ -10,7 +10,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Metribay\Core\Connectors\ConnectorException;
 use Metribay\Core\Connectors\ConnectorRegistry;
+use Metribay\Core\Connectors\ContentUrl;
 use Metribay\Core\Connectors\DeploymentAccess;
 use Metribay\Core\Connectors\DiscoveryException;
 use Metribay\Core\Connectors\ProviderRequestLimit;
@@ -246,6 +248,13 @@ class SourceSetupController
             } elseif ($action === 'manual') {
                 abort_if(in_array($kind, ['pagespeed', 'paddle'], true), 422);
                 $values = $request->validate(['resource_id' => ['required', 'string', 'max:500'], 'timezone' => ['required', 'timezone']]);
+                if (in_array($kind, ['feed', 'sitemap'], true)) {
+                    try {
+                        $values['resource_id'] = ContentUrl::normalize($values['resource_id']);
+                    } catch (ConnectorException $exception) {
+                        throw ValidationException::withMessages(['resource_id' => __($exception->getMessage())]);
+                    }
+                }
                 $draft['resource'] = ['id' => $values['resource_id'], 'name' => $values['resource_id'], 'domain' => '', 'timezone' => ProviderCatalog::usesSiteTimezone($kind) ? $values['timezone'] : ProviderCatalog::all()[$kind]['default_timezone']];
                 $this->rejectAddedResource($draft);
                 $draft = $this->deploymentEnvironments($request, $draft);
@@ -257,10 +266,11 @@ class SourceSetupController
                 if ($kind === 'paddle') {
                     $request->validate(['share_revenue' => ['accepted']]);
                 }
-                $values = $request->validate(['label' => ['nullable', 'string', 'max:120'], 'days' => ['required', 'integer', 'min:1', 'max:366'], 'environments' => ['nullable', 'string', 'max:3000']]);
+                $values = $request->validate(['label' => ['nullable', 'string', 'max:120'], 'days' => ['required', 'integer', 'min:1', 'max:366'], 'environments' => ['nullable', 'string', 'max:3000'], 'convert_to_events' => ['sometimes', 'boolean']]);
                 $field = ProjectResources::field($kind);
                 $environments = ProviderCatalog::hasDeploymentEnvironments($kind) ? ProviderCatalog::environments((string) ($values['environments'] ?? '')) : [];
-                $config = ProviderCatalog::source($kind, [$field => $draft['resource']['id']] + ($kind === 'pagespeed' ? ['strategy' => $draft['resource']['strategy']] : []) + (in_array($kind, ['uptimerobot', 'pagespeed', 'github_releases'], true) ? [] : [($kind === 'wporg' ? 'limit' : 'days') => $values['days']]) + ($environments !== [] ? ['environments' => $environments] : []), $draft['resource']['timezone']);
+                $preference = $request->exists('convert_to_events') && ProviderCatalog::convertsValuesToEvents($kind) ? ['convert_to_events' => $request->boolean('convert_to_events')] : [];
+                $config = ProviderCatalog::source($kind, [$field => $draft['resource']['id']] + ($kind === 'pagespeed' ? ['strategy' => $draft['resource']['strategy']] : []) + (in_array($kind, ['uptimerobot', 'pagespeed', 'github_releases'], true) ? [] : [($kind === 'wporg' ? 'limit' : 'days') => $values['days']]) + ($environments !== [] ? ['environments' => $environments] : []) + $preference, $draft['resource']['timezone']);
                 if (! ProviderCatalog::requiresConnection($kind) && ! ProviderCatalog::connectionOptional($kind)) {
                     if ($kind === 'pagespeed' && ! app(PageSpeedCredentials::class)->available()) {
                         throw ValidationException::withMessages(['resource' => __('Page speed is temporarily unavailable. Please try again later.')]);

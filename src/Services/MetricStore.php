@@ -189,8 +189,14 @@ class MetricStore
                         throw new InvalidArgumentException('Invalid provider event URL.');
                     }
                 }
-                $at = CarbonImmutable::parse($event['occurred_at'])->utc();
-                ProjectEvent::query()->updateOrCreate(['source_id' => $source->id, 'origin' => $event['origin'], 'external_id' => (string) $event['external_id']], ['project_id' => $source->project_id, 'date' => $at->toDateString(), 'occurred_at' => $at, 'title' => $event['title'], 'body' => $event['body'] ?? '', 'url' => $event['url']]);
+                $identity = ['source_id' => $source->id, 'origin' => $event['origin'], 'external_id' => (string) $event['external_id']];
+                if (($event['occurred_at'] ?? null) !== null) {
+                    $at = CarbonImmutable::parse($event['occurred_at'])->utc();
+                } else {
+                    $stored = ProjectEvent::query()->where($identity)->first();
+                    $at = $stored instanceof ProjectEvent ? $stored->occurred_at : $now;
+                }
+                ProjectEvent::query()->updateOrCreate($identity, ['project_id' => $source->project_id, 'date' => $at->toDateString(), 'occurred_at' => $at, 'title' => $event['title'], 'body' => $event['body'] ?? '', 'url' => $event['url']]);
             }
             foreach ($result->authoritativeEvents as $origin => $since) {
                 if (! in_array($origin, $origins, true)) {

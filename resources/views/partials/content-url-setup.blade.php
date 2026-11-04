@@ -1,0 +1,4 @@
+<form class="form-stack" method="POST" action="{{ route('metribay.sources.setup', $workspace->slug) }}">@csrf<input type="hidden" name="action" value="manual"><input type="hidden" name="timezone" value="UTC">
+<div class="field"><label for="content-url">{{ $draft['kind'] === 'sitemap' ? __('Sitemap URL') : __('Feed URL') }}</label><input id="content-url" name="resource_id" type="url" inputmode="url" maxlength="500" required value="{{ old('resource_id') }}" placeholder="https://example.com/{{ $draft['kind'] === 'sitemap' ? 'sitemap.xml' : 'feed' }}">
+<p class="field-hint">{{ $draft['kind'] === 'sitemap' ? __('The public HTTPS address of a sitemap or a sitemap index.') : __('The public HTTPS address of an RSS or Atom feed.') }}</p></div>
+<div><button class="button button-primary">{{ __('Continue') }} →</button></div></form>

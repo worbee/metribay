@@ -136,8 +136,8 @@ class SettingsController
     public function sourceUpdate(Request $request): RedirectResponse
     {
         $this->authorize($request);
-        $values = $request->validate(['label' => ['required', 'string', 'max:120'], 'days' => ['nullable', 'integer', 'min:1', 'max:366'], 'enabled' => ['nullable', 'boolean'], 'connection_id' => ['nullable', 'integer'], 'environments' => ['nullable', 'string', 'max:3000']]);
-        $changedEnvironments = DB::transaction(function () use ($request, $values): ?Source {
+        $values = $request->validate(['label' => ['required', 'string', 'max:120'], 'days' => ['nullable', 'integer', 'min:1', 'max:366'], 'enabled' => ['nullable', 'boolean'], 'connection_id' => ['nullable', 'integer'], 'environments' => ['nullable', 'string', 'max:3000'], 'convert_to_events' => ['sometimes', 'boolean']]);
+        $changed = DB::transaction(function () use ($request, $values): array {
             $source = Source::query()->lockForUpdate()->whereKey($request->route('source'))->firstOrFail();
             $this->version($request, $source);
             if ($source->kind === 'paddle') {
@@ -162,6 +162,17 @@ class SettingsController
             if (isset($values['days']) && ! in_array($source->kind, ['uptimerobot', 'pagespeed', 'github_releases'], true)) {
                 $config[$source->kind === 'wporg' ? 'limit' : 'days'] = (int) $values['days'];
             }
+            $eventsChanged = null;
+            if (ProviderCatalog::convertsValuesToEvents($source->kind) && $request->exists('convert_to_events')) {
+                $imports = $request->boolean('convert_to_events');
+                if ($imports !== ProviderCatalog::importsEvents($config)) {
+                    $eventsChanged = $imports ? 'on' : 'off';
+                    if (! $imports) {
+                        ProjectEvent::query()->where('source_id', $source->id)->whereIn('origin', ProviderCatalog::eventPreferenceOrigins($source->kind))->delete();
+                    }
+                }
+                $config['convert_to_events'] = $imports;
+            }
             $environmentsChanged = false;
             if (ProviderCatalog::hasDeploymentEnvironments($source->kind) && $request->has('environments')) {
                 $environments = ProviderCatalog::environments((string) ($values['environments'] ?? ''));
@@ -177,12 +188,20 @@ class SettingsController
             }
             $source->fill(['connection_id' => $connectionId, 'label' => $values['label'], 'enabled' => $request->has('enabled') ? $request->boolean('enabled') : $source->enabled, 'config' => $config, 'version' => $source->version + 1])->save();
 
-            return $environmentsChanged ? $source : null;
+            return ['source' => $source, 'environments' => $environmentsChanged, 'events' => $eventsChanged];
         });
-        if ($changedEnvironments?->enabled && ! $changedEnvironments->project->archived) {
-            CollectSource::dispatch(app(WorkspaceContext::class)->id(), $changedEnvironments->id, true);
-
+        $source = $changed['source'];
+        if (($changed['environments'] || $changed['events'] === 'on') && $source->enabled && ! $source->project->archived) {
+            CollectSource::dispatch(app(WorkspaceContext::class)->id(), $source->id, true);
+        }
+        if ($changed['environments']) {
             return back()->with('status', __('Data source updated. Deployment events are being imported again.'));
+        }
+        if ($changed['events'] === 'off') {
+            return back()->with('status', __('Data source updated. These values will no longer be added as events.'));
+        }
+        if ($changed['events'] === 'on') {
+            return back()->with('status', __('Data source updated. Events are being imported again.'));
         }
 
         return back()->with('status', __('Data source updated. Existing history is retained.'));

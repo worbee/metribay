@@ -8,6 +8,8 @@ Default cards cover7/30/90 provider-local calendar days including today. Today m
 
 Azure DevOps exposes the same `open_issues` key from its open work items, so it shares the column and the snapshot rules. Its `pipeline_runs_succeeded` and `pipeline_runs_failed` are daily sums by finish time; the overview's Commits · PRs column also includes Azure DevOps commits and completed pull requests.
 
+**Items published** (`published_items`) is a daily sum of RSS/Atom entries and of sitemap URLs whose `lastmod` falls on that UTC day. Days the document does not mention stay unknown. **Published URLs** (`published_urls`) is the current count of addresses in a sitemap, a snapshot on the collection day with the same rules as open issues: latest value, never a sum across days, and no percentage change. A feed does not report a catalog size, so it has no Published URLs row.
+
 **Release downloads** (`release_downloads`) is the current sum of GitHub release asset download counts. It uses the same snapshot rules as open issues: the latest recorded total in the window, never a sum across days, and no percentage change. The overview adds those totals across a project's GitHub release sources. Missing dates stay empty, because GitHub does not provide a daily history to backfill. WordPress.org `downloads` stays a separate daily sum and is not mixed into this total.
 
 Overview columns match the metric keys exposed by each source. A future provider that exposes the registered `open_issues` metric joins the same overview column without a provider-specific dashboard change.

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **RSS / Atom** and **Sitemap** data sources, in a new Content group. One RSS / Atom source reads both formats. A sitemap may be a urlset or an index of urlsets. **Items published** counts dated feed entries and sitemap URLs by `lastmod`. **Published URLs** is the current size of a sitemap. Each published item is also an event. **Automatically convert these values into events** is on unless you turn it off, including for GitHub release events. Deployments stay on the environments setting. No account is required. New strings in all twelve languages. No migration.
+
 ## 0.15.0 — 2026-11-04
 
 - Connect Paddle Billing to see net revenue, MRR and active paying subscribers. The metrics-only key keeps individual customer data in Paddle.

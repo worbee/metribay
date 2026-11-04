@@ -5,7 +5,9 @@ namespace Metribay\Core\Services;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Metribay\Core\Connectors\AzureDevOpsConnector;
+use Metribay\Core\Connectors\CollectionResult;
 use Metribay\Core\Connectors\ConnectorException;
+use Metribay\Core\Connectors\ContentUrl;
 use Metribay\Core\Connectors\PaddleConnector;
 use Metribay\Core\Connectors\PageSpeedUrl;
 use Metribay\Core\Connectors\ProviderRequestLimit;
@@ -25,8 +27,10 @@ class ProviderCatalog
             'bing' => ['Bing Webmaster Tools', ['api_key'], ['api_key'], ['site_url', 'days'], 'UTC'],
             'pagespeed' => ['Page speed', ['api_key'], ['api_key'], ['url', 'strategy'], 'UTC'],
             'wporg' => ['WordPress.org', [], [], ['slug', 'limit'], 'UTC'],
-            'github' => ['GitHub', ['token', 'client_id', 'installation_id', 'private_key'], ['token', 'private_key'], ['repository', 'days', 'environments'], 'UTC'],
+            'github' => ['GitHub', ['token', 'client_id', 'installation_id', 'private_key'], ['token', 'private_key'], ['repository', 'days', 'environments', 'convert_to_events'], 'UTC'],
             'github_releases' => ['GitHub releases', ['token'], ['token'], ['repository'], 'UTC'],
+            'feed' => ['RSS / Atom', [], [], ['url', 'days', 'convert_to_events'], 'UTC'],
+            'sitemap' => ['Sitemap', [], [], ['url', 'days', 'convert_to_events'], 'UTC'],
             'uptimerobot' => ['UptimeRobot', ['api_key'], ['api_key'], ['monitor_id'], 'UTC'],
             'paddle' => ['Paddle Billing', ['api_key'], ['api_key'], ['paddle_account', 'days'], 'UTC'],
             'azure_devops' => ['Azure DevOps', ['organization', 'token'], ['token'], ['repository', 'days', 'environments'], 'UTC'],
@@ -52,7 +56,7 @@ class ProviderCatalog
             throw ValidationException::withMessages(['config' => __('Unsupported data source setting.')]);
         }
         Validator::make(['timezone' => $timezone], ['timezone' => ['required', 'timezone']])->validate();
-        if (in_array($kind, ['umami', 'bing', 'github', 'github_releases', 'uptimerobot', 'pagespeed', 'azure_devops', 'paddle'], true) && ! in_array($timezone, ['UTC', 'Etc/UTC', 'Etc/GMT', 'GMT'], true)) {
+        if (in_array($kind, ['umami', 'bing', 'github', 'github_releases', 'feed', 'sitemap', 'uptimerobot', 'pagespeed', 'azure_devops', 'paddle'], true) && ! in_array($timezone, ['UTC', 'Etc/UTC', 'Etc/GMT', 'GMT'], true)) {
             throw ValidationException::withMessages(['reporting_timezone' => __('This provider reports calendar dates in UTC.')]);
         }
         if ($kind === 'gsc' && $timezone !== 'America/Los_Angeles') {
@@ -69,6 +73,8 @@ class ProviderCatalog
             'github' => ['repository' => ['required', 'regex:~^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$~', 'max:240'],
                 'environments' => ['sometimes', 'array', 'list', 'max:'.self::MAX_ENVIRONMENTS], 'environments.*' => ['required', 'string', 'max:255', 'regex:/^[^\x00-\x1F\x7F,]+$/u']],
             'github_releases' => ['repository' => ['required', 'regex:~^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$~', 'max:240']],
+            'feed' => ['url' => ['required', 'string', 'max:500']],
+            'sitemap' => ['url' => ['required', 'string', 'max:500']],
             'uptimerobot' => ['monitor_id' => ['required', 'regex:/^[0-9]+$/']],
             'azure_devops' => ['repository' => ['required', 'string', 'max:129', 'regex:~^[^/\\\\\x00-\x1F\x7F]{1,64}/[^/\\\\\x00-\x1F\x7F]{1,64}$~uD'],
                 'environments' => ['sometimes', 'array', 'list', 'max:'.self::MAX_ENVIRONMENTS], 'environments.*' => ['required', 'string', 'max:255', 'regex:/^[^\x00-\x1F\x7F,]+$/u']],
@@ -78,13 +84,26 @@ class ProviderCatalog
         };
         if ($kind === 'pagespeed') {
             $input['strategy'] ??= 'mobile';
+            if (is_string($input['url'] ?? null)) {
+                try {
+                    $input['url'] = PageSpeedUrl::normalize($input['url']);
+                } catch (ConnectorException $exception) {
+                    throw ValidationException::withMessages(['config.url' => __($exception->getMessage())]);
+                }
+            }
         }
         $window = $kind === 'wporg' ? 'limit' : 'days';
         if (in_array($window, $provider['config'], true)) {
             $input[$window] = $input[$window] ?? 180;
             $rules[$window] = ['required', 'integer', 'min:1', 'max:366'];
         }
+        if (self::convertsValuesToEvents($kind)) {
+            $rules['convert_to_events'] = ['sometimes', 'boolean'];
+        }
         $clean = Validator::make($input, $rules)->validate();
+        if (array_key_exists('convert_to_events', $clean)) {
+            $clean['convert_to_events'] = filter_var($clean['convert_to_events'], FILTER_VALIDATE_BOOLEAN);
+        }
         if (isset($clean[$window])) {
             $clean[$window] = (int) $clean[$window];
         }
@@ -116,9 +135,9 @@ class ProviderCatalog
         if ($kind === 'plausible') {
             $clean['site_id'] = strtolower($clean['site_id']);
         }
-        if ($kind === 'pagespeed') {
+        if ($kind === 'feed' || $kind === 'sitemap') {
             try {
-                $clean['url'] = PageSpeedUrl::normalize($clean['url']);
+                $clean['url'] = ContentUrl::normalize($clean['url']);
             } catch (ConnectorException $exception) {
                 throw ValidationException::withMessages(['config.url' => __($exception->getMessage())]);
             }
@@ -246,7 +265,7 @@ class ProviderCatalog
      */
     public static function identityHash(string $kind, array $config, string $timezone): string
     {
-        unset($config['days'], $config['limit'], $config['environments']);
+        unset($config['days'], $config['limit'], $config['environments'], $config['convert_to_events']);
         ksort($config);
 
         return hash('sha256', json_encode([$kind, $config, $timezone], JSON_THROW_ON_ERROR));
@@ -258,8 +277,66 @@ class ProviderCatalog
         return match ($kind) {
             'github' => ['github_release', 'github_deployment'],
             'azure_devops' => ['azure_devops_deployment'],
+            'feed' => ['feed_item'],
+            'sitemap' => ['sitemap_url'],
             default => [],
         };
+    }
+
+    /**
+     * Origins this provider turns into events when convert_to_events is on. Deployments are chosen separately.
+     *
+     * @return list<string>
+     */
+    public static function eventPreferenceOrigins(string $kind): array
+    {
+        return match ($kind) {
+            'github' => ['github_release'],
+            'feed' => ['feed_item'],
+            'sitemap' => ['sitemap_url'],
+            default => [],
+        };
+    }
+
+    public static function convertsValuesToEvents(string $kind): bool
+    {
+        return self::eventPreferenceOrigins($kind) !== [];
+    }
+
+    /**
+     * Missing means yes, so sources created before the preference keep importing events.
+     *
+     * @param  array<string, mixed>  $config
+     */
+    public static function importsEvents(array $config): bool
+    {
+        return ($config['convert_to_events'] ?? true) !== false;
+    }
+
+    /**
+     * Drops the events controlled by convert_to_events, and does not reconcile them away.
+     *
+     * @param  array<string, mixed>  $config
+     */
+    public static function withoutConvertedEvents(string $kind, array $config, CollectionResult $result): CollectionResult
+    {
+        if (self::importsEvents($config)) {
+            return $result;
+        }
+        $origins = self::eventPreferenceOrigins($kind);
+        if ($origins === []) {
+            return $result;
+        }
+
+        return new CollectionResult(
+            daily: $result->daily,
+            periods: $result->periods,
+            events: array_values(array_filter($result->events, fn (array $event): bool => ! in_array($event['origin'], $origins, true))),
+            authoritativeEvents: array_diff_key($result->authoritativeEvents, array_flip($origins)),
+            replaceDailyDates: $result->replaceDailyDates,
+            queries: $result->queries,
+            queryMonths: $result->queryMonths,
+        );
     }
 
     /** Providers whose successful deployments to chosen environments become project events. */
@@ -286,7 +363,7 @@ class ProviderCatalog
 
     public static function requiresConnection(string $kind): bool
     {
-        return $kind !== 'wporg' && $kind !== 'github_releases' && ! ($kind === 'pagespeed' && app(PageSpeedCredentials::class)->managed());
+        return ! in_array($kind, ['wporg', 'github_releases', 'feed', 'sitemap'], true) && ! ($kind === 'pagespeed' && app(PageSpeedCredentials::class)->managed());
     }
 
     /** A token can be saved, and a public repository also works without one. */
@@ -300,7 +377,7 @@ class ProviderCatalog
     {
         return match ($kind) {
             'paddle' => ['paddle_revenue', 'paddle_mrr', 'paddle_active_subscribers'],
-            'umami','plausible','matomo','ga4' => ['visitors', 'visits', 'pageviews'],'gsc' => ['impressions', 'clicks'],'bing' => ['impressions', 'clicks', 'indexed_pages'],'wporg' => ['downloads'],'github' => ['commits', 'prs_merged', 'loc_changed', 'open_issues'],'github_releases' => ['release_downloads'],'uptimerobot' => ['monitor_status', 'uptime_24h', 'response_time_24h'],'azure_devops' => ['commits', 'prs_merged', 'pipeline_runs_succeeded', 'pipeline_runs_failed', 'open_issues'],'pagespeed' => ['lab_score', 'lab_lcp', 'lab_cls', 'lab_tbt', 'crux_lcp', 'crux_inp', 'crux_cls', 'crux_origin_lcp', 'crux_origin_inp', 'crux_origin_cls'],default => []
+            'umami','plausible','matomo','ga4' => ['visitors', 'visits', 'pageviews'],'gsc' => ['impressions', 'clicks'],'bing' => ['impressions', 'clicks', 'indexed_pages'],'wporg' => ['downloads'],'feed' => ['published_items'],'sitemap' => ['published_items', 'published_urls'],'github' => ['commits', 'prs_merged', 'loc_changed', 'open_issues'],'github_releases' => ['release_downloads'],'uptimerobot' => ['monitor_status', 'uptime_24h', 'response_time_24h'],'azure_devops' => ['commits', 'prs_merged', 'pipeline_runs_succeeded', 'pipeline_runs_failed', 'open_issues'],'pagespeed' => ['lab_score', 'lab_lcp', 'lab_cls', 'lab_tbt', 'crux_lcp', 'crux_inp', 'crux_cls', 'crux_origin_lcp', 'crux_origin_inp', 'crux_origin_cls'],default => []
         };
     }
 }
