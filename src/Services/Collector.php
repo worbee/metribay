@@ -31,7 +31,7 @@ class Collector
             $from = null;
             // Recheck recent revisions while keeping exact current/previous visitor period queries.
             // Git history is always recomputed across the configured window (force pushes/late merges).
-            if (! $full && $source->last_success_at && ! in_array($source->kind, ['github', 'azure_devops', 'uptimerobot', 'pagespeed'], true)) {
+            if (! $full && $source->last_success_at && ! in_array($source->kind, ['github', 'github_releases', 'azure_devops', 'uptimerobot', 'pagespeed'], true)) {
                 $today = $now->setTimezone($source->reporting_timezone)->startOfDay();
                 if ($source->kind === 'paddle') {
                     $today = $today->subDay();

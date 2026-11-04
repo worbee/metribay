@@ -161,6 +161,17 @@ abstract class AbstractConnector implements Connector
         }
     }
 
+    /** UTC aliases name the same offset. Any other pair must match exactly. */
+    protected function reportingTimezoneMatches(string $actual, string $expected): bool
+    {
+        if ($actual === $expected) {
+            return true;
+        }
+        $utc = ['UTC', 'Etc/UTC', 'Etc/GMT', 'GMT'];
+
+        return in_array($actual, $utc, true) && in_array($expected, $utc, true);
+    }
+
     /** @return array{metric: string, date: string, value: float, is_partial: bool} */
     protected function daily(string $metric, string $date, float $value, bool $partial = false): array
     {

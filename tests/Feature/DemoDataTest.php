@@ -86,7 +86,7 @@ class DemoDataTest extends TestCase
             $series = fn (Source $source, string $metric) => DailyMetric::query()->where('source_id', $source->id)->where('metric', $metric)->orderBy('date')->get()
                 ->mapWithKeys(fn (DailyMetric $row): array => [$row->date->toDateString() => (float) $row->value]);
 
-            foreach (Source::query()->whereIn('kind', ['ga4', 'umami'])->get() as $analytics) {
+            foreach (Source::query()->whereIn('kind', ['ga4', 'umami', 'plausible', 'matomo'])->get() as $analytics) {
                 [$visits, $visitors, $views] = [$series($analytics, 'visits'), $series($analytics, 'visitors'), $series($analytics, 'pageviews')];
                 foreach ($visits as $date => $count) {
                     $this->assertGreaterThanOrEqual($visitors[$date], $count, $analytics->label.' '.$date);
@@ -94,8 +94,15 @@ class DemoDataTest extends TestCase
                 }
                 $this->assertGreaterThanOrEqual(1.7, $views->sum() / $visits->sum());
                 $this->assertLessThanOrEqual(3.0, $views->sum() / $visits->sum());
+                $periods = PeriodMetric::query()->where('source_id', $analytics->id)->where('metric', 'visitors')->get();
+                if ($analytics->kind === 'matomo') {
+                    $this->assertCount(0, $periods, 'Matomo has no custom-range unique visitors to store.');
+
+                    continue;
+                }
+                $this->assertNotEmpty($periods);
                 // Unique visitors of a window are never the sum of its days.
-                foreach (PeriodMetric::query()->where('source_id', $analytics->id)->where('metric', 'visitors')->get() as $period) {
+                foreach ($periods as $period) {
                     $days = $visitors->filter(fn (float $value, string $date): bool => $date >= $period->start_date->toDateString() && $date <= $period->end_date->toDateString());
                     $this->assertLessThan($days->sum(), $period->value);
                     $this->assertGreaterThanOrEqual($days->max(), $period->value);

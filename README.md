@@ -10,7 +10,7 @@ This is the self-hosted edition. It's free and open source under Apache-2.0. One
 
 ## What it does
 
-**The overview is one row per project.** Visits, search clicks, commits and pull requests, open issues, downloads and uptime, with a trend line and the change against the previous period. Projects that need attention come first.
+**The overview is one row per project.** Visits, search clicks, commits and pull requests, open issues, downloads, release downloads and uptime, with a trend line and the change against the previous period. Projects that need attention come first.
 
 **Each project gets its own page.** Charts are grouped by meaning: audience, search, development, distribution, reliability and page speed. Top search queries show what people clicked, where you rank and where you're close.
 
@@ -29,10 +29,13 @@ The app speaks twelve languages: English, German, Bulgarian, Czech, Spanish, Fre
 | Provider | What Metribay reads | You need |
 |---|---|---|
 | Umami | Visits, visitors, page views | Your Umami URL and a login |
+| Plausible | Visits, visitors, page views | A Stats API key and the site domain. Plausible Cloud or a public self-hosted server |
+| Matomo | Visits, visitors, page views | An auth token, the Matomo URL and the numeric site ID. Period visitor totals stay unknown |
 | Google Analytics 4 | Visits, visitors, page views | A service account, or your own Google OAuth app |
 | Google Search Console | Clicks, impressions, top queries | A service account, or your own Google OAuth app |
 | Bing Webmaster Tools | Clicks, impressions, indexed pages, top queries | An API key |
 | GitHub | Commits, merged pull requests, lines changed, open issues, releases, deployments | A token, or your own GitHub App |
+| GitHub releases | Total release asset downloads | Nothing for a public repository; an optional token for a private one |
 | Azure DevOps | Commits, completed pull requests, pipeline runs, open bugs, deployments | A personal access token for one organization |
 | WordPress.org | Plugin downloads | Nothing |
 | PageSpeed Insights | Lighthouse scores and real-user Core Web Vitals | Your own Google API key |
@@ -40,7 +43,7 @@ The app speaks twelve languages: English, German, Bulgarian, Czech, Spanish, Fre
 
 Everything uses your own credentials. Nothing goes through a Metribay server. Credentials are encrypted with your `APP_KEY` and bound to their provider. Details per provider: [docs/PROVIDERS.md](docs/PROVIDERS.md).
 
-One limit to know about: Metribay only connects to public HTTPS endpoints. An Umami instance on your private network won't work.
+One limit to know about: Metribay only connects to public HTTPS endpoints. An Umami, Plausible or Matomo instance on your private network won't work.
 
 ## Try it in a minute
 

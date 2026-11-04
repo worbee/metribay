@@ -14,7 +14,7 @@ use Metribay\Core\Models\Project;
 class DashboardData
 {
     /** Overview columns in display order, matched by metric capability rather than provider. */
-    public const CATEGORIES = ['traffic' => 'visits', 'search' => 'clicks', 'development' => 'commits', 'issues' => 'open_issues', 'downloads' => 'downloads', 'uptime' => 'uptime_24h', 'speed' => 'lab_score'];
+    public const CATEGORIES = ['traffic' => 'visits', 'search' => 'clicks', 'development' => 'commits', 'issues' => 'open_issues', 'downloads' => 'downloads', 'release_downloads' => 'release_downloads', 'uptime' => 'uptime_24h', 'speed' => 'lab_score'];
 
     /**
      * @param  Period|int  $period  A Period, or the number of days that end today.

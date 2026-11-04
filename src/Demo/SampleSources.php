@@ -36,15 +36,15 @@ final class SampleSources
     }
 
     /**
-     * GA4 or Umami traffic. Visits come from $visits; visitors and page views follow from per-day ratios,
+     * GA4, Umami, Plausible or Matomo traffic. Visits come from $visits; visitors and page views follow from per-day ratios,
      * so a day always has visits >= visitors and page views >= visits. Unique visitors over 7, 30 and 90 days
-     * are stored as periods and are never the sum of daily visitors.
+     * are stored as periods and are never the sum of daily visitors. Matomo cannot return those period totals, so it sets periods to false.
      *
-     * Options: pages: page views per visit; returning: visits per visitor on a day; loyalty: how strongly visitors return across days.
+     * Options: pages: page views per visit; returning: visits per visitor on a day; loyalty: how strongly visitors return across days; periods: store period visitor totals.
      *
      * @param  array<string, mixed>  $config
      * @param  Closure(int, CarbonImmutable): float  $visits  Expected visits on a day.
-     * @param  array{pages: float, returning: float, loyalty: float, first?: int, timezone?: string, gaps?: list<int>, bots?: array<int, int>, sigma?: float}  $options
+     * @param  array{pages: float, returning: float, loyalty: float, first?: int, timezone?: string, gaps?: list<int>, bots?: array<int, int>, sigma?: float, periods?: bool}  $options
      */
     public function analytics(string $kind, string $label, array $config, Closure $visits, array $options): SampleSource
     {
@@ -87,16 +87,18 @@ final class SampleSources
             }
         }
         $periods = [];
-        foreach ([7, 30, 90] as $length) {
-            foreach ([0, $length] as $offset) {
-                $window = array_filter($visitors, fn (int $ago): bool => $ago >= $offset && $ago < $offset + $length, ARRAY_FILTER_USE_KEY);
-                if ($window === []) {
-                    continue; // No data in the window is unknown.
+        if ($options['periods'] ?? true) {
+            foreach ([7, 30, 90] as $length) {
+                foreach ([0, $length] as $offset) {
+                    $window = array_filter($visitors, fn (int $ago): bool => $ago >= $offset && $ago < $offset + $length, ARRAY_FILTER_USE_KEY);
+                    if ($window === []) {
+                        continue; // No data in the window is unknown.
+                    }
+                    // People come back on several days, so a window has fewer unique visitors than the sum of its days.
+                    $unique = max(max($window), (int) round(array_sum($window) / (1 + $options['loyalty'] * log($length))));
+                    $periods[] = ['metric' => 'visitors', 'start_date' => $today->subDays($offset + $length - 1)->toDateString(), 'end_date' => $today->subDays($offset)->toDateString(),
+                        'value' => (float) $unique, 'is_partial' => $kind === 'ga4' ? $offset < 3 : $offset === 0];
                 }
-                // People come back on several days, so a window has fewer unique visitors than the sum of its days.
-                $unique = max(max($window), (int) round(array_sum($window) / (1 + $options['loyalty'] * log($length))));
-                $periods[] = ['metric' => 'visitors', 'start_date' => $today->subDays($offset + $length - 1)->toDateString(), 'end_date' => $today->subDays($offset)->toDateString(),
-                    'value' => (float) $unique, 'is_partial' => $kind === 'ga4' ? $offset < 3 : $offset === 0];
             }
         }
 
@@ -204,6 +206,25 @@ final class SampleSources
         }
 
         return $this->source('wporg', $slug, ['slug' => $slug, 'limit' => 365], 'UTC', [new CollectionResult(daily: $daily)], 41);
+    }
+
+    /**
+     * GitHub release asset downloads: a lifetime total observed once a day since the source was connected.
+     * GitHub does not publish earlier daily totals, so days before the connection stay absent.
+     */
+    public function releaseDownloads(string $repository, int $connected, int $start): SampleSource
+    {
+        $today = $this->today('UTC');
+        $noise = $this->noise->fork('github-releases:'.$repository);
+        $connected = min($connected, $this->days - 1);
+        $total = $start;
+        $daily = [];
+        for ($ago = $connected; $ago >= 0; $ago--) {
+            $total += $noise->poisson(48 * ($ago === 0 ? $this->elapsed('UTC') : 1.0));
+            $daily[] = $this->row('release_downloads', $today->subDays($ago), $total, false);
+        }
+
+        return $this->source('github_releases', 'GitHub releases · '.$repository, ['repository' => $repository], 'UTC', [new CollectionResult(daily: $daily, replaceDailyDates: [$today->toDateString() => ['release_downloads']])], 37);
     }
 
     /**

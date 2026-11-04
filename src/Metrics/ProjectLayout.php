@@ -18,7 +18,7 @@ final class ProjectLayout
         'audience' => ['visits', 'visitors', 'pageviews'],
         'search' => ['clicks', 'impressions', 'indexed_pages'],
         'development' => ['commits', 'prs_merged', 'loc_changed', 'pipeline_runs_succeeded', 'pipeline_runs_failed', 'open_issues'],
-        'distribution' => ['downloads'],
+        'distribution' => ['downloads', 'release_downloads'],
         'reliability' => ['monitor_status', 'uptime_24h', 'response_time_24h'],
         'page_speed' => ['lab_score', 'lab_lcp', 'lab_cls', 'lab_tbt', 'crux_lcp', 'crux_inp', 'crux_cls', 'crux_origin_lcp', 'crux_origin_inp', 'crux_origin_cls'],
     ];
@@ -26,7 +26,7 @@ final class ProjectLayout
     public const TITLES = ['revenue' => 'Revenue', 'audience' => 'Audience', 'search' => 'Search', 'development' => 'Development', 'distribution' => 'Distribution', 'reliability' => 'Reliability', 'page_speed' => 'Page speed'];
 
     /** Overview columns and the group each one summarises. */
-    public const SUMMARY = ['traffic' => 'audience', 'search' => 'search', 'development' => 'development', 'issues' => 'development', 'downloads' => 'distribution', 'uptime' => 'reliability', 'speed' => 'page_speed'];
+    public const SUMMARY = ['traffic' => 'audience', 'search' => 'search', 'development' => 'development', 'issues' => 'development', 'downloads' => 'distribution', 'release_downloads' => 'distribution', 'uptime' => 'reliability', 'speed' => 'page_speed'];
 
     /** A rise of these is bad. */
     public const LOWER_IS_BETTER = ['open_issues', 'pipeline_runs_failed', 'response_time_24h', 'lab_lcp', 'lab_cls', 'lab_tbt', 'crux_lcp', 'crux_inp', 'crux_cls', 'crux_origin_lcp', 'crux_origin_inp', 'crux_origin_cls'];

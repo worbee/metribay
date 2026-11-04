@@ -22,6 +22,12 @@ class ResourceDiscovery extends AbstractConnector
         if ($kind === 'umami') {
             return (new UmamiResourceDiscovery($this->http))->discover($credentials);
         }
+        if ($kind === 'plausible') {
+            return (new PlausibleResourceDiscovery($this->http))->discover($credentials);
+        }
+        if ($kind === 'matomo') {
+            return (new MatomoResourceDiscovery($this->http))->discover($credentials);
+        }
         if ($kind === 'azure_devops') {
             return $this->azureDevOps($credentials);
         }
@@ -29,11 +35,11 @@ class ResourceDiscovery extends AbstractConnector
         if (in_array($kind, ['ga4', 'gsc'], true)) {
             $scope = $kind === 'ga4' ? 'https://www.googleapis.com/auth/analytics.readonly' : 'https://www.googleapis.com/auth/webmasters.readonly';
             $headers = ['Authorization' => 'Bearer '.(new GoogleToken($this->http))->fetch($credentials, $scope)];
-        } elseif ($kind === 'github') {
+        } elseif (in_array($kind, ['github', 'github_releases'], true)) {
             if (! isset($credentials['token'])) {
-                throw new ConnectorException('Use manual repository entry for this GitHub App connection.');
+                throw new ConnectorException($kind === 'github' ? 'Use manual repository entry for this GitHub App connection.' : 'Add a personal access token before listing repositories.');
             }
-            $headers = ['Authorization' => 'Bearer '.$credentials['token'], 'X-GitHub-Api-Version' => GitHubConnector::API_VERSION];
+            $headers = ['Authorization' => 'Bearer '.$credentials['token'], 'Accept' => 'application/vnd.github+json', 'X-GitHub-Api-Version' => GitHubConnector::API_VERSION];
         }
         $out = [];
         $cursor = '';
@@ -42,7 +48,7 @@ class ResourceDiscovery extends AbstractConnector
             $url = match ($kind) {
                 'ga4' => 'https://analyticsadmin.googleapis.com/v1beta/accountSummaries',
                 'gsc' => 'https://www.googleapis.com/webmasters/v3/sites',
-                'github' => 'https://api.github.com/user/repos',
+                'github', 'github_releases' => 'https://api.github.com/user/repos',
                 'bing' => 'https://ssl.bing.com/webmaster/api.svc/json/GetUserSites',
                 'uptimerobot' => 'https://api.uptimerobot.com/v2/getMonitors',
                 'wporg' => 'https://api.wordpress.org/plugins/info/1.2/',
@@ -50,7 +56,7 @@ class ResourceDiscovery extends AbstractConnector
             };
             $options['query'] = match ($kind) {
                 'ga4' => ['pageSize' => 200, 'pageToken' => $cursor],
-                'github' => ['per_page' => 100, 'page' => $page, 'sort' => 'full_name'],
+                'github', 'github_releases' => ['per_page' => 100, 'page' => $page, 'sort' => 'full_name'],
                 'bing' => ['apikey' => $credentials['api_key'] ?? ''],
                 'wporg' => ['action' => 'query_plugins', 'request' => ['search' => $search, 'per_page' => 30]],
                 default => [],
@@ -73,7 +79,7 @@ class ResourceDiscovery extends AbstractConnector
             }
             $rows = match ($kind) {
                 'ga4' => $data['accountSummaries'] ?? [],
-                'gsc' => $data['siteEntry'] ?? [], 'github' => $data, 'bing' => $data['d'] ?? [],
+                'gsc' => $data['siteEntry'] ?? [], 'github', 'github_releases' => $data, 'bing' => $data['d'] ?? [],
                 'uptimerobot' => $data['monitors'] ?? [], 'wporg' => $data['plugins'] ?? [],
             };
             if (! is_array($rows) || ! array_is_list($rows)) {
@@ -95,7 +101,7 @@ class ResourceDiscovery extends AbstractConnector
                     continue;
                 }
                 $id = (string) match ($kind) {
-                    'gsc' => $row['siteUrl'] ?? '', 'github' => $row['full_name'] ?? '',
+                    'gsc' => $row['siteUrl'] ?? '', 'github', 'github_releases' => $row['full_name'] ?? '',
                     'bing' => $row['Url'] ?? '', 'uptimerobot' => $row['id'] ?? '', 'wporg' => $row['slug'] ?? '',
                 };
                 if ($id === '') {
@@ -110,7 +116,7 @@ class ResourceDiscovery extends AbstractConnector
             $cursor = (string) ($data['nextPageToken'] ?? '');
             $more = match ($kind) {
                 'ga4' => $cursor !== '',
-                'github' => count($rows) === 100, 'uptimerobot' => $page * 50 < (int) ($data['pagination']['total'] ?? 0),
+                'github', 'github_releases' => count($rows) === 100, 'uptimerobot' => $page * 50 < (int) ($data['pagination']['total'] ?? 0),
                 default => false,
             };
             if (! $more || count($out) >= 2000) {
