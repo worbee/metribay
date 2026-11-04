@@ -59,7 +59,10 @@ final class MatomoConnector extends AbstractConnector
         return new CollectionResult(daily: $daily);
     }
 
-    /** @param array<string, string> $params @return array<mixed> */
+    /**
+     * @param  array<string, string>  $params
+     * @return array<mixed>
+     */
     private function call(MatomoClient $client, string $base, string $token, array $params): array
     {
         $response = $client->call($base, $token, $params);

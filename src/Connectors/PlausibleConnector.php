@@ -54,7 +54,7 @@ final class PlausibleConnector extends AbstractConnector
             if ($totals === []) {
                 continue;
             }
-            if (count($totals) !== 1 || ($totals[0]['dimensions'] ?? []) !== []) {
+            if (count($totals) !== 1 || $totals[0]['dimensions'] !== []) {
                 throw new ConnectorException('Plausible returned an unexpected visitor total.');
             }
             $periods[] = ['metric' => 'visitors', 'start_date' => $from->toDateString(), 'end_date' => $end->toDateString(),
@@ -64,7 +64,10 @@ final class PlausibleConnector extends AbstractConnector
         return new CollectionResult(daily: $daily, periods: $periods);
     }
 
-    /** @param array<string, mixed> $body @return array<string, mixed> */
+    /**
+     * @param  array<string, mixed>  $body
+     * @return array<string, mixed>
+     */
     private function query(PlausibleClient $client, string $base, string $key, array $body): array
     {
         $data = $this->decoded($client->request('POST', $base, $key, '/api/v2/query', ['json' => $body]));
