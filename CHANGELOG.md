@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Plausible and Matomo** data sources, on the same path as Umami. Plausible takes a public HTTPS server URL (`https://plausible.io` for Cloud) and a team Stats API key, then the site domain. Matomo takes the server URL and an auth token (`token_auth` in the POST body), then the numeric site ID. Both follow the site's reporting timezone. Plausible stores exact period visitors. Matomo does not, because a custom range has no true unique visitors. New strings in all twelve languages. No migration.
+
 ## 0.14.0 — 2026-11-04
 
 - **Demo mode** for a public, read-only Metribay ([docs/DEMO.md](docs/DEMO.md)), running at https://demo.metribay.com. `METRIBAY_DEMO=true` signs visitors in as the sample owner, refuses every change with "Not available in the demo." before it reaches a controller, keeps the language in the session and shows a banner with trial and self-hosting links. `DB_READ_ONLY=true` opens SQLite read-only. The Docker `demo` role now serves read-only with automatic sign-in, and the new `demo-refresh` role rebuilds and swaps the database without downtime. Usage analytics count the demo as its own `demo` edition when enabled.

@@ -11,7 +11,7 @@ final readonly class ConnectorRegistry
     /** @return list<string> */
     public function kinds(): array
     {
-        return ['umami', 'ga4', 'gsc', 'bing', 'wporg', 'github', 'uptimerobot', 'pagespeed', 'azure_devops'];
+        return ['umami', 'plausible', 'matomo', 'ga4', 'gsc', 'bing', 'wporg', 'github', 'uptimerobot', 'pagespeed', 'azure_devops'];
     }
 
     /** The GitHub connector, which also lists deployment environments. */
@@ -34,6 +34,8 @@ final readonly class ConnectorRegistry
     {
         return match ($kind) {
             'umami' => new UmamiConnector($this->http),
+            'plausible' => new PlausibleConnector($this->http),
+            'matomo' => new MatomoConnector($this->http),
             'ga4' => new Ga4Connector($this->http),
             'gsc' => new GscConnector($this->http),
             'bing' => new BingConnector($this->http),

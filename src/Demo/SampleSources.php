@@ -20,15 +20,15 @@ final class SampleSources
     public function __construct(private readonly Noise $noise, private readonly CarbonImmutable $now, private readonly int $days) {}
 
     /**
-     * GA4 or Umami traffic. Visits come from $visits; visitors and page views follow from per-day ratios,
+     * GA4, Umami, Plausible or Matomo traffic. Visits come from $visits; visitors and page views follow from per-day ratios,
      * so a day always has visits >= visitors and page views >= visits. Unique visitors over 7, 30 and 90 days
-     * are stored as periods and are never the sum of daily visitors.
+     * are stored as periods and are never the sum of daily visitors. Matomo cannot return those period totals, so it sets periods to false.
      *
-     * Options: pages: page views per visit; returning: visits per visitor on a day; loyalty: how strongly visitors return across days.
+     * Options: pages: page views per visit; returning: visits per visitor on a day; loyalty: how strongly visitors return across days; periods: store period visitor totals.
      *
      * @param  array<string, mixed>  $config
      * @param  Closure(int, CarbonImmutable): float  $visits  Expected visits on a day.
-     * @param  array{pages: float, returning: float, loyalty: float, first?: int, timezone?: string, gaps?: list<int>, bots?: array<int, int>, sigma?: float}  $options
+     * @param  array{pages: float, returning: float, loyalty: float, first?: int, timezone?: string, gaps?: list<int>, bots?: array<int, int>, sigma?: float, periods?: bool}  $options
      */
     public function analytics(string $kind, string $label, array $config, Closure $visits, array $options): SampleSource
     {
@@ -71,16 +71,18 @@ final class SampleSources
             }
         }
         $periods = [];
-        foreach ([7, 30, 90] as $length) {
-            foreach ([0, $length] as $offset) {
-                $window = array_filter($visitors, fn (int $ago): bool => $ago >= $offset && $ago < $offset + $length, ARRAY_FILTER_USE_KEY);
-                if ($window === []) {
-                    continue; // No data in the window is unknown.
+        if ($options['periods'] ?? true) {
+            foreach ([7, 30, 90] as $length) {
+                foreach ([0, $length] as $offset) {
+                    $window = array_filter($visitors, fn (int $ago): bool => $ago >= $offset && $ago < $offset + $length, ARRAY_FILTER_USE_KEY);
+                    if ($window === []) {
+                        continue; // No data in the window is unknown.
+                    }
+                    // People come back on several days, so a window has fewer unique visitors than the sum of its days.
+                    $unique = max(max($window), (int) round(array_sum($window) / (1 + $options['loyalty'] * log($length))));
+                    $periods[] = ['metric' => 'visitors', 'start_date' => $today->subDays($offset + $length - 1)->toDateString(), 'end_date' => $today->subDays($offset)->toDateString(),
+                        'value' => (float) $unique, 'is_partial' => $kind === 'ga4' ? $offset < 3 : $offset === 0];
                 }
-                // People come back on several days, so a window has fewer unique visitors than the sum of its days.
-                $unique = max(max($window), (int) round(array_sum($window) / (1 + $options['loyalty'] * log($length))));
-                $periods[] = ['metric' => 'visitors', 'start_date' => $today->subDays($offset + $length - 1)->toDateString(), 'end_date' => $today->subDays($offset)->toDateString(),
-                    'value' => (float) $unique, 'is_partial' => $kind === 'ga4' ? $offset < 3 : $offset === 0];
             }
         }
 

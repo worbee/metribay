@@ -29,6 +29,8 @@ The app speaks twelve languages: English, German, Bulgarian, Czech, Spanish, Fre
 | Provider | What Metribay reads | You need |
 |---|---|---|
 | Umami | Visits, visitors, page views | Your Umami URL and a login |
+| Plausible | Visits, visitors, page views | A Stats API key and the site domain. Plausible Cloud or a public self-hosted server |
+| Matomo | Visits, visitors, page views | An auth token, the Matomo URL and the numeric site ID. Period visitor totals stay unknown |
 | Google Analytics 4 | Visits, visitors, page views | A service account, or your own Google OAuth app |
 | Google Search Console | Clicks, impressions, top queries | A service account, or your own Google OAuth app |
 | Bing Webmaster Tools | Clicks, impressions, indexed pages, top queries | An API key |
@@ -40,7 +42,7 @@ The app speaks twelve languages: English, German, Bulgarian, Czech, Spanish, Fre
 
 Everything uses your own credentials. Nothing goes through a Metribay server. Credentials are encrypted with your `APP_KEY` and bound to their provider. Details per provider: [docs/PROVIDERS.md](docs/PROVIDERS.md).
 
-One limit to know about: Metribay only connects to public HTTPS endpoints. An Umami instance on your private network won't work.
+One limit to know about: Metribay only connects to public HTTPS endpoints. An Umami, Plausible or Matomo instance on your private network won't work.
 
 ## Try it in a minute
 
