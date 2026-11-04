@@ -1,0 +1,38 @@
+# Adds PostgreSQL to docker/compose.yaml. Set POSTGRES_PASSWORD in docker/.env.
+#   docker compose -f docker/compose.yaml -f docker/compose.postgres.yaml up -d
+
+x-postgres: &postgres
+  environment:
+    DB_CONNECTION: pgsql
+    DB_HOST: postgres
+    DB_PORT: 5432
+    DB_DATABASE: metribay
+    DB_USERNAME: metribay
+    DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in docker/.env}
+
+services:
+  web:
+    <<: *postgres
+    depends_on:
+      postgres: {condition: service_healthy}
+  worker:
+    <<: *postgres
+  scheduler:
+    <<: *postgres
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: metribay
+      POSTGRES_USER: metribay
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in docker/.env}
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U metribay -d metribay"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres:

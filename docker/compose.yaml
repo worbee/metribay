@@ -1,0 +1,32 @@
+# Metribay standalone host with SQLite. Usage and settings: docs/DOCKER.md.
+#   cp docker/.env.example docker/.env   # then set APP_KEY and APP_URL
+#   docker compose -f docker/compose.yaml up -d
+# For PostgreSQL add: -f docker/compose.postgres.yaml
+
+x-metribay: &metribay
+  image: ${METRIBAY_IMAGE:-ghcr.io/worbee/metribay:latest}
+  build: {context: .., dockerfile: Dockerfile}
+  env_file: .env
+  restart: unless-stopped
+  volumes:
+    - metribay:/var/lib/metribay
+
+services:
+  web:
+    <<: *metribay
+    command: [web]
+    ports: ["${METRIBAY_PORT:-127.0.0.1:8080}:8080"]
+  worker:
+    <<: *metribay
+    command: [worker]
+    stop_grace_period: 2m
+    depends_on:
+      web: {condition: service_healthy}
+  scheduler:
+    <<: *metribay
+    command: [scheduler]
+    depends_on:
+      web: {condition: service_healthy}
+
+volumes:
+  metribay:

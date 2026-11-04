@@ -19,3 +19,5 @@
 .DS_Store
 .idea/
 .gstack/
+
+/docker/.env

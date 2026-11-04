@@ -14,6 +14,10 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->appendToGroup('web', SecurityHeaders::class);
+        // Comma-separated proxy addresses or CIDR ranges, for HTTPS terminated by a reverse proxy.
+        if ($proxies = array_filter(explode(',', (string) env('METRIBAY_TRUSTED_PROXIES', '')))) {
+            $middleware->trustProxies(at: $proxies);
+        }
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->dontFlash(['values', 'token', 'password', 'password_confirmation', 'current_password']);

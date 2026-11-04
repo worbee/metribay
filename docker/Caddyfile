@@ -1,0 +1,13 @@
+{
+	skip_install_trust
+	admin off
+	auto_https off
+	frankenphp
+}
+
+# Plain HTTP inside the container. Terminate HTTPS in your reverse proxy (docs/DOCKER.md).
+:8080 {
+	root /app/standalone/public
+	encode zstd br gzip
+	php_server
+}

@@ -48,3 +48,17 @@ jobs:
       - run: npm ci && npm test && npm run build && git diff --exit-code -- dist
         working-directory: .
         if: matrix.database == 'sqlite'
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with: {persist-credentials: false}
+      - run: docker build -t metribay:ci .
+      - name: Serve the sample portfolio from the image
+        run: |
+          docker run -d --name metribay -p 8080:8080 -e APP_KEY="$(docker run --rm metribay:ci key)" metribay:ci demo
+          for attempt in $(seq 1 30); do curl -fsS -o /dev/null http://127.0.0.1:8080/up && break; sleep 2; done
+          curl -fsS -o /dev/null http://127.0.0.1:8080/up
+          curl -fsS http://127.0.0.1:8080/login | grep -q 'Metribay'
+      - if: failure()
+        run: docker logs metribay
