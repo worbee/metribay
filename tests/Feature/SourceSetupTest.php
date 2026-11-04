@@ -10,6 +10,7 @@ use Metribay\Core\Connectors\SafeHttpClient;
 use Metribay\Core\Jobs\CollectSource;
 use Metribay\Core\Models\Connection;
 use Metribay\Core\Models\Project;
+use Metribay\Core\Models\Source;
 use Metribay\Core\Models\Workspace;
 use Metribay\Core\Services\WorkspaceContext;
 use Tests\TestCase;
@@ -203,5 +204,47 @@ class SourceSetupTest extends TestCase
         $workspace = Workspace::create(['owner_id' => $owner->id, 'name' => 'Setup', 'slug' => 'setup']);
         $project = app(WorkspaceContext::class)->run($workspace, fn () => Project::create(['name' => 'Archived', 'slug' => 'archived', 'archived' => true]));
         $this->actingAs($owner)->get('/w/setup/projects/'.$project->id)->assertOk()->assertDontSee('/sources/new?project=', false);
+    }
+
+    public function test_github_release_downloads_can_be_added_for_a_public_repository_without_a_token(): void
+    {
+        Queue::fake();
+        $owner = User::factory()->create();
+        $workspace = Workspace::create(['owner_id' => $owner->id, 'name' => 'Setup', 'slug' => 'setup']);
+        $project = $this->projectIn($workspace);
+        $this->actingAs($owner)->get('/w/setup/sources/new?project='.$project->id);
+        $this->post('/w/setup/sources/setup', ['action' => 'provider', 'kind' => 'github_releases'])->assertRedirect();
+        $this->get('/w/setup/sources/new')->assertOk()->assertSee('Continue without a token')->assertSee('Personal access token');
+        $this->post('/w/setup/sources/setup', ['action' => 'skip'])->assertSessionHasNoErrors();
+        $this->get('/w/setup/sources/new')->assertOk()->assertSee('owner/repository')->assertDontSee('Find available items');
+        $this->post('/w/setup/sources/setup', ['action' => 'manual', 'resource_id' => 'example/repo', 'timezone' => 'UTC'])->assertSessionHasNoErrors();
+        $this->post('/w/setup/sources/setup', ['action' => 'finish', 'days' => 180])->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('sources', ['kind' => 'github_releases', 'project_id' => $project->id, 'connection_id' => null, 'reporting_timezone' => 'UTC']);
+        $this->assertDatabaseCount('connections', 0);
+        Queue::assertPushed(CollectSource::class);
+    }
+
+    public function test_github_release_downloads_keep_an_optional_token(): void
+    {
+        Queue::fake();
+        Http::preventStrayRequests();
+        Http::fake(['api.github.com/*' => Http::response(['message' => 'Bad credentials'], 401)]);
+        $this->app->instance(SafeHttpClient::class, new SafeHttpClient(fn () => ['93.184.216.34']));
+        $owner = User::factory()->create();
+        $workspace = Workspace::create(['owner_id' => $owner->id, 'name' => 'Setup', 'slug' => 'setup']);
+        $project = $this->projectIn($workspace);
+        $this->actingAs($owner)->get('/w/setup/sources/new?project='.$project->id);
+        $this->post('/w/setup/sources/setup', ['action' => 'provider', 'kind' => 'github_releases']);
+        $this->post('/w/setup/sources/setup', ['action' => 'account', 'values' => ['token' => 'synthetic-token']])->assertSessionHasNoErrors();
+        $this->assertDatabaseCount('connections', 1);
+        $this->post('/w/setup/sources/setup', ['action' => 'manual', 'resource_id' => 'example/repo', 'timezone' => 'UTC']);
+        $this->post('/w/setup/sources/setup', ['action' => 'finish', 'days' => 180])->assertSessionHasNoErrors();
+        app(WorkspaceContext::class)->run($workspace, function (): void {
+            $connection = Connection::query()->firstOrFail();
+            $source = Source::query()->firstOrFail();
+            $this->assertSame('github_releases', $connection->kind);
+            $this->assertSame($connection->id, $source->connection_id);
+            $this->assertSame(['repository' => 'example/repo'], $source->config);
+        });
     }
 }

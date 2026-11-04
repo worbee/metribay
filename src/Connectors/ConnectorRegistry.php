@@ -11,7 +11,7 @@ final readonly class ConnectorRegistry
     /** @return list<string> */
     public function kinds(): array
     {
-        return ['umami', 'ga4', 'gsc', 'bing', 'wporg', 'github', 'uptimerobot', 'pagespeed', 'azure_devops'];
+        return ['umami', 'ga4', 'gsc', 'bing', 'wporg', 'github', 'github_releases', 'uptimerobot', 'pagespeed', 'azure_devops'];
     }
 
     /** The GitHub connector, which also lists deployment environments. */
@@ -39,6 +39,7 @@ final readonly class ConnectorRegistry
             'bing' => new BingConnector($this->http),
             'wporg' => new WpOrgConnector($this->http),
             'github' => new GitHubConnector($this->http),
+            'github_releases' => new GitHubReleasesConnector($this->http),
             'uptimerobot' => new UptimeRobotConnector($this->http),
             'pagespeed' => new PageSpeedConnector($this->http),
             'azure_devops' => new AzureDevOpsConnector($this->http),

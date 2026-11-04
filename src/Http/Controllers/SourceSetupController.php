@@ -139,7 +139,7 @@ class SourceSetupController
             $draft = array_intersect_key($draft, ['project_id' => true]);
         } elseif ($action === 'provider') {
             $values = $request->validate(['kind' => ['required', Rule::in(array_keys(ProviderCatalog::all()))]]);
-            $draft = array_intersect_key($draft, ['project_id' => true]) + ['kind' => $values['kind'], 'step' => ! ProviderCatalog::requiresConnection($values['kind']) ? 'resources' : 'account'];
+            $draft = array_intersect_key($draft, ['project_id' => true]) + ['kind' => $values['kind'], 'step' => ProviderCatalog::requiresConnection($values['kind']) || ProviderCatalog::connectionOptional($values['kind']) ? 'account' : 'resources'];
         } else {
             abort_unless(isset($draft['kind'], $draft['project_id']), 409, __('Setup expired. Open the project and choose Add data source again.'));
             $kind = $draft['kind'];
@@ -170,9 +170,16 @@ class SourceSetupController
                 } catch (\Throwable) {
                     $draft['discovery_error'] = __('Use manual entry below, or ask an owner to list resources and check account access.');
                 }
+            } elseif ($action === 'skip') {
+                abort_unless(ProviderCatalog::connectionOptional($kind), 422);
+                unset($draft['connection_id'], $draft['resource'], $draft['resources'], $draft['listed'], $draft['discovery_error']);
+                $draft['step'] = 'resources';
             } elseif ($action === 'discover') {
                 if ($kind !== 'wporg') {
                     $this->authorize($request, 'manage_connections');
+                }
+                if (ProviderCatalog::connectionOptional($kind) && ! isset($draft['connection_id'])) {
+                    throw ValidationException::withMessages(['resource' => __('Add a personal access token to list repositories, or enter the repository manually.')]);
                 }
                 $request->validate(['search' => ['nullable', 'string', 'max:120']]);
                 try {
@@ -235,14 +242,14 @@ class SourceSetupController
                 $values = $request->validate(['label' => ['nullable', 'string', 'max:120'], 'days' => ['required', 'integer', 'min:1', 'max:366'], 'environments' => ['nullable', 'string', 'max:3000']]);
                 $field = ProjectResources::field($kind);
                 $environments = ProviderCatalog::hasDeploymentEnvironments($kind) ? ProviderCatalog::environments((string) ($values['environments'] ?? '')) : [];
-                $config = ProviderCatalog::source($kind, [$field => $draft['resource']['id']] + ($kind === 'pagespeed' ? ['strategy' => $draft['resource']['strategy']] : []) + (in_array($kind, ['uptimerobot', 'pagespeed'], true) ? [] : [($kind === 'wporg' ? 'limit' : 'days') => $values['days']]) + ($environments !== [] ? ['environments' => $environments] : []), $draft['resource']['timezone']);
-                if (! ProviderCatalog::requiresConnection($kind)) {
+                $config = ProviderCatalog::source($kind, [$field => $draft['resource']['id']] + ($kind === 'pagespeed' ? ['strategy' => $draft['resource']['strategy']] : []) + (in_array($kind, ['uptimerobot', 'pagespeed', 'github_releases'], true) ? [] : [($kind === 'wporg' ? 'limit' : 'days') => $values['days']]) + ($environments !== [] ? ['environments' => $environments] : []), $draft['resource']['timezone']);
+                if (! ProviderCatalog::requiresConnection($kind) && ! ProviderCatalog::connectionOptional($kind)) {
                     if ($kind === 'pagespeed' && ! app(PageSpeedCredentials::class)->available()) {
                         throw ValidationException::withMessages(['resource' => __('Page speed is temporarily unavailable. Please try again later.')]);
                     }
                     unset($draft['connection_id']);
                 }
-                if (ProviderCatalog::requiresConnection($kind)) {
+                if (ProviderCatalog::requiresConnection($kind) || (ProviderCatalog::connectionOptional($kind) && isset($draft['connection_id']))) {
                     Connection::query()->where('kind', $kind)->findOrFail($draft['connection_id'] ?? null);
                 }
                 $source = DB::transaction(function () use ($values, $draft, $kind, $config) {

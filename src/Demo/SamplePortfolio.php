@@ -100,6 +100,7 @@ final class SamplePortfolio
                 * Calendar::weekday($date, 0.72) * Calendar::holiday($date, 0.4), $updates, [131]),
             $sources->github('quillform/quillform', fn (int $ago, CarbonImmutable $date): float => 2.4 * Calendar::weekday($date, 0.3) * Calendar::holiday($date, 0.85),
                 ['repository' => 'quillform/quillform', 'prs' => 0.55, 'loc' => 52, 'issues' => ['start' => 41, 'opened' => 1.3, 'closed' => 1.25], 'connected' => 190, 'releases' => $releases]),
+            $sources->releaseDownloads('quillform/quillform', 180, 86000),
             $sources->search('gsc', 'sc-domain:quillform.example', ['site_url' => 'sc-domain:quillform.example', 'days' => 180],
                 fn (int $ago, CarbonImmutable $date): float => 2500 * Shape::growth($ago, [[400, 0.75], [141, 0.85], [100, 1.0], [0, 1.08]]) * Shape::spike($ago, $talk, 0.35, 3)
                     * Calendar::weekday($date, 0.6) * Calendar::holiday($date, 0.45),

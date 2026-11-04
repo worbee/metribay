@@ -191,6 +191,25 @@ final class SampleSources
     }
 
     /**
+     * GitHub release asset downloads: a lifetime total observed once a day since the source was connected.
+     * GitHub does not publish earlier daily totals, so days before the connection stay absent.
+     */
+    public function releaseDownloads(string $repository, int $connected, int $start): SampleSource
+    {
+        $today = $this->today('UTC');
+        $noise = $this->noise->fork('github-releases:'.$repository);
+        $connected = min($connected, $this->days - 1);
+        $total = $start;
+        $daily = [];
+        for ($ago = $connected; $ago >= 0; $ago--) {
+            $total += $noise->poisson(48 * ($ago === 0 ? $this->elapsed('UTC') : 1.0));
+            $daily[] = $this->row('release_downloads', $today->subDays($ago), $total, false);
+        }
+
+        return $this->source('github_releases', 'GitHub releases · '.$repository, ['repository' => $repository], 'UTC', [new CollectionResult(daily: $daily, replaceDailyDates: [$today->toDateString() => ['release_downloads']])], 37);
+    }
+
+    /**
      * A GitHub repository: bursty commits (quiet, normal and busy stretches; pushes before releases), merged pull requests,
      * lines changed, open issues since the source was connected, releases and optional deployments.
      *
