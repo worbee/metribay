@@ -2,7 +2,7 @@
 
 One image runs the standalone host in three roles: `web` (FrankenPHP serving HTTP on port 8080), `worker` (queue) and `scheduler`. PHP 8.5 on Alpine, non-root user `www-data` (uid 82). Everything the application writes, including the SQLite database, lives in the volume `/var/lib/metribay`.
 
-The image is planned as `ghcr.io/worbee/metribay` but is not published yet. Until it is, build it from this repository: the compose files below build it automatically when it is missing.
+The image is published as `ghcr.io/worbee/metribay` for linux/amd64 and linux/arm64, tagged `latest`, `{major}.{minor}` and the exact version on every release. To build it yourself from this repository:
 
 ```sh
 docker build -t ghcr.io/worbee/metribay:latest .

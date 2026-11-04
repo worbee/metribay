@@ -1,7 +1,11 @@
 # Changelog
 
-## Unreleased
+## 0.12.0 — 2026-11-04
 
+First public release.
+
+- **Docker image** `ghcr.io/worbee/metribay` for linux/amd64 and linux/arm64: one FrankenPHP image with `web`, `worker`, `scheduler`, `demo` and `key` roles, compose files for SQLite and PostgreSQL ([docs/DOCKER.md](docs/DOCKER.md)). The standalone host can trust a reverse proxy (`METRIBAY_TRUSTED_PROXIES`) and set the SQLite busy timeout and journal mode from the environment.
+- README for self-hosters, contributing, security and conduct guidelines, issue and pull request templates.
 - **Usage analytics are off by default in self-hosted installs.** Without `METRIBAY_ANALYTICS_ENABLED`, the personal edition shows no consent prompt and loads no analytics; Cloud and Desktop keep asking. `UsageAnalytics::enabled()` resolves the default. Set `true` to ask users, `false` to turn it off anywhere.
 - **Realistic sample portfolio.** `metribay:demo` now generates seven fictional projects (one per audience, `.example` domains) with 400 days of seeded, deterministic data for every provider metric: seasons and holidays, launch spikes, a search update, bot spikes, missing and provisional days, unique-visitor periods, top queries and monthly archives, release-driven downloads, bursty commits, uptime incidents, page speed that moves after deploys, and matching events. `--fresh` rebuilds a dedicated `demo.sqlite`; `scripts/demo-database.sh` and `scripts/capture-demo.mjs` (Playwright, dev dependency) produce the database and screenshots. See [Demo data](docs/DEMO_DATA.md).
 - Overview: project names and domains are no longer cut short. "View project details" takes no room until a row is hovered or focused, the project column keeps at least 190 px, and long translated column headers wrap.

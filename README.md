@@ -44,11 +44,9 @@ One limit to know about: Metribay only connects to public HTTPS endpoints. An Um
 
 ## Try it in a minute
 
-The repository builds a Docker image with a fictional sample portfolio. Seven made-up projects, 400 days of history.
+The Docker image has a fictional sample portfolio built in. Seven made-up projects, 400 days of history.
 
 ```sh
-git clone https://github.com/worbee/metribay.git && cd metribay
-docker build -t ghcr.io/worbee/metribay .
 docker run --rm -p 127.0.0.1:8080:8080 -e APP_KEY="$(docker run --rm ghcr.io/worbee/metribay key)" ghcr.io/worbee/metribay demo
 ```
 
@@ -59,6 +57,7 @@ Open http://127.0.0.1:8080 and sign in as `demo@metribay.example` with the passw
 ### With Docker
 
 ```sh
+git clone https://github.com/worbee/metribay.git && cd metribay
 cp docker/.env.example docker/.env      # set APP_KEY and APP_URL
 docker compose -f docker/compose.yaml up -d
 docker compose -f docker/compose.yaml exec web php artisan metribay:install --email=you@example.com
@@ -66,7 +65,7 @@ docker compose -f docker/compose.yaml exec web php artisan metribay:install --em
 
 That starts the web server, the queue worker and the scheduler, with SQLite in a volume. PostgreSQL, HTTPS behind a reverse proxy, backups and updates are in [docs/DOCKER.md](docs/DOCKER.md).
 
-A prebuilt image at `ghcr.io/worbee/metribay` is planned. For now, Compose builds it from this repository.
+Compose uses the published image `ghcr.io/worbee/metribay`. To run your own build, `docker compose -f docker/compose.yaml build` first.
 
 ### Without Docker
 
