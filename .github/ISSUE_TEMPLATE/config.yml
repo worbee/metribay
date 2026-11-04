@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security problem
+    url: https://github.com/worbee/metribay/blob/main/SECURITY.md
+    about: Email rob@worbee.com instead of opening an issue.
+  - name: Self-hosting guide
+    url: https://metribay.com/docs/self-hosting/
+    about: Installation, updates and backups.
+  - name: Metribay Cloud support
+    url: mailto:rob@worbee.com
+    about: Questions about your Cloud account or billing.

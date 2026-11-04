@@ -31,9 +31,9 @@ class EventsPageTest extends TestCase
         parent::setUp();
         $this->owner = User::factory()->create();
         $this->workspace = Workspace::create(['owner_id' => $this->owner->id, 'name' => 'Timeline', 'slug' => 'timeline']);
-        $this->project = $this->scoped(fn () => Project::create(['name' => 'SimpliHost', 'slug' => 'simplihost']));
-        $this->repository = $this->scoped(fn () => Source::create(['project_id' => $this->project->id, 'kind' => 'github', 'label' => 'simplihost/app', 'identity_hash' => str_repeat('c', 64),
-            'config' => ['repository' => 'simplihost/app', 'days' => 90], 'reporting_timezone' => 'UTC', 'last_success_at' => now()]));
+        $this->project = $this->scoped(fn () => Project::create(['name' => 'Tallybird', 'slug' => 'tallybird']));
+        $this->repository = $this->scoped(fn () => Source::create(['project_id' => $this->project->id, 'kind' => 'github', 'label' => 'tallybird/app', 'identity_hash' => str_repeat('c', 64),
+            'config' => ['repository' => 'tallybird/app', 'days' => 90], 'reporting_timezone' => 'UTC', 'last_success_at' => now()]));
     }
 
     private function scoped(callable $callback): mixed

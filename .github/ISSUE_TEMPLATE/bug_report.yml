@@ -1,0 +1,53 @@
+name: Bug report
+description: Something doesn't work the way the docs say.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Remove tokens, keys, email addresses and real project data from everything you paste. Security problems go to rob@worbee.com.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected and what you saw instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Add a GitHub data source to a project
+        2. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How you run Metribay
+      options: [Docker, Standalone without Docker, Embedded in another Laravel app, Other]
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      placeholder: v0.11.1 or a commit hash
+    validations:
+      required: true
+  - type: dropdown
+    id: database
+    attributes:
+      label: Database
+      options: [SQLite, PostgreSQL]
+  - type: input
+    id: provider
+    attributes:
+      label: Data source involved, if any
+      placeholder: Search Console, Umami, ...
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: The relevant lines from storage/logs or docker compose logs.
+      render: text

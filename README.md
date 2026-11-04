@@ -1,14 +1,76 @@
 # Metribay
 
-A dashboard for the projects you run. Collect website traffic, search visibility, plugin downloads, repository activity, page speed and uptime into one place. Metribay reads stored observations; opening the dashboard never calls providers.
+One dashboard for every project you run. Traffic, search, commits, downloads, page speed and uptime, side by side, on your own server.
 
-This repository contains Composer package `metribay/core` and a complete self-hosted Laravel application in `standalone/`. The personal edition has one administrator with multiple projects and sources. Workspace selection and management belong to Cloud. Core retains one internal data scope per personal owner for queries, jobs and encrypted credentials; it is not exposed as a workspace feature.
+![The Metribay overview: one row per project with visits, search clicks, commits, open issues, downloads and uptime](docs/screenshots/overview.webp)
 
-## Requirements
+Metribay doesn't replace your analytics, Search Console or uptime monitor. It reads from them on a schedule, stores what they report and shows it in one place. Opening the dashboard never calls a provider.
 
-PHP8.5+ with cURL, DOM, OpenSSL, PDO SQLite/PostgreSQL, intl and mbstring; Composer 2; Node 24 only when rebuilding frontend assets. Laravel13.38.0 was the latest stable release at initial setup on 2026-10-25. Composer lockfiles simulate the PHP8.5 baseline.
+This is the self-hosted edition. It's free and open source under Apache-2.0. One person, one installation, no limits on projects or data sources. [Metribay Cloud](https://metribay.com) is the hosted version, for people who'd rather not run a server or want to work with a team.
+
+## What it does
+
+**The overview is one row per project.** Visits, search clicks, commits and pull requests, open issues, downloads and uptime, with a trend line and the change against the previous period. Projects that need attention come first.
+
+**Each project gets its own page.** Charts are grouped by meaning: audience, search, development, distribution, reliability and page speed. Top search queries show what people clicked, where you rank and where you're close.
+
+![A project page with visits compared to the previous period and markers for events](docs/screenshots/project-tallybird.webp)
+
+**Events explain the spikes.** Add a launch, a pricing change or a migration. GitHub releases and deployments come in on their own. They show up as markers on every chart and on a timeline of their own.
+
+![The events page with upcoming events and a timeline that bundles deployments](docs/screenshots/events-tallybird.webp)
+
+**It's honest about gaps.** A missing day stays missing, never zero. Daily unique visitors are never added up into a fake period total. Provider timezones, provisional dates and source health stay visible.
+
+The app speaks twelve languages: English, German, Bulgarian, Czech, Spanish, French, Italian, Dutch, Polish, Slovak, Slovenian and Serbian.
+
+## Data sources
+
+| Provider | What Metribay reads | You need |
+|---|---|---|
+| Umami | Visits, visitors, page views | Your Umami URL and a login |
+| Google Analytics 4 | Visits, visitors, page views | A service account, or your own Google OAuth app |
+| Google Search Console | Clicks, impressions, top queries | A service account, or your own Google OAuth app |
+| Bing Webmaster Tools | Clicks, impressions, indexed pages, top queries | An API key |
+| GitHub | Commits, merged pull requests, lines changed, open issues, releases, deployments | A token, or your own GitHub App |
+| Azure DevOps | Commits, completed pull requests, pipeline runs, open bugs, deployments | A personal access token for one organization |
+| WordPress.org | Plugin downloads | Nothing |
+| PageSpeed Insights | Lighthouse scores and real-user Core Web Vitals | Your own Google API key |
+| UptimeRobot | Monitor status, uptime, response time | A read-only API key |
+
+Everything uses your own credentials. Nothing goes through a Metribay server. Credentials are encrypted with your `APP_KEY` and bound to their provider. Details per provider: [docs/PROVIDERS.md](docs/PROVIDERS.md).
+
+One limit to know about: Metribay only connects to public HTTPS endpoints. An Umami instance on your private network won't work.
+
+## Try it in a minute
+
+The repository builds a Docker image with a fictional sample portfolio. Seven made-up projects, 400 days of history.
+
+```sh
+git clone https://github.com/worbee/metribay.git && cd metribay
+docker build -t ghcr.io/worbee/metribay .
+docker run --rm -p 127.0.0.1:8080:8080 -e APP_KEY="$(docker run --rm ghcr.io/worbee/metribay key)" ghcr.io/worbee/metribay demo
+```
+
+Open http://127.0.0.1:8080 and sign in as `demo@metribay.example` with the password `sample-portfolio-only`.
 
 ## Install
+
+### With Docker
+
+```sh
+cp docker/.env.example docker/.env      # set APP_KEY and APP_URL
+docker compose -f docker/compose.yaml up -d
+docker compose -f docker/compose.yaml exec web php artisan metribay:install --email=you@example.com
+```
+
+That starts the web server, the queue worker and the scheduler, with SQLite in a volume. PostgreSQL, HTTPS behind a reverse proxy, backups and updates are in [docs/DOCKER.md](docs/DOCKER.md).
+
+A prebuilt image at `ghcr.io/worbee/metribay` is planned. For now, Compose builds it from this repository.
+
+### Without Docker
+
+You need PHP 8.5 or later with the cURL, DOM, OpenSSL, intl, mbstring and PDO SQLite or PostgreSQL extensions, and Composer 2. Node 24 only if you want to rebuild the frontend. The built assets are in `dist/`.
 
 ```sh
 ./scripts/setup.sh
@@ -17,28 +79,34 @@ php artisan metribay:install --email=you@example.com
 php artisan serve --host=127.0.0.1 --port=8000
 ```
 
-The install command asks for a password privately. An operator may instead pass `--password-file=/private/path` (14+characters); never pass passwords as command-line arguments. For a deliberately synthetic preview, run `php artisan metribay:demo --email=you@example.com` outside production. Sample projects are visibly labeled and their sources stay paused. A dedicated, realistic demo database for screenshots and tests is described in [docs/DEMO_DATA.md](docs/DEMO_DATA.md).
+The install command asks for your password privately. It creates the only account; registration stays off.
 
-Run the queue worker and scheduler in separate processes:
+Then keep two processes running, the queue worker and the scheduler:
 
 ```sh
 php artisan queue:work --timeout=900
 php artisan schedule:work
 ```
 
-Production should use a process manager and one cron entry for `php artisan schedule:run`. Database queue retry_after must exceed worker timeout; default960s. General collection runs every 4 hours, uptime hourly, and a full history refresh weekly. See docs/OPERATIONS.md.
+In production, run the worker under systemd or Supervisor, serve `standalone/public` over HTTPS, and use one cron entry for `php artisan schedule:run` instead of `schedule:work`. Collection runs every four hours, uptime every hour and a full history refresh once a week.
 
-## Providers
+The full guide is at [metribay.com/docs/self-hosting](https://metribay.com/docs/self-hosting/). Operations notes, backups and the `APP_KEY` warning: [docs/OPERATIONS.md](docs/OPERATIONS.md).
 
-Umami, Google Analytics4, Google Search Console, Bing Webmaster Tools, WordPress.org, GitHub and UptimeRobot. Connection credentials are encrypted with APP_KEY and bound to their workspace/provider. HTTP connectors only reach public HTTPS endpoints with pinned DNS, bounded responses and no redirects. Self-hosted analytics on a private network are intentionally unsupported by this transport.
+## Usage statistics
 
-Core and standalone use **your own provider credentials and developer apps**. No Metribay-owned Google/GitHub app credentials or managed service access are included. All collectors, resource discovery, service accounts, personal tokens and own-App credentials remain available. Self-hosted operators can configure their own Google Web OAuth app; see [provider setup](docs/PROVIDERS.md). Metribay Cloud supplies managed authorization and hosting, subject to service access and request limits.
+The app can send anonymous usage statistics to help me improve it. It asks first, and nothing is sent unless you agree. No names, emails, project data or URLs. Set `METRIBAY_ANALYTICS_ENABLED=false` to remove the question entirely. What's sent and where: [docs/USAGE_ANALYTICS.md](docs/USAGE_ANALYTICS.md).
 
-Missing observations stay unknown. Daily unique visitors are never summed into a period total. Reporting timezones, provisional dates, coverage, rolling uptime windows and source health remain visible. See docs/PROVIDERS.md and docs/METRICS.md.
+## How the repository is laid out
 
-The project overview includes a sortable **Open issues** column with a daily trend, per-source breakdown and totals across projects. Connect a GitHub repository to supply its open issue count; its project page shows the full daily chart. Counts use the latest recorded observation from each source, with no percentage change. See [metric rules](docs/METRICS.md) for history and missing dates.
+The root is the Composer package `metribay/core`: models, collectors, the dashboard UI and translations. `standalone/` is a small Laravel 13 application that runs it. Metribay Cloud and the desktop app use the same package.
 
-The overview and project charts refresh stored data hourly without reloading the page. Hidden tabs catch up when shown if an hour has passed; this display refresh also applies while the first import runs and does not trigger provider collection. Projects with a domain show its cached favicon beside their name, with a neutral icon when none is available.
+| Path | What's there |
+|---|---|
+| `src/` | The package: connectors, jobs, services, Livewire components |
+| `resources/`, `lang/`, `dist/` | Views, the twelve translations and the built CSS and JavaScript |
+| `standalone/` | The self-hosted Laravel application |
+| `docker/`, `Dockerfile` | The container image and Compose files |
+| `docs/` | Metric rules, providers, operations, design notes |
 
 ## Development
 
@@ -54,14 +122,18 @@ npm run build
 php standalone/artisan vendor:publish --tag=metribay-assets --force
 ```
 
-The default installer uses bundled assets and needs no Node installation. Use `scripts/setup.sh --build-assets` to rebuild them.
+Tests run on SQLite and PostgreSQL. CI runs both, plus static analysis, formatting, the JavaScript tests and a Docker build. Rebuild `dist/` with any UI change and commit it, so installs without Node work.
 
-`dist/` is included in release source so installed Composer packages have usable assets. Rebuild it alongside UI changes. Branding (the soft tray lockups, favicon and touch icon in `resources/images/`, copied into `dist/` by the build) and bundled third-party licenses are preserved. Tests cover provider fixtures, native HTTP transport construction, persistence, workspace isolation, credentials and request flows. Browser checks are recorded separately. Public installs need no private repository or credentials.
+For realistic local data, `scripts/demo-database.sh` builds the sample portfolio into `standalone/database/demo.sqlite`. See [docs/DEMO_DATA.md](docs/DEMO_DATA.md).
+
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. Security issues go to rob@worbee.com, not the issue tracker: [SECURITY.md](SECURITY.md).
+
+## Embedding the package
+
+Hosts with their own sign-in can set `metribay.account_enabled` to `false`. That hides the account pages and moves appearance settings under Settings → Appearance. The host stays responsible for turning off authentication routes it doesn't use.
 
 ## License
 
-Core source: Apache-2.0. Supplied branding belongs to Worbee EOOD. Third-party runtime and bundled asset licenses retain their own terms; see NOTICE and dist/THIRD_PARTY_LICENSES.txt.
+The source is Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
 
-Hosts that provide their own local identity can set `metribay.account_enabled` to `false` in host configuration. This hides account navigation and identity controls, returns 404 for the account page, and exposes appearance controls under Settings → Appearance. Hosts remain responsible for disabling any authentication routes they do not use. The default keeps standalone and hosted account behavior enabled.
-
-Page speed sources collect daily Lighthouse tests and separate real-user CrUX windows. The overview shows the lowest lab score per project; scores are never summed. See [Page speed setup and measurement rules](docs/PAGESPEED.md).
+The Metribay name and logo belong to Worbee EOOD. The license covers the code, not the name or the logo. Bundled third-party code keeps its own license; see [dist/THIRD_PARTY_LICENSES.txt](dist/THIRD_PARTY_LICENSES.txt).

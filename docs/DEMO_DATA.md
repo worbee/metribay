@@ -50,7 +50,7 @@ app(DemoData::class)->populate($workspace, seed: 2026, now: CarbonImmutable::par
 
 ## The portfolio
 
-One project per audience of the website plan (cloud/docs/WEBSITE_GROWTH_PLAN.md). Story beats are placed in "days ago", so they always sit at the same distance from today; events and the effects they explain share the same numbers in `SamplePortfolio.php`.
+One project per audience Metribay is built for. Story beats are placed in "days ago", so they always sit at the same distance from today; events and the effects they explain share the same numbers in `SamplePortfolio.php`.
 
 | Project | Audience | Data sources | Story |
 | --- | --- | --- | --- |

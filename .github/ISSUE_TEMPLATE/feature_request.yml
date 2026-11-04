@@ -1,0 +1,20 @@
+name: Idea or new data source
+description: Suggest a change or a provider Metribay should read from.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you're trying to do
+      description: The question you want Metribay to answer, or the work it makes harder than it should be.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would help
+      description: For a new data source, name the provider, the numbers you want and how its API authenticates.
+  - type: textarea
+    id: today
+    attributes:
+      label: What you do today instead
