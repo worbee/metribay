@@ -188,7 +188,7 @@ final class SafeHttpClientTest extends FixtureTestCase
     public function test_the_registry_has_every_supported_provider_and_rejects_unknown_kinds(): void
     {
         $registry = new ConnectorRegistry($this->http());
-        $this->assertSame(['umami', 'plausible', 'matomo', 'ga4', 'gsc', 'bing', 'wporg', 'github', 'uptimerobot', 'pagespeed', 'azure_devops'], $registry->kinds());
+        $this->assertSame(['umami', 'plausible', 'matomo', 'ga4', 'gsc', 'bing', 'wporg', 'github', 'github_releases', 'uptimerobot', 'pagespeed', 'azure_devops'], $registry->kinds());
         foreach ($registry->kinds() as $kind) {
             $this->assertInstanceOf(Connector::class, $registry->for($kind));
         }

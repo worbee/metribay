@@ -4,7 +4,7 @@
         $sourceList = $visibleProjects->flatMap(fn($item) => $item['sources'] ?? []);
         $attentionCount = $sourceList->filter(fn($source) => in_array($source['status'], ['failed','delayed']))->count();
         $activeSources = $sourceList->filter(fn($source) => $source['enabled'] ?? false)->count();
-        $columnLabels = ['traffic'=>__('Visits'),'search'=>__('Search clicks'),'development'=>__('Commits · PRs'),'issues'=>__('Open issues'),'downloads'=>__('Downloads'),'uptime'=>__('Uptime · 24h'),'speed'=>__('Page speed · lowest')];
+        $columnLabels = ['traffic'=>__('Visits'),'search'=>__('Search clicks'),'development'=>__('Commits · PRs'),'issues'=>__('Open issues'),'downloads'=>__('Downloads'),'release_downloads'=>__('Release downloads'),'uptime'=>__('Uptime · 24h'),'speed'=>__('Page speed · lowest')];
         $columns = array_values(array_filter(array_keys(\Metribay\Core\Services\DashboardData::CATEGORIES), fn ($column) => $visibleProjects->contains(fn ($project) => isset($project['summary'][$column]))));
         $statusLabels = ['healthy'=>__('Up to date'),'delayed'=>__('Delayed'),'failed'=>__('Needs attention'),'pending'=>__('Awaiting first sync'),'disabled'=>__('Paused'),'empty'=>__('No data sources yet.')];
         $totals = [];

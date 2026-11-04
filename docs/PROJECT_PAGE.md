@@ -46,7 +46,7 @@ The overview (a menu) and the project page (the segmented control) share one per
 | Audience | **Visits**, Visitors, Page views | Umami, Plausible, Matomo, Google Analytics |
 | Search | **Clicks**, Impressions, Indexed pages | Search Console, Bing Webmaster |
 | Development | **Commits**, PRs merged, Lines changed, Open issues, Pipeline runs succeeded / failed | GitHub, Azure DevOps |
-| Distribution | **Downloads** | WordPress.org |
+| Distribution | **Downloads**, Release downloads | WordPress.org, GitHub releases |
 | Reliability | **Monitor status** (status strip), Uptime, Response time | UptimeRobot |
 | Page speed | **Lab performance score**, lab LCP / CLS / TBT, real-user page and site LCP / INP / CLS | PageSpeed Insights |
 
@@ -97,7 +97,7 @@ Built by `Services\SearchQueries`; view `partials/search-queries`. Tests: `tests
 
 Matches the index (`partials/overview-change`): ↗ / ↘ / →, one decimal below 10 %, whole numbers from 10 %. Colour applies from 10 % and depends on the metric's polarity:
 
-- Higher is better: visits, visitors, page views, clicks, impressions, indexed pages, commits, PRs merged, pipeline runs succeeded, downloads, uptime, lab score.
+- Higher is better: visits, visitors, page views, clicks, impressions, indexed pages, commits, PRs merged, pipeline runs succeeded, downloads, release downloads, uptime, lab score.
 - Lower is better (a rise is red): open issues, pipeline runs failed, response time, every LCP / INP / CLS / TBT value.
 - Neutral (never coloured): lines changed.
 
