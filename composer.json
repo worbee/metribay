@@ -10,7 +10,8 @@
         "livewire/livewire": "^4.0",
         "google/auth": "^1.0",
         "firebase/php-jwt": "^7.0",
-        "ext-curl": "*"
+        "ext-curl": "*",
+        "ext-intl": "*"
     },
     "autoload": {
         "psr-4": {

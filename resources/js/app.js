@@ -44,9 +44,10 @@ function applyTheme(preference = themePreference(), save = false) {
 media.addEventListener('change', () => { if (themePreference() === 'system') applyTheme(); });
 
 function finite(value) { return value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value)) ? Number(value) : null; }
-function formatNumber(value, unit = 'count', compact = false) {
+function formatNumber(value, unit = 'count', compact = false, currency = null) {
     if (value === null) return t('Unavailable');
     if (unit === 'status') return ({ 0: t('Paused'), 1: t('Not checked yet'), 2: t('Up'), 8: t('Seems down'), 9: t('Down') })[value] ?? String(value);
+    if (unit === 'currency' && currency) return new Intl.NumberFormat(document.documentElement.lang || 'en', { style: 'currency', currency, notation: compact && Math.abs(value) >= 1000 ? 'compact' : 'standard' }).format(value);
     const options = { maximumFractionDigits: unit === 'score' ? 0 : (unit === 'ratio' ? 3 : (unit === 'percent' ? 2 : (Number.isInteger(value) ? 0 : 1))) };
     if (compact && Math.abs(value) >= 1000 && !['percent', 'ms', 'score', 'ratio'].includes(unit)) {
         options.notation = 'compact';
@@ -258,7 +259,7 @@ function makeChart(canvas, config, signature) {
                         title(items) { return items.length ? formatDate(series[items[0].dataIndex]?.date ?? '', true) : ''; },
                         label(context) {
                             const point = (context.datasetIndex === 0 ? series : previous)[context.dataIndex];
-                            const value = formatNumber(finite(context.raw), config.unit);
+                            const value = formatNumber(finite(context.raw), config.unit, false, config.currency);
                             const label = context.datasetIndex === 0 ? config.label : t('Previous (:date)', { date: formatDate(point?.date ?? '') });
                             return `${label}: ${value}${point?.partial ? ` · ${t('partial')}` : ''}`;
                         },
@@ -288,7 +289,7 @@ function makeChart(canvas, config, signature) {
                     grid: { color: colors['chart-grid'], drawTicks: false },
                     border: { display: false },
                     ticks: large
-                        ? { color: colors['text-muted'], maxTicksLimit: 4, stepSize: config.unit === 'status' ? 1 : undefined, padding: 8, font: tickFont, callback(value) { return formatNumber(value, config.unit, true); } }
+                        ? { color: colors['text-muted'], maxTicksLimit: 4, stepSize: config.unit === 'status' ? 1 : undefined, padding: 8, font: tickFont, callback(value) { return formatNumber(value, config.unit, true, config.currency); } }
                         : { display: false, maxTicksLimit: 3 },
                 },
             },
@@ -324,8 +325,8 @@ function makeChart(canvas, config, signature) {
                 const announcement = canvas.closest('.metric')?.querySelector('[data-chart-announcement]');
                 if (announcement) {
                     const parts = [];
-                    if (current.isDatasetVisible(0)) parts.push(`${formatDate(series[index]?.date ?? '', true)}. ${config.label}: ${formatNumber(finite(series[index]?.value), config.unit)}${series[index]?.partial ? `. ${t('Partial date.')}` : ''}`);
-                    if (hasPrevious && current.isDatasetVisible(1)) parts.push(`${t('Previous period')} ${formatDate(previous[index]?.date ?? '', true)}: ${formatNumber(finite(previous[index]?.value), config.unit)}${previous[index]?.partial ? `. ${t('Partial date.')}` : ''}`);
+                    if (current.isDatasetVisible(0)) parts.push(`${formatDate(series[index]?.date ?? '', true)}. ${config.label}: ${formatNumber(finite(series[index]?.value), config.unit, false, config.currency)}${series[index]?.partial ? `. ${t('Partial date.')}` : ''}`);
+                    if (hasPrevious && current.isDatasetVisible(1)) parts.push(`${t('Previous period')} ${formatDate(previous[index]?.date ?? '', true)}: ${formatNumber(finite(previous[index]?.value), config.unit, false, config.currency)}${previous[index]?.partial ? `. ${t('Partial date.')}` : ''}`);
                     for (const event of eventsOn(series[index]?.date)) parts.push(t('Event: :title', { title: event.title }));
                     announcement.textContent = parts.join('. ');
                 }

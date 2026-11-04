@@ -16,6 +16,8 @@ final class MetricRegistry
             ['indexed_pages', 'Indexed pages', 'count', 'latest'], ['commits', 'Commits', 'count', 'sum'], ['prs_merged', 'PRs merged', 'count', 'sum'],
             ['loc_changed', 'Lines changed', 'lines', 'sum'],
             ['pipeline_runs_succeeded', 'Pipeline runs succeeded', 'count', 'sum'], ['pipeline_runs_failed', 'Pipeline runs failed', 'count', 'sum'], ['open_issues', 'Open issues', 'count', 'latest', true],
+            ['paddle_revenue', 'Paddle net revenue', 'currency', 'sum'], ['paddle_mrr', 'Monthly recurring revenue', 'currency', 'latest', true],
+            ['paddle_active_subscribers', 'Active paying subscribers', 'count', 'latest', true],
             ['monitor_status', 'Monitor status', 'status', 'latest', true], ['uptime_24h', 'Uptime · last 24h', 'percent', 'latest', true],
             ['response_time_24h', 'Response time · last 24h', 'ms', 'latest', true],
         ];

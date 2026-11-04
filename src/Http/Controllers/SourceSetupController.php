@@ -117,13 +117,20 @@ class SourceSetupController
 
             return redirect()->route('metribay.dashboard', app(WorkspaceContext::class)->current()->slug)->with('status', __('That project is no longer available.'));
         }
+        $providers = ProviderCatalog::all();
+        if (! app(WorkspaceAccess::class)->allows($request->user(), app(WorkspaceContext::class)->current(), 'manage_access')) {
+            unset($providers['paddle']);
+        }
+        if (($draft['kind'] ?? null) === 'paddle') {
+            $this->authorize($request, 'manage_access');
+        }
         $request->session()->put($this->key($request), $draft);
         $added = isset($draft['kind']) ? ProjectResources::added($project->id, $draft['kind']) : [];
         foreach ($draft['resources'] ?? [] as $index => $resource) {
             $draft['resources'][$index]['added'] = in_array(ProjectResources::key($draft['kind'], (string) $resource['id']), $added, true);
         }
 
-        return view('metribay::source-setup', ['providerCounts' => $project->sources()->get(['kind'])->countBy('kind'), 'draft' => $draft, 'providers' => ProviderCatalog::all(), 'project' => $project, 'googleAuthorization' => app(GoogleAuthorization::class), 'connections' => Connection::query()->where('kind', $draft['kind'] ?? '')->orderBy('name')->get()]);
+        return view('metribay::source-setup', ['providerCounts' => $project->sources()->get(['kind'])->countBy('kind'), 'draft' => $draft, 'providers' => $providers, 'project' => $project, 'googleAuthorization' => app(GoogleAuthorization::class), 'connections' => Connection::query()->where('kind', $draft['kind'] ?? '')->orderBy('name')->get()]);
     }
 
     public function update(Request $request, ResourceDiscovery $discovery): RedirectResponse
@@ -139,10 +146,16 @@ class SourceSetupController
             $draft = array_intersect_key($draft, ['project_id' => true]);
         } elseif ($action === 'provider') {
             $values = $request->validate(['kind' => ['required', Rule::in(array_keys(ProviderCatalog::all()))]]);
+            if ($values['kind'] === 'paddle') {
+                $this->authorize($request, 'manage_access');
+            }
             $draft = array_intersect_key($draft, ['project_id' => true]) + ['kind' => $values['kind'], 'step' => ProviderCatalog::requiresConnection($values['kind']) || ProviderCatalog::connectionOptional($values['kind']) ? 'account' : 'resources'];
         } else {
             abort_unless(isset($draft['kind'], $draft['project_id']), 409, __('Setup expired. Open the project and choose Add data source again.'));
             $kind = $draft['kind'];
+            if ($kind === 'paddle') {
+                $this->authorize($request, 'manage_access');
+            }
             if ($action === 'account') {
                 unset($draft['resource'], $draft['resources'], $draft['listed'], $draft['discovery_error']);
                 if ($request->filled('connection_id')) {
@@ -168,7 +181,8 @@ class SourceSetupController
                 } catch (ProviderRequestLimit $exception) {
                     $draft['discovery_error'] = $exception->getMessage();
                 } catch (\Throwable) {
-                    $draft['discovery_error'] = __('Use manual entry below, or ask an owner to list resources and check account access.');
+                    $draft['discovery_error'] = $kind === 'paddle' ? __('Use a valid Paddle API key with only Metrics (Read).')
+                        : __('Use manual entry below, or ask an owner to list resources and check account access.');
                 }
             } elseif ($action === 'skip') {
                 abort_unless(ProviderCatalog::connectionOptional($kind), 422);
@@ -193,7 +207,8 @@ class SourceSetupController
                 } catch (ProviderRequestLimit $exception) {
                     throw ValidationException::withMessages(['resource' => $exception->getMessage()]);
                 } catch (\Throwable) {
-                    throw ValidationException::withMessages(['resource' => __('Unable to list resources. Check account access, retry, or use manual entry below.')]);
+                    throw ValidationException::withMessages(['resource' => $kind === 'paddle' ? __('Use a valid Paddle API key with only Metrics (Read).')
+                        : __('Unable to list resources. Check account access, retry, or use manual entry below.')]);
                 }
             } elseif ($action === 'resource') {
                 $request->validate(['resource' => ['required', 'integer', 'min:0']]);
@@ -229,7 +244,7 @@ class SourceSetupController
                 $draft['resource'] = ['id' => $config['url'], 'name' => $config['url'], 'domain' => '', 'timezone' => 'UTC', 'strategy' => $config['strategy']];
                 $draft['step'] = 'confirm';
             } elseif ($action === 'manual') {
-                abort_if($kind === 'pagespeed', 422);
+                abort_if(in_array($kind, ['pagespeed', 'paddle'], true), 422);
                 $values = $request->validate(['resource_id' => ['required', 'string', 'max:500'], 'timezone' => ['required', 'timezone']]);
                 $draft['resource'] = ['id' => $values['resource_id'], 'name' => $values['resource_id'], 'domain' => '', 'timezone' => ProviderCatalog::usesSiteTimezone($kind) ? $values['timezone'] : ProviderCatalog::all()[$kind]['default_timezone']];
                 $this->rejectAddedResource($draft);
@@ -239,6 +254,9 @@ class SourceSetupController
                 $draft['step'] = $request->input('step') === 'account' && ProviderCatalog::requiresConnection($kind) ? 'account' : 'resources';
             } elseif ($action === 'finish') {
                 abort_unless(isset($draft['resource']), 409);
+                if ($kind === 'paddle') {
+                    $request->validate(['share_revenue' => ['accepted']]);
+                }
                 $values = $request->validate(['label' => ['nullable', 'string', 'max:120'], 'days' => ['required', 'integer', 'min:1', 'max:366'], 'environments' => ['nullable', 'string', 'max:3000']]);
                 $field = ProjectResources::field($kind);
                 $environments = ProviderCatalog::hasDeploymentEnvironments($kind) ? ProviderCatalog::environments((string) ($values['environments'] ?? '')) : [];

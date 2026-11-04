@@ -19,6 +19,22 @@ final class SampleSources
 {
     public function __construct(private readonly Noise $noise, private readonly CarbonImmutable $now, private readonly int $days) {}
 
+    public function paddle(): SampleSource
+    {
+        $today = $this->today('UTC');
+        $noise = $this->noise->fork('paddle');
+        $daily = [];
+        for ($ago = $this->first(null); $ago > 0; $ago--) {
+            $date = $today->subDays($ago);
+            $subscribers = max(1, (int) round(170 - $ago / 3 + ($ago < 74 ? 22 : 0)));
+            $daily[] = $this->row('paddle_revenue', $date, $noise->poisson($subscribers / 30) * 18.25, false) + ['context' => ['currency' => 'EUR']];
+            $daily[] = $this->row('paddle_mrr', $date, $subscribers * 19, false) + ['context' => ['currency' => 'EUR']];
+            $daily[] = $this->row('paddle_active_subscribers', $date, $subscribers, false);
+        }
+
+        return $this->source('paddle', 'Paddle Billing', ['paddle_account' => 'slr_sample', 'days' => 180], 'UTC', [new CollectionResult(daily: $daily)], 60);
+    }
+
     /**
      * GA4, Umami, Plausible or Matomo traffic. Visits come from $visits; visitors and page views follow from per-day ratios,
      * so a day always has visits >= visitors and page views >= visits. Unique visitors over 7, 30 and 90 days

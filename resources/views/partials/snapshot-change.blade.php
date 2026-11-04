@@ -12,6 +12,7 @@
     $tone = $polarity === 'neutral' || $relative < 0.05 ? null : (($delta > 0) === ($polarity === 'up') ? 'good' : 'bad');
     [$number, $suffix] = match ($unit) {
         'percent' => [\Illuminate\Support\Number::format(abs($delta), 2, locale: app()->getLocale()), ' pp'],
+        'currency' => [\Illuminate\Support\Number::currency(abs($delta), $metric['context']['currency'], locale: app()->getLocale()), null],
         'score' => [\Illuminate\Support\Number::format(abs($delta), 0, locale: app()->getLocale()), null],
         default => \Metribay\Core\Metrics\ProjectLayout::format(abs($delta), $unit),
     };

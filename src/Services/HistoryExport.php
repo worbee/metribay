@@ -11,7 +11,7 @@ use Metribay\Core\Models\Workspace;
  */
 class HistoryExport
 {
-    public const COLUMNS = ['project', 'domain', 'data_source', 'provider', 'metric', 'start_date', 'end_date', 'value', 'partial'];
+    public const COLUMNS = ['project', 'domain', 'data_source', 'provider', 'metric', 'start_date', 'end_date', 'value', 'partial', 'currency'];
 
     /** @param  resource  $stream */
     public function write(Workspace $workspace, $stream): void
@@ -26,10 +26,11 @@ class HistoryExport
         foreach ($sources as $source) {
             $context = [$this->text($source->project), $this->text($source->domain), $this->text($source->label), $source->kind];
             foreach (DB::table('daily_metrics')->where('workspace_id', $workspace->id)->where('source_id', $source->id)->orderBy('metric')->orderBy('date')->lazy(2000) as $row) {
-                fputcsv($stream, [...$context, $row->metric, substr((string) $row->date, 0, 10), substr((string) $row->date, 0, 10), $this->number($row->value), $row->is_partial ? 'yes' : 'no'], escape: '');
+                $currency = $source->kind === 'paddle' && $row->context ? (json_decode($row->context, true)['currency'] ?? '') : '';
+                fputcsv($stream, [...$context, $row->metric, substr((string) $row->date, 0, 10), substr((string) $row->date, 0, 10), $this->number($row->value), $row->is_partial ? 'yes' : 'no', $this->text($currency)], escape: '');
             }
             foreach (DB::table('period_metrics')->where('workspace_id', $workspace->id)->where('source_id', $source->id)->orderBy('metric')->orderBy('start_date')->orderBy('end_date')->lazy(2000) as $row) {
-                fputcsv($stream, [...$context, $row->metric, substr((string) $row->start_date, 0, 10), substr((string) $row->end_date, 0, 10), $this->number($row->value), $row->is_partial ? 'yes' : 'no'], escape: '');
+                fputcsv($stream, [...$context, $row->metric, substr((string) $row->start_date, 0, 10), substr((string) $row->end_date, 0, 10), $this->number($row->value), $row->is_partial ? 'yes' : 'no', ''], escape: '');
             }
         }
     }

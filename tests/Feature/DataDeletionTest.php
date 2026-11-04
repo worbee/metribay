@@ -150,10 +150,10 @@ class DataDeletionTest extends TestCase
 
         $this->assertStringContainsString('attachment; filename=metribay-history-studio-', (string) $response->headers->get('Content-Disposition'));
         $this->assertSame([
-            'project,domain,data_source,provider,metric,start_date,end_date,value,partial',
-            "'=Shop,shop.example,Website,umami,visitors,2026-10-01,2026-10-01,42,no",
-            "'=Shop,shop.example,Website,umami,visitors,2026-10-02,2026-10-02,12.5,yes",
-            "'=Shop,shop.example,Website,umami,unique_visitors,2026-10-01,2026-10-31,900,no",
+            'project,domain,data_source,provider,metric,start_date,end_date,value,partial,currency',
+            "'=Shop,shop.example,Website,umami,visitors,2026-10-01,2026-10-01,42,no,",
+            "'=Shop,shop.example,Website,umami,visitors,2026-10-02,2026-10-02,12.5,yes,",
+            "'=Shop,shop.example,Website,umami,unique_visitors,2026-10-01,2026-10-31,900,no,",
         ], explode("\n", trim($response->streamedContent())));
     }
 
