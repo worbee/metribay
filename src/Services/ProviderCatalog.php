@@ -16,6 +16,8 @@ class ProviderCatalog
     {
         $data = [
             'umami' => ['Umami', ['base_url', 'username', 'password'], ['password'], ['website_id', 'days'], 'UTC'],
+            'plausible' => ['Plausible', ['base_url', 'api_key'], ['api_key'], ['site_id', 'days'], 'UTC'],
+            'matomo' => ['Matomo', ['base_url', 'token_auth'], ['token_auth'], ['site_id', 'days'], 'UTC'],
             'ga4' => ['Google Analytics 4', ['service_account', 'client_id', 'client_secret', 'refresh_token'], ['service_account', 'client_secret', 'refresh_token'], ['property_id', 'days'], 'UTC'],
             'gsc' => ['Google Search Console', ['service_account', 'client_id', 'client_secret', 'refresh_token'], ['service_account', 'client_secret', 'refresh_token'], ['site_url', 'days'], 'America/Los_Angeles'],
             'bing' => ['Bing Webmaster Tools', ['api_key'], ['api_key'], ['site_url', 'days'], 'UTC'],
@@ -28,7 +30,7 @@ class ProviderCatalog
         ];
         $out = [];
         foreach ($data as $kind => [$label,$fields,$secrets,$config,$timezone]) {
-            $out[$kind] = ['label' => $label, 'fields' => $fields, 'secrets' => $secrets, 'config' => $config, 'default_timezone' => $timezone, 'field_labels' => ['website_id' => 'Website UUID', 'base_url' => 'Server URL', 'service_account' => 'Service account JSON', 'site_url' => 'Site URL or Search Console property', 'private_key' => 'GitHub App private key (PEM)', 'token' => 'Personal access token', 'organization' => 'Organization', 'days' => 'History window (days)', 'limit' => 'History window (days)']];
+            $out[$kind] = ['label' => $label, 'fields' => $fields, 'secrets' => $secrets, 'config' => $config, 'default_timezone' => $timezone, 'field_labels' => ['website_id' => 'Website UUID', 'base_url' => 'Server URL', 'service_account' => 'Service account JSON', 'site_url' => 'Site URL or Search Console property', 'private_key' => 'GitHub App private key (PEM)', 'token' => 'Personal access token', 'organization' => 'Organization', 'api_key' => 'Api Key', 'token_auth' => 'Auth token', 'days' => 'History window (days)', 'limit' => 'History window (days)']];
         }
 
         return $out;
@@ -55,6 +57,8 @@ class ProviderCatalog
         }
         $rules = match ($kind) {
             'umami' => ['website_id' => ['required', 'uuid']],
+            'plausible' => ['site_id' => ['required', 'string', 'max:253', 'regex:/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/i']],
+            'matomo' => ['site_id' => ['required', 'regex:/^[1-9][0-9]{0,9}$/']],
             'ga4' => ['property_id' => ['required', 'regex:/^[0-9]+$/']],
             'gsc' => ['site_url' => ['required', 'string', 'max:500']],
             'bing' => ['site_url' => ['required', 'url:http,https', 'max:500']],
@@ -105,6 +109,9 @@ class ProviderCatalog
             }
         }
 
+        if ($kind === 'plausible') {
+            $clean['site_id'] = strtolower($clean['site_id']);
+        }
         if ($kind === 'pagespeed') {
             try {
                 $clean['url'] = PageSpeedUrl::normalize($clean['url']);
@@ -137,7 +144,7 @@ class ProviderCatalog
             }
         }
         $required = match ($kind) {
-            'umami' => ['base_url', 'username', 'password'],'azure_devops' => ['organization', 'token'],'bing','uptimerobot','pagespeed' => ['api_key'],'github' => isset($values['token']) ? ['token'] : ['client_id', 'installation_id', 'private_key'],'github_releases' => ['token'],'gsc','ga4' => isset($values['service_account']) ? ['service_account'] : ['client_id', 'client_secret', 'refresh_token'],default => throw ValidationException::withMessages(['kind' => __('Choose a supported provider.')])
+            'umami' => ['base_url', 'username', 'password'],'plausible' => ['base_url', 'api_key'],'matomo' => ['base_url', 'token_auth'],'azure_devops' => ['organization', 'token'],'bing','uptimerobot','pagespeed' => ['api_key'],'github' => isset($values['token']) ? ['token'] : ['client_id', 'installation_id', 'private_key'],'github_releases' => ['token'],'gsc','ga4' => isset($values['service_account']) ? ['service_account'] : ['client_id', 'client_secret', 'refresh_token'],default => throw ValidationException::withMessages(['kind' => __('Choose a supported provider.')])
         };
         foreach ($required as $key) {
             if (empty($values[$key])) {
@@ -167,6 +174,14 @@ class ProviderCatalog
                 }$values['service_account'] = $account;
             } catch (\Throwable) {
                 throw ValidationException::withMessages(['values.service_account' => __('Provide a valid service account JSON key.')]);
+            }
+        }
+        if (in_array($kind, ['plausible', 'matomo'], true)) {
+            $values['base_url'] = rtrim(trim($values['base_url']), '/');
+            $secret = $kind === 'plausible' ? 'api_key' : 'token_auth';
+            $values[$secret] = trim($values[$secret]);
+            if (str_contains((string) (parse_url($values['base_url'], PHP_URL_PATH) ?? ''), '..')) {
+                throw ValidationException::withMessages(['values.base_url' => __('Use a public HTTPS server URL on port 443.')]);
             }
         }
         if (isset($values['base_url'])) {
@@ -249,6 +264,12 @@ class ProviderCatalog
         };
     }
 
+    /** Providers whose dates follow the selected site or property, not a fixed offset. */
+    public static function usesSiteTimezone(string $kind): bool
+    {
+        return in_array($kind, ['ga4', 'plausible', 'matomo'], true);
+    }
+
     public static function requiresConnection(string $kind): bool
     {
         return $kind !== 'wporg' && $kind !== 'github_releases' && ! ($kind === 'pagespeed' && app(PageSpeedCredentials::class)->managed());
@@ -264,7 +285,7 @@ class ProviderCatalog
     public static function metricKeys(string $kind): array
     {
         return match ($kind) {
-            'umami','ga4' => ['visitors', 'visits', 'pageviews'],'gsc' => ['impressions', 'clicks'],'bing' => ['impressions', 'clicks', 'indexed_pages'],'wporg' => ['downloads'],'github' => ['commits', 'prs_merged', 'loc_changed', 'open_issues'],'github_releases' => ['release_downloads'],'uptimerobot' => ['monitor_status', 'uptime_24h', 'response_time_24h'],'azure_devops' => ['commits', 'prs_merged', 'pipeline_runs_succeeded', 'pipeline_runs_failed', 'open_issues'],'pagespeed' => ['lab_score', 'lab_lcp', 'lab_cls', 'lab_tbt', 'crux_lcp', 'crux_inp', 'crux_cls', 'crux_origin_lcp', 'crux_origin_inp', 'crux_origin_cls'],default => []
+            'umami','plausible','matomo','ga4' => ['visitors', 'visits', 'pageviews'],'gsc' => ['impressions', 'clicks'],'bing' => ['impressions', 'clicks', 'indexed_pages'],'wporg' => ['downloads'],'github' => ['commits', 'prs_merged', 'loc_changed', 'open_issues'],'github_releases' => ['release_downloads'],'uptimerobot' => ['monitor_status', 'uptime_24h', 'response_time_24h'],'azure_devops' => ['commits', 'prs_merged', 'pipeline_runs_succeeded', 'pipeline_runs_failed', 'open_issues'],'pagespeed' => ['lab_score', 'lab_lcp', 'lab_cls', 'lab_tbt', 'crux_lcp', 'crux_inp', 'crux_cls', 'crux_origin_lcp', 'crux_origin_inp', 'crux_origin_cls'],default => []
         };
     }
 }

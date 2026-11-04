@@ -17,6 +17,12 @@ class ResourceDiscovery extends AbstractConnector
         if ($kind === 'umami') {
             return (new UmamiResourceDiscovery($this->http))->discover($credentials);
         }
+        if ($kind === 'plausible') {
+            return (new PlausibleResourceDiscovery($this->http))->discover($credentials);
+        }
+        if ($kind === 'matomo') {
+            return (new MatomoResourceDiscovery($this->http))->discover($credentials);
+        }
         if ($kind === 'azure_devops') {
             return $this->azureDevOps($credentials);
         }

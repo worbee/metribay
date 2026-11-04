@@ -12,10 +12,10 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Metribay\Core\Connectors\ConnectorRegistry;
 use Metribay\Core\Connectors\DeploymentAccess;
+use Metribay\Core\Connectors\DiscoveryException;
 use Metribay\Core\Connectors\ProviderRequestLimit;
 use Metribay\Core\Connectors\ResourceDiscovery;
 use Metribay\Core\Connectors\SafeHttpClient;
-use Metribay\Core\Connectors\UmamiDiscoveryException;
 use Metribay\Core\Contracts\ConnectionCredentials;
 use Metribay\Core\Contracts\GoogleAuthorization;
 use Metribay\Core\Contracts\PageSpeedCredentials;
@@ -163,7 +163,7 @@ class SourceSetupController
                     $draft['resources'] = $kind === 'pagespeed' ? [] : $discovery->discover($kind, app(ConnectionCredentials::class)->resolve($connection));
                     $draft['listed'] = true;
                     unset($draft['discovery_error']);
-                } catch (UmamiDiscoveryException $exception) {
+                } catch (DiscoveryException $exception) {
                     $draft['discovery_error'] = $exception->getMessage();
                 } catch (ProviderRequestLimit $exception) {
                     $draft['discovery_error'] = $exception->getMessage();
@@ -188,7 +188,7 @@ class SourceSetupController
                     $draft['resources'] = $discovery->discover($kind, $credentials, $draft['search']);
                     $draft['listed'] = true;
                     unset($draft['discovery_error']);
-                } catch (UmamiDiscoveryException $exception) {
+                } catch (DiscoveryException $exception) {
                     throw ValidationException::withMessages(['resource' => $exception->getMessage()]);
                 } catch (ProviderRequestLimit $exception) {
                     throw ValidationException::withMessages(['resource' => $exception->getMessage()]);
@@ -231,7 +231,7 @@ class SourceSetupController
             } elseif ($action === 'manual') {
                 abort_if($kind === 'pagespeed', 422);
                 $values = $request->validate(['resource_id' => ['required', 'string', 'max:500'], 'timezone' => ['required', 'timezone']]);
-                $draft['resource'] = ['id' => $values['resource_id'], 'name' => $values['resource_id'], 'domain' => '', 'timezone' => $kind === 'ga4' ? $values['timezone'] : ProviderCatalog::all()[$kind]['default_timezone']];
+                $draft['resource'] = ['id' => $values['resource_id'], 'name' => $values['resource_id'], 'domain' => '', 'timezone' => ProviderCatalog::usesSiteTimezone($kind) ? $values['timezone'] : ProviderCatalog::all()[$kind]['default_timezone']];
                 $this->rejectAddedResource($draft);
                 $draft = $this->deploymentEnvironments($request, $draft);
                 $draft['step'] = 'confirm';

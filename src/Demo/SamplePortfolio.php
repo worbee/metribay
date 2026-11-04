@@ -210,10 +210,10 @@ final class SamplePortfolio
             $sources->azure('Platform/platform-api', fn (int $ago, CarbonImmutable $date): float => 14 * Calendar::weekday($date, 0.03) * Calendar::holiday($date, 0.9),
                 ['repository' => 'Platform/platform-api', 'organization' => 'nordlicht', 'prs' => 0.32, 'loc' => 45, 'issues' => ['start' => 34, 'opened' => 1.6, 'closed' => 1.5],
                     'connected' => 150, 'failure' => 0.07, 'flaky' => [19, 17], 'deployments' => ['environment' => 'Production', 'weekdays' => [2, 4]]]),
-            $sources->analytics('ga4', 'Google Analytics · nordlicht.example', ['property_id' => '389120554', 'days' => 180],
+            $sources->analytics('matomo', 'nordlicht.example', ['site_id' => '4', 'days' => 180],
                 fn (int $ago, CarbonImmutable $date): float => 410 * Shape::growth($ago, [[400, 0.7], [180, 0.85], [0, 1.0]]) * Calendar::weekday($date, 0.28)
                     * Calendar::holiday($date, 0.75) * Calendar::season($date, 0.08, 60),
-                ['pages' => 2.4, 'returning' => 1.3, 'loyalty' => 0.32, 'timezone' => 'Europe/Berlin']),
+                ['pages' => 2.4, 'returning' => 1.3, 'loyalty' => 0.32, 'timezone' => 'Europe/Berlin', 'periods' => false]),
             $sources->uptime('https://api.nordlicht.example/health', ['monitor' => '784417390', 'connected' => 330, 'response' => 185, 'incidents' => [87 => 4, 6 => 22]]),
             $sources->pageSpeed(fn (int $ago): array => $ago <= 64 ? ['lcp' => 1150, 'tbt' => 130, 'cls' => 0.02] : ['lcp' => 1100, 'tbt' => 70, 'cls' => 0.02],
                 ['url' => 'https://nordlicht.example/', 'strategy' => 'desktop', 'connected' => 120, 'field' => 'origin', 'field_lcp' => 1.3, 'inp' => 90]),
@@ -251,7 +251,7 @@ final class SamplePortfolio
         ], 0.9);
 
         return new SampleProject('Switchback Journal', 'switchback-journal', 'switchbackjournal.example', 'Content and SEO publishers', [
-            $sources->analytics('ga4', 'Google Analytics · switchbackjournal.example', ['property_id' => '297745810', 'days' => 180],
+            $sources->analytics('plausible', 'switchbackjournal.example', ['site_id' => 'switchbackjournal.example', 'days' => 180],
                 fn (int $ago, CarbonImmutable $date): float => 5600 * $shape($ago, $date) * Shape::step($ago, $update, 0.76, 12),
                 ['pages' => 1.9, 'returning' => 1.04, 'loyalty' => 0.06, 'timezone' => 'America/Denver']),
             $sources->search('gsc', 'sc-domain:switchbackjournal.example', ['site_url' => 'sc-domain:switchbackjournal.example', 'days' => 180],

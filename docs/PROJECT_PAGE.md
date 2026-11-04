@@ -43,7 +43,7 @@ The overview (a menu) and the project page (the segmented control) share one per
 
 | Group | Metrics (lead first) | Providers |
 | --- | --- | --- |
-| Audience | **Visits**, Visitors, Page views | Umami, Google Analytics |
+| Audience | **Visits**, Visitors, Page views | Umami, Plausible, Matomo, Google Analytics |
 | Search | **Clicks**, Impressions, Indexed pages | Search Console, Bing Webmaster |
 | Development | **Commits**, PRs merged, Lines changed, Open issues, Pipeline runs succeeded / failed | GitHub, Azure DevOps |
 | Distribution | **Downloads**, Release downloads | WordPress.org, GitHub releases |
@@ -61,7 +61,7 @@ Layout rules:
 
 - A group with a single chart, or that fits in three columns, takes half the width and pairs with the next group of the same kind (for example Distribution beside Reliability).
 - If a group's lead metric is missing, the next metric in the table becomes the lead.
-- When two sources provide the same metric (two repositories, Umami and GA4), each gets its own chart labelled with the source; the first source in project order provides the lead.
+- When two sources provide the same metric (two repositories, Umami and GA4, Plausible and Matomo), each gets its own chart labelled with the source; the first source in project order provides the lead.
 - Charts without any data in the period collapse to one line ("Response time · no data for this period") instead of a full card.
 
 ## Chart chrome
