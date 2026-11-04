@@ -11,14 +11,14 @@ final class ProjectResources
     {
         return match ($kind) {
             'umami' => 'website_id', 'ga4' => 'property_id', 'gsc', 'bing' => 'site_url',
-            'github', 'azure_devops' => 'repository', 'uptimerobot' => 'monitor_id', 'wporg' => 'slug', 'pagespeed' => 'url',
+            'github', 'github_releases', 'azure_devops' => 'repository', 'uptimerobot' => 'monitor_id', 'wporg' => 'slug', 'pagespeed' => 'url',
             default => throw new \InvalidArgumentException('Unknown provider.'),
         };
     }
 
     public static function key(string $kind, string $id): string
     {
-        return in_array($kind, ['github', 'umami', 'azure_devops'], true) ? strtolower($id) : $id;
+        return in_array($kind, ['github', 'github_releases', 'umami', 'azure_devops'], true) ? strtolower($id) : $id;
     }
 
     /** @return list<string> */

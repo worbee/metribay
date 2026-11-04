@@ -22,6 +22,7 @@ class ProviderCatalog
             'pagespeed' => ['Page speed', ['api_key'], ['api_key'], ['url', 'strategy'], 'UTC'],
             'wporg' => ['WordPress.org', [], [], ['slug', 'limit'], 'UTC'],
             'github' => ['GitHub', ['token', 'client_id', 'installation_id', 'private_key'], ['token', 'private_key'], ['repository', 'days', 'environments'], 'UTC'],
+            'github_releases' => ['GitHub releases', ['token'], ['token'], ['repository'], 'UTC'],
             'uptimerobot' => ['UptimeRobot', ['api_key'], ['api_key'], ['monitor_id'], 'UTC'],
             'azure_devops' => ['Azure DevOps', ['organization', 'token'], ['token'], ['repository', 'days', 'environments'], 'UTC'],
         ];
@@ -46,7 +47,7 @@ class ProviderCatalog
             throw ValidationException::withMessages(['config' => __('Unsupported data source setting.')]);
         }
         Validator::make(['timezone' => $timezone], ['timezone' => ['required', 'timezone']])->validate();
-        if (in_array($kind, ['umami', 'bing', 'github', 'uptimerobot', 'pagespeed', 'azure_devops'], true) && ! in_array($timezone, ['UTC', 'Etc/UTC', 'Etc/GMT', 'GMT'], true)) {
+        if (in_array($kind, ['umami', 'bing', 'github', 'github_releases', 'uptimerobot', 'pagespeed', 'azure_devops'], true) && ! in_array($timezone, ['UTC', 'Etc/UTC', 'Etc/GMT', 'GMT'], true)) {
             throw ValidationException::withMessages(['reporting_timezone' => __('This provider reports calendar dates in UTC.')]);
         }
         if ($kind === 'gsc' && $timezone !== 'America/Los_Angeles') {
@@ -60,6 +61,7 @@ class ProviderCatalog
             'wporg' => ['slug' => ['required', 'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/D', 'max:100']],
             'github' => ['repository' => ['required', 'regex:~^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$~', 'max:240'],
                 'environments' => ['sometimes', 'array', 'list', 'max:'.self::MAX_ENVIRONMENTS], 'environments.*' => ['required', 'string', 'max:255', 'regex:/^[^\x00-\x1F\x7F,]+$/u']],
+            'github_releases' => ['repository' => ['required', 'regex:~^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$~', 'max:240']],
             'uptimerobot' => ['monitor_id' => ['required', 'regex:/^[0-9]+$/']],
             'azure_devops' => ['repository' => ['required', 'string', 'max:129', 'regex:~^[^/\\\\\x00-\x1F\x7F]{1,64}/[^/\\\\\x00-\x1F\x7F]{1,64}$~uD'],
                 'environments' => ['sometimes', 'array', 'list', 'max:'.self::MAX_ENVIRONMENTS], 'environments.*' => ['required', 'string', 'max:255', 'regex:/^[^\x00-\x1F\x7F,]+$/u']],
@@ -86,7 +88,7 @@ class ProviderCatalog
         if ($kind === 'gsc' && ! preg_match('~^(sc-domain:[a-z0-9.-]+|https?://[^\s]+)$~i', $clean['site_url'])) {
             throw ValidationException::withMessages(['config.site_url' => __('Use a Search Console URL or sc-domain: property.')]);
         }
-        if ($kind === 'github' && array_intersect(explode('/', $clean['repository']), ['.', '..'])) {
+        if (in_array($kind, ['github', 'github_releases'], true) && array_intersect(explode('/', $clean['repository']), ['.', '..'])) {
             throw ValidationException::withMessages(['config.repository' => __('Use owner/repository.')]);
         }
         if ($kind === 'azure_devops') {
@@ -135,12 +137,15 @@ class ProviderCatalog
             }
         }
         $required = match ($kind) {
-            'umami' => ['base_url', 'username', 'password'],'azure_devops' => ['organization', 'token'],'bing','uptimerobot','pagespeed' => ['api_key'],'github' => isset($values['token']) ? ['token'] : ['client_id', 'installation_id', 'private_key'],'gsc','ga4' => isset($values['service_account']) ? ['service_account'] : ['client_id', 'client_secret', 'refresh_token'],default => throw ValidationException::withMessages(['kind' => __('Choose a supported provider.')])
+            'umami' => ['base_url', 'username', 'password'],'azure_devops' => ['organization', 'token'],'bing','uptimerobot','pagespeed' => ['api_key'],'github' => isset($values['token']) ? ['token'] : ['client_id', 'installation_id', 'private_key'],'github_releases' => ['token'],'gsc','ga4' => isset($values['service_account']) ? ['service_account'] : ['client_id', 'client_secret', 'refresh_token'],default => throw ValidationException::withMessages(['kind' => __('Choose a supported provider.')])
         };
         foreach ($required as $key) {
             if (empty($values[$key])) {
                 throw ValidationException::withMessages(['values.'.$key => 'Complete the required connection fields.']);
             }
+        }
+        if ($kind === 'github_releases') {
+            $values['token'] = trim($values['token']);
         }
         if ($kind === 'azure_devops') {
             try {
@@ -246,14 +251,20 @@ class ProviderCatalog
 
     public static function requiresConnection(string $kind): bool
     {
-        return $kind !== 'wporg' && ! ($kind === 'pagespeed' && app(PageSpeedCredentials::class)->managed());
+        return $kind !== 'wporg' && $kind !== 'github_releases' && ! ($kind === 'pagespeed' && app(PageSpeedCredentials::class)->managed());
+    }
+
+    /** A token can be saved, and a public repository also works without one. */
+    public static function connectionOptional(string $kind): bool
+    {
+        return $kind === 'github_releases';
     }
 
     /** @return list<string> */
     public static function metricKeys(string $kind): array
     {
         return match ($kind) {
-            'umami','ga4' => ['visitors', 'visits', 'pageviews'],'gsc' => ['impressions', 'clicks'],'bing' => ['impressions', 'clicks', 'indexed_pages'],'wporg' => ['downloads'],'github' => ['commits', 'prs_merged', 'loc_changed', 'open_issues'],'uptimerobot' => ['monitor_status', 'uptime_24h', 'response_time_24h'],'azure_devops' => ['commits', 'prs_merged', 'pipeline_runs_succeeded', 'pipeline_runs_failed', 'open_issues'],'pagespeed' => ['lab_score', 'lab_lcp', 'lab_cls', 'lab_tbt', 'crux_lcp', 'crux_inp', 'crux_cls', 'crux_origin_lcp', 'crux_origin_inp', 'crux_origin_cls'],default => []
+            'umami','ga4' => ['visitors', 'visits', 'pageviews'],'gsc' => ['impressions', 'clicks'],'bing' => ['impressions', 'clicks', 'indexed_pages'],'wporg' => ['downloads'],'github' => ['commits', 'prs_merged', 'loc_changed', 'open_issues'],'github_releases' => ['release_downloads'],'uptimerobot' => ['monitor_status', 'uptime_24h', 'response_time_24h'],'azure_devops' => ['commits', 'prs_merged', 'pipeline_runs_succeeded', 'pipeline_runs_failed', 'open_issues'],'pagespeed' => ['lab_score', 'lab_lcp', 'lab_cls', 'lab_tbt', 'crux_lcp', 'crux_inp', 'crux_cls', 'crux_origin_lcp', 'crux_origin_inp', 'crux_origin_cls'],default => []
         };
     }
 }

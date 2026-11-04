@@ -113,17 +113,19 @@ class SettingsController
         $values = $request->validate(['project_id' => ['required', 'integer'], 'kind' => ['required', Rule::in(array_keys(ProviderCatalog::all()))], 'label' => ['required', 'string', 'max:120'], 'connection_id' => ['nullable', 'integer'], 'reporting_timezone' => ['required', 'timezone'], 'config' => ['required', 'array']]);
         Project::query()->findOrFail($values['project_id']);
         $config = ProviderCatalog::source($values['kind'], $values['config'], $values['reporting_timezone']);
-        if (ProviderCatalog::requiresConnection($values['kind'])) {
+        $connectionId = null;
+        if (ProviderCatalog::requiresConnection($values['kind']) || (ProviderCatalog::connectionOptional($values['kind']) && ($values['connection_id'] ?? null))) {
             $connection = Connection::query()->find($values['connection_id'] ?? null);
             if (! $connection || $connection->kind !== $values['kind']) {
                 throw ValidationException::withMessages(['connection_id' => __('Choose a connected account for this provider.')]);
             }
+            $connectionId = $connection->id;
         }
         $hash = ProviderCatalog::identityHash($values['kind'], $config, $values['reporting_timezone']);
         if (Source::query()->where('project_id', $values['project_id'])->where('identity_hash', $hash)->exists()) {
             throw ValidationException::withMessages(['config' => __('This data source is already in this project.')]);
         }
-        Source::create(['project_id' => $values['project_id'], 'kind' => $values['kind'], 'label' => $values['label'], 'connection_id' => ! ProviderCatalog::requiresConnection($values['kind']) ? null : $values['connection_id'], 'reporting_timezone' => $values['reporting_timezone'], 'config' => $config, 'identity_hash' => $hash]);
+        Source::create(['project_id' => $values['project_id'], 'kind' => $values['kind'], 'label' => $values['label'], 'connection_id' => $connectionId, 'reporting_timezone' => $values['reporting_timezone'], 'config' => $config, 'identity_hash' => $hash]);
 
         return back()->with('status', __('Data source added. Run collection or let the scheduler collect it.'));
     }
@@ -136,18 +138,22 @@ class SettingsController
             $source = Source::query()->lockForUpdate()->whereKey($request->route('source'))->firstOrFail();
             $this->version($request, $source);
             $connectionId = $source->connection_id;
-            if ($request->has('connection_id') && ProviderCatalog::requiresConnection($source->kind)) {
-                $connection = Connection::query()->whereKey($values['connection_id'] ?? null)->where('kind', $source->kind)->first();
-                if (! $connection) {
-                    throw ValidationException::withMessages(['connection_id' => __('Choose a connected account for this provider.')]);
+            if ($request->has('connection_id') && (ProviderCatalog::requiresConnection($source->kind) || ProviderCatalog::connectionOptional($source->kind))) {
+                if (ProviderCatalog::connectionOptional($source->kind) && ($values['connection_id'] ?? null) === null) {
+                    $connectionId = null;
+                } else {
+                    $connection = Connection::query()->whereKey($values['connection_id'] ?? null)->where('kind', $source->kind)->first();
+                    if (! $connection) {
+                        throw ValidationException::withMessages(['connection_id' => __('Choose a connected account for this provider.')]);
+                    }
+                    $connectionId = $connection->id;
                 }
-                $connectionId = $connection->id;
             }
             if (ProviderCatalog::requiresConnection($source->kind) && ($request->has('enabled') ? $request->boolean('enabled') : $source->enabled) && $connectionId === null) {
                 throw ValidationException::withMessages(['connection_id' => __('Choose a connected account before enabling collection.')]);
             }
             $config = $source->config;
-            if (isset($values['days']) && ! in_array($source->kind, ['uptimerobot', 'pagespeed'], true)) {
+            if (isset($values['days']) && ! in_array($source->kind, ['uptimerobot', 'pagespeed', 'github_releases'], true)) {
                 $config[$source->kind === 'wporg' ? 'limit' : 'days'] = (int) $values['days'];
             }
             $environmentsChanged = false;
