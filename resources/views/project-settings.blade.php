@@ -49,5 +49,19 @@
     </div>
 </section>
 @endif
+@if($canEdit ?? false)
+<section class="settings-section" id="delete-project" aria-labelledby="delete-project-heading">
+    <div class="section-intro"><h2 id="delete-project-heading">{{ __('Delete project') }}</h2><p>{{ __('Permanently delete this project with all of its historic data.') }}</p></div>
+    <div class="form-width form-stack">
+    <p>{{ __('Deleting removes the project, its data sources, events, top queries and all collected metric history. This cannot be undone, and some history, such as uptime and page speed tests, cannot be collected again. Connected accounts stay.') }}</p>
+    <p class="muted">{{ __('To hide the project but keep its history, archive it instead. To keep a copy, download the metric history from Import & export first.') }}</p>
+    @if($canManageAccess ?? false)
+    <form class="delete-form" method="POST" action="{{ route('metribay.projects.destroy',['workspace'=>$workspace->slug,'project'=>$project->id]) }}" data-confirm="{{ __('Delete :name and all of its historic data? This cannot be undone.', ['name' => $project->name]) }}">@csrf @method('DELETE')<button class="button button-danger-quiet" type="submit">{{ __('Delete project') }}</button></form>
+    @else
+    <p class="muted">{{ __('Only the workspace owner can delete projects.') }}</p>
+    @endif
+    </div>
+</section>
+@endif
 @if(!($canEdit ?? false))<p class="footnote">{{ __('You have read-only access. Ask an owner or administrator to make changes.') }}</p>@endif
 @endsection

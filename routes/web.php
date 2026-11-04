@@ -32,6 +32,7 @@ Route::middleware(['web', 'auth', 'auth.session', 'verified'])->group(function (
         Route::post('/projects', [ProjectController::class, 'store'])->name('metribay.projects.store');
         Route::patch('/projects/{project}', [ProjectController::class, 'update'])->name('metribay.projects.update');
         Route::post('/projects/{project}/move', [ProjectController::class, 'move'])->middleware('throttle:10,1')->name('metribay.projects.move');
+        Route::delete('/projects/{project}', [ProjectController::class, 'destroy'])->middleware('throttle:10,1')->name('metribay.projects.destroy');
         Route::post('/groups', [SettingsController::class, 'groupStore'])->name('metribay.groups.store');
         Route::post('/connections', [SettingsController::class, 'connectionStore'])->name('metribay.connections.store');
         Route::patch('/connections/{connection}', [SettingsController::class, 'connectionUpdate'])->name('metribay.connections.update');
@@ -41,6 +42,7 @@ Route::middleware(['web', 'auth', 'auth.session', 'verified'])->group(function (
         Route::post('/sources/{source}/check', [SettingsController::class, 'check'])->name('metribay.sources.check');
         Route::post('/sources/{source}/environments', [SettingsController::class, 'environments'])->middleware('throttle:30,1')->name('metribay.sources.environments');
         Route::get('/export', [SettingsController::class, 'export'])->name('metribay.settings.export');
+        Route::get('/export/history', [SettingsController::class, 'exportHistory'])->middleware('throttle:10,1')->name('metribay.settings.export-history');
         Route::post('/import', [SettingsController::class, 'import'])->name('metribay.settings.import');
         Route::get('/projects/{project}/events', [ProjectEventController::class, 'index'])->name('metribay.events.index');
         Route::post('/projects/{project}/events', [ProjectEventController::class, 'store'])->name('metribay.events.store');

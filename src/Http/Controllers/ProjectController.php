@@ -17,6 +17,7 @@ use Metribay\Core\Models\Connection;
 use Metribay\Core\Models\HiddenChart;
 use Metribay\Core\Models\Project;
 use Metribay\Core\Models\Workspace;
+use Metribay\Core\Services\DataDeletion;
 use Metribay\Core\Services\ProjectConfiguration;
 use Metribay\Core\Services\ProjectTransfer;
 use Metribay\Core\Services\ProviderCatalog;
@@ -81,6 +82,18 @@ class ProjectController
         }
 
         return redirect()->route('metribay.projects.edit', ['workspace' => $to->slug, 'project' => $result['project']])->with('status', $status);
+    }
+
+    /** Permanently deletes the project, its data sources, events and metric history. Connected accounts stay. */
+    public function destroy(Request $request, DataDeletion $deletion): RedirectResponse
+    {
+        $workspace = app(WorkspaceContext::class)->current();
+        abort_unless(app(WorkspaceAccess::class)->allows($request->user(), $workspace, 'manage_access'), 403);
+        $project = Project::query()->whereKey($request->route('project'))->firstOrFail();
+        $deletion->project($workspace, (int) $project->id);
+
+        return redirect()->route('metribay.settings', ['workspace' => $workspace->slug, 'tab' => 'projects'])
+            ->with('status', __('Project :name deleted.', ['name' => $project->name]));
     }
 
     /** @return Collection<int, Workspace> */

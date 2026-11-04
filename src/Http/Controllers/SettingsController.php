@@ -25,8 +25,10 @@ use Metribay\Core\Models\ProjectEvent;
 use Metribay\Core\Models\ProjectGroup;
 use Metribay\Core\Models\Source;
 use Metribay\Core\Services\ConfigurationTransfer;
+use Metribay\Core\Services\HistoryExport;
 use Metribay\Core\Services\ProviderCatalog;
 use Metribay\Core\Services\WorkspaceContext;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class SettingsController
 {
@@ -214,6 +216,19 @@ class SettingsController
         $this->authorize($request);
 
         return response()->json($transfer->export())->header('Content-Disposition', 'attachment; filename="metribay-config.json"');
+    }
+
+    /** Streams the workspace's metric history as CSV, so it can be kept outside Metribay. */
+    public function exportHistory(Request $request, HistoryExport $export): StreamedResponse
+    {
+        $this->authorize($request);
+        $workspace = app(WorkspaceContext::class)->current();
+
+        return response()->streamDownload(function () use ($export, $workspace): void {
+            $stream = fopen('php://output', 'wb');
+            $export->write($workspace, $stream);
+            fclose($stream);
+        }, 'metribay-history-'.$workspace->slug.'-'.now()->format('Y-m-d').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
     public function import(Request $request, ConfigurationTransfer $transfer): RedirectResponse

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.13.0 — 2026-11-04
+
+- **Delete a project.** Project settings end with a **Delete project** section that warns that all historic data goes with it. The workspace owner confirms, and the project, its data sources, events, hidden charts, metric history, top queries and monthly query archive are deleted (`DELETE /w/{workspace}/projects/{project}`, `metribay.projects.destroy`). Connected accounts stay. Editors see who can delete; viewers see nothing.
+- **Export metric history.** **Settings → Import & export** gains **Export metric history** with **Download CSV** (`GET /w/{workspace}/export/history`): one row per daily or period value for every project, data source and metric (`project, domain, data_source, provider, metric, start_date, end_date, value, partial`). Cells that a spreadsheet would read as a formula are prefixed with an apostrophe. Owners and editors can export.
+- New `Services\DataDeletion` deletes one project (`project()`) or everything in a workspace (`workspace()`: projects, data, connected accounts and groups; the workspace and its members stay), deleting rows explicitly so the result does not depend on cascading foreign keys. Hosts can use it for retention policies. New strings in all twelve languages. No migration.
+
 ## 0.12.0 — 2026-11-04
 
 First public release.
