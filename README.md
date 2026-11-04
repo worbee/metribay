@@ -94,7 +94,7 @@ The full guide is at [metribay.com/docs/self-hosting](https://metribay.com/docs/
 
 ## Usage statistics
 
-The app can send anonymous usage statistics to help me improve it. It asks first, and nothing is sent unless you agree. No names, emails, project data or URLs. Set `METRIBAY_ANALYTICS_ENABLED=false` to remove the question entirely. What's sent and where: [docs/USAGE_ANALYTICS.md](docs/USAGE_ANALYTICS.md).
+Off by default. Nothing is sent and nobody is asked. If you want to help me improve Metribay, set `METRIBAY_ANALYTICS_ENABLED=true`: the app then asks each user, and sends anonymous usage statistics only after they agree. No names, emails, project data or URLs. What's sent and where: [docs/USAGE_ANALYTICS.md](docs/USAGE_ANALYTICS.md).
 
 ## How the repository is laid out
 

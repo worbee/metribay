@@ -13,6 +13,7 @@ class UsageAnalyticsTest extends TestCase
 
     public function test_supported_pages_offer_opt_in_without_a_remote_script_tag_or_private_path(): void
     {
+        config(['metribay.analytics.enabled' => true]);
         $user = User::factory()->create();
         Workspace::create(['owner_id' => $user->id, 'name' => 'Private name', 'slug' => 'private-slug']);
         $response = $this->actingAs($user)->get('/w/private-slug?token=private-token');
@@ -26,8 +27,19 @@ class UsageAnalyticsTest extends TestCase
         $response->assertDontSee('src="https://s.worbee.com/script.js"', false);
     }
 
+    public function test_self_hosted_installs_do_not_ask_unless_enabled(): void
+    {
+        config(['metribay.analytics.enabled' => null]);
+        $this->get('/login')->assertOk()->assertDontSee('id="metribay-analytics"', false)->assertDontSee('data-cc="show-preferencesModal"', false);
+        config(['metribay.edition' => 'desktop']);
+        $this->get('/login')->assertOk()->assertSee('id="metribay-analytics"', false);
+        config(['metribay.edition' => 'personal', 'metribay.analytics.enabled' => true]);
+        $this->get('/login')->assertOk()->assertSee('id="metribay-analytics"', false);
+    }
+
     public function test_global_disable_and_sensitive_pages_do_not_initialize_analytics(): void
     {
+        config(['metribay.analytics.enabled' => true]);
         $this->get('/forgot-password')->assertOk()->assertDontSee('id="metribay-analytics"', false);
         config(['metribay.analytics.enabled' => false]);
         $this->get('/login')->assertOk()->assertDontSee('id="metribay-analytics"', false)->assertDontSee('data-cc="show-preferencesModal"', false);
@@ -35,6 +47,7 @@ class UsageAnalyticsTest extends TestCase
 
     public function test_only_known_conversion_markers_are_rendered(): void
     {
+        config(['metribay.analytics.enabled' => true]);
         $response = $this->withSession(['analytics_event' => 'signup_completed'])->get('/login');
         $response->assertSee('"event":"signup_completed"', false);
         $this->withSession(['analytics_event' => 'private-name'])->get('/login')->assertDontSee('private-name');

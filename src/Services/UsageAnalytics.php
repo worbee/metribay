@@ -6,9 +6,15 @@ use Illuminate\Http\Request;
 
 final class UsageAnalytics
 {
+    /** An explicit setting wins; otherwise self-hosted installs don't ask. */
+    public static function enabled(): bool
+    {
+        return (bool) (config('metribay.analytics.enabled') ?? config('metribay.edition') !== 'personal');
+    }
+
     public static function page(Request $request): ?string
     {
-        if (! config('metribay.analytics.enabled') || ! $request->isMethod('GET')) {
+        if (! self::enabled() || ! $request->isMethod('GET')) {
             return null;
         }
 

@@ -22,7 +22,7 @@ The analytics server necessarily receives the connection IP address. Browser-man
 
 ## Operator controls
 
-Set `METRIBAY_ANALYTICS_ENABLED=false` to disable the prompt, link and analytics initialization globally, then rebuild the Laravel config cache if used. `metribay.analytics.script_url` and `website_id` are configurable in the host's `config/metribay.php`. Disable telemetry in a private deployment if optional outbound measurement is not acceptable. No provider credentials or user data are required to operate analytics.
+Without `METRIBAY_ANALYTICS_ENABLED`, the default follows `metribay.edition`: off in the self-hosted `personal` edition (no prompt, no Privacy settings link, no script), on in `cloud` and `desktop`. `true` or `false` overrides it in any edition; rebuild the Laravel config cache if used. `metribay.analytics.script_url` and `website_id` are configurable in the host's `config/metribay.php`. No provider credentials or user data are required to operate analytics.
 
 Desktop must set `metribay.edition=desktop`; the shared Core UI then supplies the independent opt-in. Its WebView cookie storage must persist the user's choice. Desktop does not collect background/startup metrics or automatically upload crash reports. Self-hosted operators remain responsible for accurately informing their users; changes to purposes or providers should bump the consent revision consistently in website and Cloud and update disclosures.
 

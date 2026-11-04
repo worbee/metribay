@@ -3,8 +3,9 @@
 return [
     'account_enabled' => true,
     // Optional first-party usage measurement; no tracker request before the user's choice.
+    // Unset (null): off in the self-hosted personal edition, on in Cloud and Desktop (UsageAnalytics::enabled()).
     'analytics' => [
-        'enabled' => env('METRIBAY_ANALYTICS_ENABLED', true),
+        'enabled' => env('METRIBAY_ANALYTICS_ENABLED'),
         'script_url' => 'https://s.worbee.com/script.js',
         'website_id' => 'e2ab0564-e9ab-4a86-b4cc-12bb0c8369f5',
     ],

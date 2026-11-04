@@ -55,7 +55,7 @@ Don't let a CDN cache any page of the app ([OPERATIONS.md](OPERATIONS.md)).
 
 All settings are environment variables in `docker/.env`; [`docker/.env.example`](../docker/.env.example) lists the common ones. `APP_KEY` is required: it encrypts your provider credentials, and they can't be recovered without it. Your own Google OAuth app is optional ([PROVIDERS.md](PROVIDERS.md)); service accounts and tokens work without one. Mail is only needed for password reset emails.
 
-Usage analytics are optional and only sent after the user agrees ([USAGE_ANALYTICS.md](USAGE_ANALYTICS.md)). `METRIBAY_ANALYTICS_ENABLED=false` removes the prompt.
+Usage analytics are off by default. `METRIBAY_ANALYTICS_ENABLED=true` shows the consent prompt, and statistics are only sent after the user agrees ([USAGE_ANALYTICS.md](USAGE_ANALYTICS.md)).
 
 SQLite runs in WAL mode with a 10 second busy timeout (`DB_JOURNAL_MODE`, `DB_BUSY_TIMEOUT`), so the three containers can share the file. Keep the volume on a local disk, not a network share.
 
