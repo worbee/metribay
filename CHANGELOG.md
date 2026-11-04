@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.15.0 — 2026-11-04
+
 - Connect Paddle Billing to see net revenue, MRR and active paying subscribers. The metrics-only key keeps individual customer data in Paddle.
 - **Plausible and Matomo** data sources, on the same path as Umami. Plausible takes a public HTTPS server URL (`https://plausible.io` for Cloud) and a team Stats API key, then the site domain. Matomo takes the server URL and an auth token (`token_auth` in the POST body), then the numeric site ID. Both follow the site's reporting timezone. Plausible stores exact period visitors. Matomo does not, because a custom range has no true unique visitors. New strings in all twelve languages. No migration.
 - **GitHub releases** data source. It stores **Release downloads**: the current sum of `download_count` on assets of non-draft releases, including prereleases. GitHub's automatic source archives are not included. Each sync records one UTC snapshot and replaces that day's value. A public repository needs no account. A personal access token is optional, for a private repository or a higher rate limit. This source does not use a GitHub App. New strings in all twelve languages. No migration.

@@ -2550,10 +2550,11 @@
             "dist": {
                 "type": "path",
                 "url": "..",
-                "reference": "c6611aaed878557d3f98906f39bfa7d3476a5b67"
+                "reference": "aaec06cd8a9c0d488c3b1739cb0e1a70c42c56f8"
             },
             "require": {
                 "ext-curl": "*",
+                "ext-intl": "*",
                 "firebase/php-jwt": "^7.0",
                 "google/auth": "^1.0",
                 "laravel/fortify": "^1.0",
