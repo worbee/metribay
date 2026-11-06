@@ -2,7 +2,8 @@
 # See docs/DOCKER.md. Build from the repository root: docker build -t metribay .
 FROM dunglas/frankenphp:1-php8.5-alpine
 
-RUN install-php-extensions bcmath intl pcntl pdo_pgsql zip \
+RUN apk upgrade --no-cache \
+    && install-php-extensions bcmath intl pcntl pdo_pgsql zip \
     && apk add --no-cache sqlite tzdata
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 

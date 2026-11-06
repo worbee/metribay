@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.16.1 — 2026-11-06
+
+- Apply Symfony security fixes and refresh Alpine packages in the self-hosted Docker image. No database migration.
+
 ## 0.16.0 — 2026-11-05
 
 - **RSS / Atom** and **Sitemap** data sources, in a new Content group. One RSS / Atom source reads both formats. A sitemap may be a urlset or an index of urlsets. **Items published** counts dated feed entries and sitemap URLs by `lastmod`. **Published URLs** is the current size of a sitemap. Each published item is also an event. **Automatically convert these values into events** is on unless you turn it off, including for GitHub release events. Deployments stay on the environments setting. No account is required. New strings in all twelve languages. No migration.
