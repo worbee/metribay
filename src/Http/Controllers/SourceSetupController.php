@@ -6,6 +6,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -51,12 +52,33 @@ class SourceSetupController
         $this->authorize($request, 'manage_connections');
         $draft = $request->session()->get($this->key($request), []);
         abort_unless(in_array($draft['kind'] ?? '', ['ga4', 'gsc'], true), 409);
+
+        return $this->googleConsent($request, $draft['kind']);
+    }
+
+    /** Renews a Google connected account in place, so its data sources keep their account. */
+    public function googleReconnect(Request $request): RedirectResponse
+    {
+        $this->authorize($request, 'manage_connections');
+        $connection = Connection::query()->whereIn('kind', ['ga4', 'gsc'])->findOrFail($request->route('connection'));
+
+        return $this->googleConsent($request, $connection->kind, (int) $connection->id);
+    }
+
+    private function googleConsent(Request $request, string $kind, ?int $connection = null): RedirectResponse
+    {
         $client = app(GoogleAuthorization::class)->client();
         $state = Str::random(64);
-        $request->session()->put('metribay_google', ['state' => $state, 'user' => $request->user()->getAuthIdentifier(), 'workspace' => app(WorkspaceContext::class)->id(), 'kind' => $draft['kind'], 'client_id' => $client['client_id'], 'expires' => time() + 600]);
-        $scope = $draft['kind'] === 'ga4' ? 'https://www.googleapis.com/auth/analytics.readonly' : 'https://www.googleapis.com/auth/webmasters.readonly';
+        $request->session()->put('metribay_google', ['state' => $state, 'user' => $request->user()->getAuthIdentifier(), 'workspace' => app(WorkspaceContext::class)->id(), 'kind' => $kind, 'client_id' => $client['client_id'], 'expires' => time() + 600] + ($connection === null ? [] : ['connection' => $connection]));
+        $scope = $kind === 'ga4' ? 'https://www.googleapis.com/auth/analytics.readonly' : 'https://www.googleapis.com/auth/webmasters.readonly';
 
         return redirect()->away('https://accounts.google.com/o/oauth2/v2/auth?'.http_build_query(['client_id' => $client['client_id'], 'redirect_uri' => $client['redirect_uri'], 'response_type' => 'code', 'scope' => $scope, 'access_type' => 'offline', 'prompt' => 'consent', 'state' => $state]));
+    }
+
+    /** Default name of a Google account connected through the browser; the product name tells GSC and GA4 accounts apart. */
+    public static function googleAccountName(string $kind): string
+    {
+        return ($kind === 'gsc' ? 'GSC' : 'GA4').' · '.now()->format('d M H:i:s');
     }
 
     public function googleReturn(Request $request, SafeHttpClient $http): RedirectResponse
@@ -72,7 +94,9 @@ class SourceSetupController
         $this->authorize($request, 'manage_connections');
         $state = $request->session()->pull('metribay_google', []);
         abort_unless(($state['expires'] ?? 0) >= time() && ($state['workspace'] ?? null) === app(WorkspaceContext::class)->id() && ($state['user'] ?? null) === $request->user()->getAuthIdentifier() && is_string($request->input('state')) && hash_equals($state['state'] ?? '', $request->input('state')), 403);
-        $target = route('metribay.sources.create', app(WorkspaceContext::class)->current()->slug);
+        $reconnect = isset($state['connection']) ? (int) $state['connection'] : null;
+        $target = $reconnect === null ? route('metribay.sources.create', app(WorkspaceContext::class)->current()->slug)
+            : route('metribay.settings', ['workspace' => app(WorkspaceContext::class)->current()->slug, 'tab' => 'accounts']).'#connection-'.$reconnect;
         if (! $request->filled('code')) {
             return redirect($target)->withErrors(['account' => __('Google access was not granted. Try again or use another account.')]);
         }
@@ -85,7 +109,10 @@ class SourceSetupController
             if (! $response->successful()) {
                 throw new \RuntimeException;
             }
-            $connection = new Connection(['workspace_id' => app(WorkspaceContext::class)->id(), 'kind' => $state['kind'], 'name' => 'Google · '.now()->format('d M H:i:s')]);
+            if ($reconnect !== null) {
+                return $this->finishGoogleReconnect($reconnect, $state['kind'], $credentials, $target);
+            }
+            $connection = new Connection(['workspace_id' => app(WorkspaceContext::class)->id(), 'kind' => $state['kind'], 'name' => self::googleAccountName($state['kind'])]);
             $connection->storeSecrets($credentials);
             $connection->save();
             $previous = $request->session()->get($this->key($request), []);
@@ -98,6 +125,84 @@ class SourceSetupController
         }
 
         return redirect($target);
+    }
+
+    /**
+     * Checks the new authorization against every site or property the account's data sources use, then replaces the saved one.
+     * Signing in with a Google account that lacks access keeps the old authorization, so working data sources never lose access.
+     *
+     * @param  array<string, mixed>  $values
+     */
+    private function finishGoogleReconnect(int $id, string $kind, array $values, string $target): RedirectResponse
+    {
+        $connection = Connection::query()->where('kind', $kind)->findOrFail($id);
+        $sources = Source::query()->with('project')->where('connection_id', $connection->id)->orderBy('id')->get();
+        $candidate = $connection->replicate();
+        $candidate->storeSecrets($values);
+        try {
+            $missing = $this->inaccessibleGoogleResources($kind, app(ConnectionCredentials::class)->resolve($candidate), $sources);
+        } catch (ProviderRequestLimit $exception) {
+            return redirect($target)->withErrors(['account' => $exception->getMessage()]);
+        } catch (\Throwable) {
+            return redirect($target)->withErrors(['account' => __('Google could not confirm access with this sign-in. Try again and allow read access.')]);
+        }
+        if ($missing !== []) {
+            return redirect($target)->withErrors(['account' => __('This Google account cannot read :resources. Sign in with the Google account that has access. The saved access was not changed.', ['resources' => implode(', ', $missing)])]);
+        }
+        DB::transaction(function () use ($connection, $values): void {
+            $fresh = Connection::query()->lockForUpdate()->findOrFail($connection->id);
+            $fresh->storeSecrets($values);
+            $fresh->forceFill(['version' => $fresh->version + 1])->save();
+        });
+        $queued = 0;
+        foreach ($sources as $source) {
+            if ($source->enabled && ! $source->project?->archived) {
+                CollectSource::dispatch(app(WorkspaceContext::class)->id(), $source->id);
+                $queued++;
+            }
+        }
+
+        return redirect($target)->with('status', trans_choice('{0} Google account reconnected.|{1} Google account reconnected. Collection restarted for :count data source.|[2,*] Google account reconnected. Collection restarted for :count data sources.', $queued, ['count' => $queued]));
+    }
+
+    /**
+     * @param  array<string, mixed>  $credentials
+     * @param  Collection<int, Source>  $sources
+     * @return list<string> Sites or properties the data sources use that these credentials cannot read.
+     */
+    private function inaccessibleGoogleResources(string $kind, array $credentials, Collection $sources): array
+    {
+        $discovery = app(ResourceDiscovery::class);
+        $missing = [];
+        if ($kind === 'gsc') {
+            // Listing sites also proves the new authorization works when no data source uses the account yet.
+            $visible = array_column($discovery->discover('gsc', $credentials), 'id');
+            foreach ($sources as $source) {
+                $site = (string) ($source->config['site_url'] ?? '');
+                if (! in_array($site, $visible, true)) {
+                    $missing[] = $site;
+                }
+            }
+
+            return array_values(array_unique($missing));
+        }
+        if ($sources->isEmpty()) {
+            $discovery->discover('ga4', $credentials);
+
+            return [];
+        }
+        foreach ($sources as $source) {
+            $property = (string) ($source->config['property_id'] ?? '');
+            try {
+                $discovery->googleTimezone($credentials, $property);
+            } catch (ProviderRequestLimit $exception) {
+                throw $exception;
+            } catch (\Throwable) {
+                $missing[] = __('GA4 property :id', ['id' => $property]);
+            }
+        }
+
+        return array_values(array_unique($missing));
     }
 
     public function show(Request $request): View|RedirectResponse

@@ -161,6 +161,7 @@ class SourceSetupTest extends TestCase
         $this->assertDatabaseCount('connections', 1);
         app(WorkspaceContext::class)->run($workspace, function () {
             $this->assertSame('fixture-refresh', Connection::first()->reveal()['refresh_token']);
+            $this->assertStringStartsWith('GA4 · ', Connection::first()->name);
         });
         $this->get('/w/setup/sources/google/callback?state='.$state.'&code=fixture-code')->assertForbidden();
     }

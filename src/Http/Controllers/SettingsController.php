@@ -16,6 +16,7 @@ use Metribay\Core\Connectors\DeploymentAccess;
 use Metribay\Core\Connectors\ProviderRequestLimit;
 use Metribay\Core\Connectors\SourceConfiguration;
 use Metribay\Core\Contracts\ConnectionCredentials;
+use Metribay\Core\Contracts\GoogleAuthorization;
 use Metribay\Core\Contracts\PageSpeedCredentials;
 use Metribay\Core\Contracts\WorkspaceAccess;
 use Metribay\Core\Jobs\CollectSource;
@@ -51,7 +52,7 @@ class SettingsController
             return redirect()->route('metribay.settings', array_filter(['workspace' => app(WorkspaceContext::class)->current()->slug, 'tab' => $legacy[$request->query('tab')], 'create' => $request->query('create')]));
         }
 
-        return view('metribay::settings', ['projects' => Project::query()->with('sources')->orderBy('name')->get(), 'groups' => ProjectGroup::query()->orderBy('name')->get(), 'connections' => Connection::query()->orderBy('name')->get(), 'sources' => Source::query()->with(['project', 'connection'])->orderBy('project_id')->get(), 'providers' => ProviderCatalog::all(), 'tab' => $request->query('tab', 'projects')]);
+        return view('metribay::settings', ['projects' => Project::query()->with('sources')->orderBy('name')->get(), 'groups' => ProjectGroup::query()->orderBy('name')->get(), 'connections' => Connection::query()->orderBy('name')->get(), 'sources' => Source::query()->with(['project', 'connection'])->orderBy('project_id')->get(), 'providers' => ProviderCatalog::all(), 'googleAuthorization' => app(GoogleAuthorization::class), 'tab' => $request->query('tab', 'projects')]);
     }
 
     public function groupStore(Request $request): RedirectResponse

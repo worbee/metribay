@@ -27,6 +27,16 @@ class Connection extends Model
         $this->encrypted_payload = ['workspace_id' => (int) $this->workspace_id, 'kind' => $this->kind, 'values' => $values];
     }
 
+    /** Issued by the host's own provider app (for example Metribay Cloud's Google app): renewable only by signing in again. */
+    public function hostManaged(): bool
+    {
+        try {
+            return array_key_exists('managed_app', $this->reveal());
+        } catch (DecryptException) {
+            return false;
+        }
+    }
+
     /** @return array<string, mixed> */
     public function reveal(): array
     {

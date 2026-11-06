@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.17.0 — 2026-11-07
+
+- **Reconnect Google** on Google Analytics and Search Console accounts in **Settings → Connected accounts**, when browser sign-in with Google is configured. It signs in with Google again and replaces the saved authorization on the same account, so its data sources keep the account and their history and collect again right away. Before saving, it checks that the new sign-in can read every site or property those data sources use. If any is missing, the saved authorization stays as it was. Accounts that a host connected through its own Google app show only the name field and **Reconnect Google** instead of credential fields.
+- When Google rejects a saved authorization (`invalid_grant`: the refresh token expired or was revoked, or the key was disabled), collection fails with `GoogleAuthorizationExpired` instead of the generic `ConnectorException`. The project page explains it and links to the account. Project settings show "Google access expired or was revoked".
+- Google accounts connected through the browser are now named `GSC · …` or `GA4 · …` instead of `Google · …`. Existing names are unchanged.
+- New strings in all twelve languages. No migration.
+
 ## 0.16.1 — 2026-11-06
 
 - Apply Symfony security fixes and refresh Alpine packages in the self-hosted Docker image. No database migration.

@@ -37,6 +37,7 @@ Route::middleware(['web', 'auth', 'auth.session', 'verified'])->group(function (
         Route::post('/connections', [SettingsController::class, 'connectionStore'])->name('metribay.connections.store');
         Route::patch('/connections/{connection}', [SettingsController::class, 'connectionUpdate'])->name('metribay.connections.update');
         Route::delete('/connections/{connection}', [SettingsController::class, 'connectionDestroy'])->name('metribay.connections.destroy');
+        Route::get('/connections/{connection}/google', [SourceSetupController::class, 'googleReconnect'])->middleware('throttle:10,1')->name('metribay.connections.google');
         Route::post('/sources', [SettingsController::class, 'sourceStore'])->name('metribay.sources.store');
         Route::patch('/sources/{source}', [SettingsController::class, 'sourceUpdate'])->name('metribay.sources.update');
         Route::post('/sources/{source}/check', [SettingsController::class, 'check'])->name('metribay.sources.check');

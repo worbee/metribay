@@ -49,7 +49,13 @@ final readonly class GoogleToken
                     $headers[$name] = implode(', ', $values);
                 }
 
-                return $this->http->request('POST', (string) $request->getUri(), ['form_params' => $form, 'headers' => $headers])->toPsrResponse();
+                $response = $this->http->request('POST', (string) $request->getUri(), ['form_params' => $form, 'headers' => $headers]);
+                if ($response->status() === 400 && $response->json('error') === 'invalid_grant') {
+                    // Expired or revoked refresh tokens and disabled keys only recover by reconnecting.
+                    throw new GoogleAuthorizationExpired;
+                }
+
+                return $response->toPsrResponse();
             });
             $value = $token['access_token'] ?? null;
             if (! is_string($value) || trim($value) === '' || preg_match('/[\r\n]/', $value)) {
@@ -57,7 +63,7 @@ final readonly class GoogleToken
             }
 
             return $value;
-        } catch (ProviderRequestLimit $exception) {
+        } catch (ProviderRequestLimit|GoogleAuthorizationExpired $exception) {
             throw $exception;
         } catch (\Throwable) {
             throw new ConnectorException('Google authentication failed. Check the service-account key or OAuth credentials and provider access.');

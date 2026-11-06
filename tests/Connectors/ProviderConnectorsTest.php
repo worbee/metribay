@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Http;
 use Metribay\Core\Connectors\BingConnector;
 use Metribay\Core\Connectors\ConnectorException;
 use Metribay\Core\Connectors\Ga4Connector;
+use Metribay\Core\Connectors\GoogleAuthorizationExpired;
 use Metribay\Core\Connectors\GoogleToken;
 use Metribay\Core\Connectors\GscConnector;
 use Metribay\Core\Connectors\SourceConfiguration;
@@ -341,6 +342,20 @@ final class ProviderConnectorsTest extends FixtureTestCase
                 $this->assertStringNotContainsString('synthetic-private-material', $exception->getMessage());
                 $this->assertStringNotContainsString('PRIVATE KEY', $exception->getMessage());
                 $this->assertNull($exception->getPrevious());
+            }
+        }
+    }
+
+    public function test_google_expired_or_revoked_authorization_has_its_own_safe_error(): void
+    {
+        Http::fake(['*' => Http::response(['error' => 'invalid_grant', 'error_description' => 'Token has been expired or revoked.'], 400)]);
+        foreach ([['refresh_token' => 'synthetic-refresh', 'client_id' => 'synthetic-client', 'client_secret' => 'synthetic-secret'], $this->googleCredentials()] as $credentials) {
+            try {
+                (new GoogleToken($this->http()))->fetch($credentials, 'https://www.googleapis.com/auth/webmasters.readonly');
+                $this->fail('Expected an expired Google authorization.');
+            } catch (GoogleAuthorizationExpired $exception) {
+                $this->assertSame('Google access for this connected account expired or was revoked. Reconnect the account.', $exception->getMessage());
+                $this->assertStringNotContainsString('synthetic', $exception->getMessage());
             }
         }
     }

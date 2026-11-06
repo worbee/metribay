@@ -582,6 +582,8 @@
     .setting-item-heading > .source-status, .item-count { margin-left: auto; flex: none; }
     .setting-item-actions { margin-top: 10px; padding-left: 50px; font-size: 12px; }
     .account-usage { list-style: none; margin: 12px 0 0; padding: 0 0 0 46px; display: grid; gap: 5px; font-size: 12px; color: var(--text-muted); }
+    .account-reconnect { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; margin-top: 12px; padding-left: 46px; }
+    .account-reconnect .field-hint { margin: 0; }
     .item-count { color: var(--text-muted); font-size: 10px; }
     .quiet-tag { border: 1px solid var(--border); color: var(--text-muted); padding: 1px 5px; border-radius: 3px; font-size: 9px; font-weight: 400; }
     .new-item-section { margin-top: 37px; padding-top: 28px; border-top: 1px solid var(--border); scroll-margin-top: 24px; }

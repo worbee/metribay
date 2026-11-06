@@ -19,7 +19,7 @@ class DemoMode
     private const ALLOWED = ['metribay.locale', '*livewire.update'];
 
     /** Safe requests that would leave the demo for a provider sign-in. */
-    private const BLOCKED_READS = ['metribay.sources.google', 'metribay.sources.google.callback', 'metribay.google.callback'];
+    private const BLOCKED_READS = ['metribay.sources.google', 'metribay.sources.google.callback', 'metribay.google.callback', 'metribay.connections.google'];
 
     public static function enabled(): bool
     {

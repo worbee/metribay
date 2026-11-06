@@ -7,6 +7,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Metribay\Core\Connectors\CollectionResult;
 use Metribay\Core\Metrics\ProjectLayout;
+use Metribay\Core\Models\Connection;
 use Metribay\Core\Models\HiddenChart;
 use Metribay\Core\Models\Project;
 use Metribay\Core\Models\Source;
@@ -159,6 +160,27 @@ class ProjectPageLayoutTest extends TestCase
             ->assertSee('id="source-attention-'.$failed->id.'"', false)
             ->assertSee('href="#source-attention-'.$delayed->id.'">1 delayed</a>', false)
             ->assertSee('id="source-attention-'.$delayed->id.'"', false);
+    }
+
+    public function test_expired_google_access_points_to_reconnecting_the_account(): void
+    {
+        $this->freezeTime();
+        $connection = $this->scoped(function () {
+            $connection = new Connection(['workspace_id' => $this->workspace->id, 'kind' => 'gsc', 'name' => 'GSC · fixture']);
+            $connection->storeSecrets(['client_id' => 'fixture-id', 'client_secret' => 'fixture-secret', 'refresh_token' => 'fixture-refresh']);
+            $connection->save();
+
+            return $connection;
+        });
+        $failed = $this->source('gsc', 'Search account', ['clicks' => 1.0], ['connection_id' => $connection->id, 'consecutive_failures' => 1, 'error_code' => 'GoogleAuthorizationExpired', 'last_error_at' => CarbonImmutable::now('UTC')]);
+
+        $this->actingAs($this->owner)->get('/w/layout/projects/'.$this->project->id)->assertOk()
+            ->assertSee('Google access for this data source’s connected account expired or was revoked. Reconnect the account to resume collection.')
+            ->assertSee('href="'.route('metribay.settings', ['workspace' => 'layout', 'tab' => 'accounts']).'#connection-'.$connection->id.'">Reconnect account', false)
+            ->assertDontSee('Reference: GoogleAuthorizationExpired');
+        $this->get('/w/layout/projects/'.$this->project->id.'/settings')->assertOk()
+            ->assertSee('Google access expired or was revoked; reconnect the account');
+        $this->assertNotNull($failed->id);
     }
 
     public function test_hidden_charts_leave_an_attention_warning_target(): void
