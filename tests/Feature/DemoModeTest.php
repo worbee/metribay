@@ -8,8 +8,10 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Routing\Route;
 use Illuminate\Support\Facades\DB;
 use Metribay\Core\Http\Middleware\DemoMode;
+use Metribay\Core\Models\Project;
 use Metribay\Core\Models\Workspace;
 use Metribay\Core\Services\DemoData;
+use Metribay\Core\Services\WorkspaceContext;
 use Pdo\Sqlite;
 use Tests\TestCase;
 
@@ -24,7 +26,9 @@ class DemoModeTest extends TestCase
         parent::setUp();
         $this->owner = User::factory()->create(['email' => DemoData::EMAIL, 'locale' => 'en']);
         $workspace = Workspace::create(['owner_id' => $this->owner->id, 'name' => 'Samples', 'slug' => 'samples']);
-        app(DemoData::class)->populate($workspace, days: 30);
+        app(WorkspaceContext::class)->run($workspace, fn () => Project::create([
+            'name' => 'Sample project', 'slug' => 'sample-project', 'domain' => 'sample.example',
+        ]));
     }
 
     public function test_demo_mode_is_off_unless_switched_on(): void

@@ -6,5 +6,6 @@ No stages, commits, pushes, coauthor trailers, real secrets, runtime databases, 
 
 Every published Core release tag needs a short user-facing note on metribay.com/changelog/. When working in the full workspace, prepare the site note alongside the Core release. In a Core-only checkout, hand off the summary and tag to the site maintainer.
 Tests run from standalone/: php artisan test; package tests are included there. PHP 8.5 is the minimum; use installed source, lock files and docs as authority for framework/package versions.
+Select checks with docs/TESTING.md: targeted checks during development; full affected suites at handoff, commit and release. Database and fixture/discovery changes require PostgreSQL too; releases keep the full SQLite/PostgreSQL matrix. In the full workspace also follow cloud/docs/VERIFICATION.md.
 
 Localization (twelve languages, files, language resolution, adding strings or languages): docs/LOCALIZATION.md.

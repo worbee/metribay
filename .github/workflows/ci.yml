@@ -41,7 +41,9 @@ jobs:
           DB_USERNAME: metribay
           DB_PASSWORD: test-only-password
       - run: composer analyse
+        if: matrix.database == 'sqlite'
       - run: vendor/bin/pint --test ../src ../tests ../database ../routes ../config app tests
+        if: matrix.database == 'sqlite'
       - uses: actions/setup-node@v7
         if: matrix.database == 'sqlite'
         with: {node-version: '24', cache: npm, cache-dependency-path: package-lock.json}
