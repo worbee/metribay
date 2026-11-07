@@ -17,6 +17,10 @@ class UpdateProfile implements UpdatesUserProfileInformation
         }
         Validator::make($input, ['name' => ['required', 'string', 'max:120'], 'email' => ['required', 'email', 'max:254', Rule::unique('users')->ignore($user->id)]])->validateWithBag('updateProfileInformation');
         $changed = mb_strtolower($input['email']) !== $user->email;
+        // A signed-in session alone must not grant control of the recovery address.
+        if ($changed) {
+            Validator::make($input, ['current_password' => ['required', 'string', 'current_password:web']])->validateWithBag('updateProfileInformation');
+        }
         $user->forceFill(['name' => $input['name'], 'email' => mb_strtolower($input['email'])]);
         if ($changed) {
             $user->email_verified_at = null;

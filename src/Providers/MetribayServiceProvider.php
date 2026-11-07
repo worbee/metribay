@@ -6,6 +6,7 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Foundation\Http\Kernel as HttpKernel;
 use Illuminate\Http\Request;
+use Illuminate\Session\Middleware\AuthenticateSession;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\View;
@@ -65,7 +66,8 @@ class MetribayServiceProvider extends ServiceProvider
             if (! $kernel instanceof HttpKernel) {
                 return;
             }
-            foreach ([SetLocale::class, DiscardAbandonedSetup::class, DemoMode::class] as $middleware) {
+            // Fortify and Livewire must reject stale password sessions just like dashboard routes.
+            foreach ([SetLocale::class, DiscardAbandonedSetup::class, DemoMode::class, AuthenticateSession::class] as $middleware) {
                 $kernel->appendMiddlewareToGroup('web', $middleware);
             }
             $kernel->addToMiddlewarePriorityAfter(StartSession::class, DemoMode::class);

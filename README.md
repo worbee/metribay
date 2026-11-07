@@ -50,7 +50,7 @@ One limit to know about: Metribay only connects to public HTTPS endpoints. An Um
 The Docker image has a fictional sample portfolio built in. Seven made-up projects, 400 days of history.
 
 ```sh
-docker run --rm -p 127.0.0.1:8080:8080 -e APP_KEY="$(docker run --rm ghcr.io/worbee/metribay key)" ghcr.io/worbee/metribay demo
+docker run --rm -p 127.0.0.1:8080:8080 -e APP_URL=http://127.0.0.1:8080 -e APP_KEY="$(docker run --rm ghcr.io/worbee/metribay key)" ghcr.io/worbee/metribay demo
 ```
 
 Open http://127.0.0.1:8080: the demo signs you in, and nothing you click can change it. Or skip Docker and look around at https://demo.metribay.com.

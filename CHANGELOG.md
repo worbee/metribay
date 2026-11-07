@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.17.1 — 2026-11-07
+
+- Require the current password when changing the sign-in email. Name and language changes remain available without it. The profile form explains this in all twelve languages.
+- Apply password-session validation to all web routes, including Fortify account settings and MFA endpoints. Sessions invalidated by a password change or reset must sign in again.
+- Restrict production standalone requests to the hostname in `APP_URL`, protecting password-reset and verification links. Docker healthchecks send the configured hostname; self-hosters should check `APP_URL` before updating. No database migration.
+- Include the accepted wider dashboard layout and local test improvements prepared after 0.17.0.
+
 ## 0.17.0 — 2026-11-07
 
 - **Reconnect Google** on Google Analytics and Search Console accounts in **Settings → Connected accounts**, when browser sign-in with Google is configured. It signs in with Google again and replaces the saved authorization on the same account, so its data sources keep the account and their history and collect again right away. Before saving, it checks that the new sign-in can read every site or property those data sources use. If any is missing, the saved authorization stays as it was. Accounts that a host connected through its own Google app show only the name field and **Reconnect Google** instead of credential fields.

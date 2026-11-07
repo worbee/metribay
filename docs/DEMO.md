@@ -3,7 +3,7 @@
 A public, read-only Metribay with the fictional sample portfolio from [DEMO_DATA.md](DEMO_DATA.md). It runs at https://demo.metribay.com and starts with one command from the Docker image.
 
 ```sh
-docker run --rm -p 127.0.0.1:8080:8080 -e APP_KEY="$(docker run --rm ghcr.io/worbee/metribay key)" ghcr.io/worbee/metribay demo
+docker run --rm -p 127.0.0.1:8080:8080 -e APP_URL=http://127.0.0.1:8080 -e APP_KEY="$(docker run --rm ghcr.io/worbee/metribay key)" ghcr.io/worbee/metribay demo
 ```
 
 ## What visitors get

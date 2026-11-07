@@ -13,6 +13,8 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Password-reset and verification links must never inherit an arbitrary request host.
+        $middleware->trustHosts(at: fn (): array => ['^'.preg_quote((string) parse_url(config('app.url'), PHP_URL_HOST), '/').'$'], subdomains: false);
         $middleware->appendToGroup('web', SecurityHeaders::class);
         // Comma-separated proxy addresses or CIDR ranges, for HTTPS terminated by a reverse proxy.
         if ($proxies = array_filter(explode(',', (string) env('METRIBAY_TRUSTED_PROXIES', '')))) {

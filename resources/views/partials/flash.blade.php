@@ -19,9 +19,10 @@
         <div>{{ session(\Metribay\Core\Http\Middleware\DemoMode::NOTICE_KEY) }}</div>
     </div>
 @endif
-@if ($errors->any())
+@php($validationErrors = collect($errors->getBags())->flatMap(fn ($bag) => $bag->all())->unique())
+@if ($validationErrors->isNotEmpty())
     <div class="notice notice-error" role="alert" tabindex="-1" data-validation-errors>
         @include('metribay::partials/icon', ['name' => 'alert'])
-        <div><strong>{{ __('Please check the following:') }}</strong><ul>@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>
+        <div><strong>{{ __('Please check the following:') }}</strong><ul>@foreach ($validationErrors as $error)<li>{{ $error }}</li>@endforeach</ul></div>
     </div>
 @endif

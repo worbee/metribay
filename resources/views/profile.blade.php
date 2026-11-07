@@ -7,6 +7,7 @@
     <form class="form-stack form-width" method="POST" action="{{ url('/user/profile-information') }}">@csrf @method('PUT')
         <div class="field"><label for="profile-name">{{ __('Name') }}</label><input id="profile-name" name="name" value="{{ old('name', $user->name) }}" autocomplete="name" required maxlength="120"></div>
         <div class="field"><label for="profile-email">{{ __('Email address') }}</label><input id="profile-email" name="email" type="email" value="{{ old('email', $user->email) }}" autocomplete="email" required></div>
+        <div class="field"><label for="profile-current-password">{{ __('Current password') }}</label><input id="profile-current-password" name="current_password" type="password" autocomplete="current-password" aria-describedby="profile-password-hint"><p id="profile-password-hint" class="field-hint">{{ __('Enter your current password only when changing your email address.') }}</p></div>
         <div><button class="button button-primary" type="submit">{{ __('Save details') }}</button></div>
     </form>
 </section>

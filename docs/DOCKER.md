@@ -11,7 +11,7 @@ docker build -t ghcr.io/worbee/metribay:latest .
 ## Try it with sample data
 
 ```sh
-docker run --rm -p 127.0.0.1:8080:8080 -e APP_KEY="$(docker run --rm ghcr.io/worbee/metribay key)" ghcr.io/worbee/metribay demo
+docker run --rm -p 127.0.0.1:8080:8080 -e APP_URL=http://127.0.0.1:8080 -e APP_KEY="$(docker run --rm ghcr.io/worbee/metribay key)" ghcr.io/worbee/metribay demo
 ```
 
 Open http://127.0.0.1:8080: the demo signs you in. The `demo` role rebuilds the fictional sample portfolio from [DEMO_DATA.md](DEMO_DATA.md) on every start and serves it read-only, with collection and usage analytics switched off ([DEMO.md](DEMO.md)). The same thing runs at https://demo.metribay.com.
@@ -26,6 +26,8 @@ docker compose -f docker/compose.yaml exec web php artisan metribay:install --em
 ```
 
 The install command asks for a password privately and creates the only account. Registration stays off. Open `APP_URL` and sign in.
+
+Set `APP_URL` to the exact address you use. In production, the standalone host rejects other hostnames, including subdomains, to protect password-reset and verification links. Local health probes must send that hostname in the `Host` header; the image healthcheck does this automatically. For example, with `APP_URL=https://metrics.example.com`, use `curl -H "Host: metrics.example.com" http://127.0.0.1:8080/up`.
 
 `web` runs pending migrations before it starts serving, and `worker` and `scheduler` wait until `web` is healthy. The scheduler starts collection every four hours, uptime hourly and a full history refresh weekly ([OPERATIONS.md](OPERATIONS.md)). The port is bound to `127.0.0.1:8080`; set `METRIBAY_PORT` in `docker/.env` to change it.
 

@@ -11,3 +11,7 @@ SQLite suits a personal installation. Use one process-manager-controlled queue w
 Back up database and APP_KEY separately and verify a restore. SQLite: use SQLite online backup rather than copying live WAL files. PostgreSQL: pg_dump/pg_restore with operator-protected credentials. Credential ciphertext cannot be recovered without APP_KEY. Do not rotate APP_KEY without a tested decrypt/re-encrypt plan.
 
 Production email/Stripe/domain setup uses operator credentials. Core manual connections work without a proprietary identity service. Self-hosted registration is disabled; initialize first owner with metribay:install, and use the email password-reset flow after configuring mail transport.
+
+## Account security
+
+Changing your sign-in email in **Profile** requires your current password. Name and language changes do not. A changed email must be verified again. After a password change or reset, older sessions must sign in again before using account settings, MFA endpoints or the dashboard; the session performing a password update stays signed in.

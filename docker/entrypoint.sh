@@ -81,7 +81,8 @@ case "${1:-web}" in
     healthcheck)
         role=$(cat /tmp/metribay-role 2>/dev/null || true)
         if [ "$role" = web ] || [ "$role" = demo ]; then
-            exec curl -fsS -o /dev/null http://127.0.0.1:8080/up
+            host=$(php -r 'echo parse_url(getenv("APP_URL") ?: "http://localhost", PHP_URL_HOST);')
+            exec curl -fsS -H "Host: $host" -o /dev/null http://127.0.0.1:8080/up
         fi
         ;;
     *)
