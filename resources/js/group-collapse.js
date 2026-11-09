@@ -6,6 +6,13 @@ export function storageKey(viewerId, workspaceId, projectId) {
     return `metribay.groups.${GROUP_STORAGE_VERSION}.${viewerId}.${workspaceId}.${projectId}`;
 }
 
+export function fragmentTarget(hash) {
+    try {
+        const id = decodeURIComponent(hash.slice(1));
+        return id ? document.getElementById(id) : null;
+    } catch { return null; }
+}
+
 /** @returns {string[]} Known group keys only, in stored order, without duplicates. */
 export function parseStored(raw, known = KNOWN_GROUPS) {
     let parsed;
@@ -69,7 +76,8 @@ function setExpanded(group, expanded) {
     toggle.setAttribute('aria-expanded', String(expanded));
     body.hidden = !expanded;
     const label = toggle.querySelector('.sr-only');
-    if (label) label.textContent = expanded ? toggle.dataset.labelExpanded : toggle.dataset.labelCollapsed;
+    const text = expanded ? toggle.dataset.labelExpanded : toggle.dataset.labelCollapsed;
+    if (label && label.textContent !== text) label.textContent = text;
 }
 
 function updateExpandAll() {
@@ -124,20 +132,25 @@ function onClick(event) {
         onLayout();
         return;
     }
-    if (event.target.closest?.('[data-group-expand-all]')) {
+    const expandAll = event.target.closest?.('[data-group-expand-all]');
+    if (expandAll) {
+        const focusTarget = document.activeElement === expandAll
+            ? scopeElement()?.querySelector('[data-group-toggle][aria-expanded="false"]')
+            : null;
         openedByLink.clear();
         writeCollapsed(currentKey(), [], knownKeys(scopeElement()));
         applyGroupCollapse();
+        focusTarget?.focus();
         onLayout();
         return;
     }
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     const link = event.target.closest?.('a[href]');
-    if (!link) return;
+    if (!link || (link.target && link.target !== '_self') || link.hasAttribute('download')) return;
     let url;
     try { url = new URL(link.href, window.location.href); } catch { return; }
-    if (url.pathname !== window.location.pathname || url.search !== window.location.search || !url.hash) return;
-    const id = decodeURIComponent(url.hash.slice(1));
-    const target = id ? document.getElementById(id) : null;
+    if (url.origin !== window.location.origin || url.pathname !== window.location.pathname || url.search !== window.location.search || !url.hash) return;
+    const target = fragmentTarget(url.hash);
     if (!target) return;
     if (url.hash === window.location.hash) {
         event.preventDefault();

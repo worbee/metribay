@@ -2,7 +2,7 @@ import './usage-analytics.js';
 import '../css/app.css';
 import { Chart, LineController, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Filler } from 'chart.js';
 import { setupHourlyRefresh } from './hourly-refresh.js';
-import { applyGroupCollapse, openCollapsedGroup, setupGroupCollapse } from './group-collapse.js';
+import { applyGroupCollapse, fragmentTarget, openCollapsedGroup, setupGroupCollapse } from './group-collapse.js';
 
 Chart.register(LineController, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Filler);
 
@@ -356,10 +356,7 @@ function syncCharts() {
         const chartConfig = canvas.closest('[data-chart-container]').dataset.chartConfig;
         const signature = `${chartConfig}|${root.dataset.theme}|${root.dataset.density}`;
         const existing = Chart.getChart(canvas);
-        if (existing?.metribaySignature === signature) {
-            existing.resize();
-            return;
-        }
+        if (existing?.metribaySignature === signature) return;
         if (existing) destroyChart(existing);
         try {
             const config = JSON.parse(chartConfig);
@@ -392,7 +389,10 @@ function showQueries(block) {
         tab.tabIndex = selected ? 0 : -1;
         tab.setAttribute('aria-controls', `${block.id}-${source.dataset.querySourcePanel}-${tab.dataset.queryView}`);
         const count = tab.querySelector('[data-query-count]');
-        if (count && counts[index] !== undefined) count.textContent = new Intl.NumberFormat(document.documentElement.lang || 'en').format(Number(counts[index]));
+        if (count && counts[index] !== undefined) {
+            const text = new Intl.NumberFormat(document.documentElement.lang || 'en').format(Number(counts[index]));
+            if (count.textContent !== text) count.textContent = text;
+        }
     });
     source.querySelectorAll('[data-query-panel]').forEach(panel => {
         panel.hidden = panel.dataset.queryPanel !== view;
@@ -401,7 +401,8 @@ function showQueries(block) {
         const more = panel.querySelector('[data-query-more]');
         if (more) {
             more.setAttribute('aria-expanded', String(expanded));
-            more.textContent = expanded ? more.dataset.labelLess : more.dataset.labelMore;
+            const text = expanded ? more.dataset.labelLess : more.dataset.labelMore;
+            if (more.textContent !== text) more.textContent = text;
         }
     });
 }
@@ -477,12 +478,19 @@ function announcePreference() {
 
 // A linked event may sit in a collapsed bundle: open it, bring it into view and mark it briefly.
 function revealTarget() {
-    const id = decodeURIComponent(window.location.hash.slice(1));
-    const target = id ? document.getElementById(id) : null;
+    const target = fragmentTarget(window.location.hash);
     if (!target || target.tagName === 'DIALOG') return;
     const bundle = target.closest('details');
     if (bundle && !bundle.open) bundle.open = true;
     const opened = openCollapsedGroup(target);
+    if (target.matches('[data-query-panel]')) {
+        const block = target.closest('[data-query-block]');
+        const source = target.closest('[data-query-source-panel]');
+        if (block && source) updateQueries(block, state => {
+            state.source = source.dataset.querySourcePanel;
+            state.view = target.dataset.queryPanel;
+        });
+    }
     const finish = () => {
         target.scrollIntoView({ block: 'center' });
         target.classList.add('is-target');

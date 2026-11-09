@@ -9,6 +9,7 @@ use Metribay\Core\Connectors\CollectionResult;
 use Metribay\Core\Models\Connection;
 use Metribay\Core\Models\HiddenChart;
 use Metribay\Core\Models\Project;
+use Metribay\Core\Models\SearchQueryMonth;
 use Metribay\Core\Models\Source;
 use Metribay\Core\Models\Workspace;
 use Metribay\Core\Services\MetricStore;
@@ -166,7 +167,7 @@ class ProjectPageLayoutTest extends TestCase
     {
         $this->source('umami', 'Website', ['visits' => 4.0]);
         $search = $this->source('gsc', 'Search', ['clicks' => 2.0]);
-        $this->scoped(fn () => \Metribay\Core\Models\SearchQueryMonth::create([
+        $this->scoped(fn () => SearchQueryMonth::create([
             'source_id' => $search->id, 'month' => '2026-10-01', 'start_date' => '2026-10-01', 'end_date' => '2026-10-31', 'query_count' => 1, 'collected_at' => now(),
         ]));
         $url = '/w/layout/projects/'.$this->project->id;

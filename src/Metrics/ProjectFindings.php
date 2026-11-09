@@ -3,6 +3,7 @@
 namespace Metribay\Core\Metrics;
 
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Number;
 use Metribay\Core\Models\DailyMetric;
 use Metribay\Core\Models\ProjectEvent;
@@ -12,7 +13,7 @@ use Metribay\Core\Services\SearchQueries;
 /**
  * Up to three recent findings for a project, from data already stored in the workspace.
  * A current monitor incident comes first, then the largest qualifying fall in Google search clicks.
- * Thresholds are the first pilot values. See cloud/docs/PROJECT_OVERVIEW_PLAN.md.
+ * See docs/PROJECT_PAGE.md for the thresholds and display rules.
  */
 class ProjectFindings
 {
@@ -45,7 +46,7 @@ class ProjectFindings
             if (! is_array($monitor)) {
                 continue;
             }
-            if ($monitor['withheld'] === null) {
+            if ($monitor['withheld'] === null && in_array($monitor['value'], [2, 8, 9], true)) {
                 $checked = true;
             }
             if (! empty($monitor['incident'])) {
@@ -118,7 +119,7 @@ class ProjectFindings
         return [
             'kind' => 'monitor_incident', 'source_id' => $incidents[0]['source_id'], 'loss' => 0.0,
             'title' => implode(' ', $titles), 'evidence' => implode(' ', $evidence), 'extra' => null, 'context' => null,
-            'action' => __('Open Reliability'), 'anchor' => count($incidents) === 1 ? $incidents[0]['anchor'] : 'group-reliability', 'period' => null,
+            'action' => __('Open Reliability'), 'anchor' => count($incidents) === 1 ? $incidents[0]['anchor'] : 'group-reliability', 'period' => ['days' => self::WINDOW],
         ];
     }
 
@@ -128,6 +129,9 @@ class ProjectFindings
      */
     private function monitorNote(array $source, array $monitor): ?string
     {
+        if ($monitor['withheld'] === null && in_array($monitor['value'], [0, 1], true)) {
+            return 'UptimeRobot · '.$source['label'].' · '.$this->statusLabel($monitor['value']);
+        }
         if (! in_array((int) $monitor['value'], [8, 9], true)) {
             return null;
         }
@@ -193,6 +197,17 @@ class ProjectFindings
         $hidden = $source['hidden_keys'] ?? [];
         $range = $this->range($currentStart->toDateString(), $endDate);
         $opensQueries = $named !== null && ! in_array(SearchQueries::CHART_KEY, $hidden, true);
+        $clicksHidden = in_array('clicks', $hidden, true);
+        $anchor = match (true) {
+            $opensQueries => 'queries-search-'.$source['id'].'-ranked',
+            $clicksHidden => 'hidden-charts',
+            default => 'chart-'.$source['id'].'-clicks',
+        };
+        $action = match (true) {
+            $opensQueries => __('Open Top queries, :range', ['range' => $range]),
+            $clicksHidden => __('Hidden charts'),
+            default => __('Open Search, :range', ['range' => $range]),
+        };
 
         return ['checked' => true, 'note' => null, 'finding' => [
             'kind' => 'search_clicks', 'source_id' => (int) $source['id'], 'loss' => $loss,
@@ -204,13 +219,13 @@ class ProjectFindings
             ]),
             'extra' => $named ? __('“:query” fell from :previous to :current clicks over those same dates.', ['query' => $named['query'], 'previous' => $this->count($named['previous']), 'current' => $this->count($named['current'])]) : null,
             'context' => $this->context($projectId, $currentStart->toDateString(), $endDate),
-            'action' => $opensQueries ? __('Open Top queries, :range', ['range' => $range]) : __('Open Search, :range', ['range' => $range]),
-            'anchor' => $opensQueries ? 'queries-search' : (in_array('clicks', $hidden, true) ? 'group-search' : 'chart-'.$source['id'].'-clicks'),
+            'action' => $action,
+            'anchor' => $anchor,
             'period' => ['from' => $currentStart->toDateString(), 'to' => $endDate],
         ]];
     }
 
-    /** @param \Illuminate\Support\Collection<string, DailyMetric> $rows */
+    /** @param Collection<string, DailyMetric> $rows */
     private function sum($rows, CarbonImmutable $start): ?float
     {
         $total = 0.0;
@@ -248,7 +263,7 @@ class ProjectFindings
             if ($currentRows->count() !== 1) {
                 continue;
             }
-            $previousRows = $rows->where('previous', true)->where('query', $text);
+            $previousRows = $rows->where('previous', true)->whereStrict('query', (string) $text);
             if ($previousRows->count() !== 1) {
                 continue;
             }
@@ -285,7 +300,7 @@ class ProjectFindings
 
     private function statusLabel(int $value): string
     {
-        return [8 => __('Seems down'), 9 => __('Down')][$value] ?? __('Unknown');
+        return [0 => __('Paused'), 1 => __('Not checked yet'), 8 => __('Seems down'), 9 => __('Down')][$value] ?? __('Unknown');
     }
 
     private function checked(?string $iso, string $date): string

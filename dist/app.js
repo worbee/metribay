@@ -1,4 +1,4 @@
-// ../../core/node_modules/vanilla-cookieconsent/dist/cookieconsent.mjs
+// node_modules/vanilla-cookieconsent/dist/cookieconsent.mjs
 var e = "opt-in", t = "opt-out", n = "show--consent", r = "show--preferences", i = "disable--interaction", a = "data-category", o = "button", s = "aria-hidden", c = "btn-group", l = "click", u = "data-role", d = "consentModal", f = "preferencesModal", p = class {
 	constructor() {
 		this.t = {
@@ -942,7 +942,7 @@ function Ut(e) {
 		document.hidden || s();
 	});
 }
-// ../../core/node_modules/@kurkle/color/dist/color.esm.js
+// node_modules/@kurkle/color/dist/color.esm.js
 function Wt(e) {
 	return e + .5 | 0;
 }
@@ -1410,7 +1410,7 @@ var Pn = class e {
 		return _n(this._rgb, e), this;
 	}
 };
-// ../../core/node_modules/chart.js/dist/chunks/index.js
+// node_modules/chart.js/dist/chunks/index.js
 function Fn() {}
 var In = (() => {
 	let e = 0;
@@ -7450,7 +7450,15 @@ var Au = [
 function ju(e, t, n) {
 	return `metribay.groups.v1.${e}.${t}.${n}`;
 }
-function Mu(e, t = Au) {
+function Mu(e) {
+	try {
+		let t = decodeURIComponent(e.slice(1));
+		return t ? document.getElementById(t) : null;
+	} catch {
+		return null;
+	}
+}
+function Nu(e, t = Au) {
 	let n;
 	try {
 		n = JSON.parse(e);
@@ -7461,119 +7469,122 @@ function Mu(e, t = Au) {
 	let r = new Set(t);
 	return [...new Set(n.filter((e) => typeof e == "string" && r.has(e)))];
 }
-var Nu = /* @__PURE__ */ new Map(), Pu = /* @__PURE__ */ new Set(), Fu = !1, Iu = null, Lu = () => {}, Ru = !1;
-function zu() {
+var Pu = /* @__PURE__ */ new Map(), Fu = /* @__PURE__ */ new Set(), Iu = !1, Lu = null, Ru = () => {}, zu = !1;
+function Bu() {
 	try {
 		return globalThis.localStorage;
 	} catch {
 		return null;
 	}
 }
-function Bu(e, t = Au) {
+function Vu(e, t = Au) {
 	if (!e) return [];
-	if (Fu) return Mu(JSON.stringify(Nu.get(e) ?? []), t);
-	let n = zu();
-	if (!n) return Fu = !0, [];
+	if (Iu) return Nu(JSON.stringify(Pu.get(e) ?? []), t);
+	let n = Bu();
+	if (!n) return Iu = !0, [];
 	try {
-		return Mu(n.getItem(e), t);
+		return Nu(n.getItem(e), t);
 	} catch {
-		return Fu = !0, Nu.get(e) ?? [];
+		return Iu = !0, Pu.get(e) ?? [];
 	}
 }
-function Vu(e, t, n = Au) {
-	let r = Mu(JSON.stringify(t), n);
+function Hu(e, t, n = Au) {
+	let r = Nu(JSON.stringify(t), n);
 	if (!e) {
-		Nu.set("page", r), Fu = !0;
+		Pu.set("page", r), Iu = !0;
 		return;
 	}
-	if (Fu) {
-		Nu.set(e, r);
+	if (Iu) {
+		Pu.set(e, r);
 		return;
 	}
-	let i = zu();
-	if (!i) Fu = !0, Nu.set(e, r);
+	let i = Bu();
+	if (!i) Iu = !0, Pu.set(e, r);
 	else try {
 		i.setItem(e, JSON.stringify(r));
 	} catch {
-		Fu = !0, Nu.set(e, r);
+		Iu = !0, Pu.set(e, r);
 	}
 }
-function Hu() {
+function Uu() {
 	return document.querySelector("[data-group-scope]");
 }
-function Uu(e) {
+function Wu(e) {
 	let t = (e?.dataset.groupKeys || "").split(",").filter((e) => Au.includes(e));
 	return t.length ? t : Au;
 }
-function Wu(e = Hu()) {
+function Gu(e = Uu()) {
 	return !e?.dataset.viewerId || !e.dataset.workspaceId || !e.dataset.projectId ? null : ju(e.dataset.viewerId, e.dataset.workspaceId, e.dataset.projectId);
 }
-function Gu(e = Hu()) {
-	let t = Uu(e);
-	return Bu(Wu(e), t).filter((e) => !Pu.has(e));
+function Ku(e = Uu()) {
+	let t = Wu(e);
+	return Vu(Gu(e), t).filter((e) => !Fu.has(e));
 }
-function Ku(e, t) {
+function qu(e, t) {
 	let n = e.querySelector("[data-group-toggle]"), r = e.querySelector("[data-group-body]");
 	if (!n || !r) return;
 	n.setAttribute("aria-expanded", String(t)), r.hidden = !t;
-	let i = n.querySelector(".sr-only");
-	i && (i.textContent = t ? n.dataset.labelExpanded : n.dataset.labelCollapsed);
+	let i = n.querySelector(".sr-only"), a = t ? n.dataset.labelExpanded : n.dataset.labelCollapsed;
+	i && i.textContent !== a && (i.textContent = a);
 }
-function qu() {
+function Ju() {
 	let e = [...document.querySelectorAll("[data-group-toggle]")].some((e) => e.getAttribute("aria-expanded") === "false");
 	document.querySelectorAll("[data-group-recovery]").forEach((t) => {
 		t.hidden = !e;
 	});
 }
-function Ju() {
-	let e = Hu();
+function Yu() {
+	let e = Uu();
 	if (!e) return;
-	let t = Wu(e) ?? "";
-	t !== Iu && (Pu.clear(), Iu = t);
-	let n = new Set(Gu(e));
-	e.querySelectorAll("[data-collapsible]").forEach((e) => Ku(e, !n.has(e.dataset.groupKey))), qu();
+	let t = Gu(e) ?? "";
+	t !== Lu && (Fu.clear(), Lu = t);
+	let n = new Set(Ku(e));
+	e.querySelectorAll("[data-collapsible]").forEach((e) => qu(e, !n.has(e.dataset.groupKey))), Ju();
 }
-function Yu(e) {
+function Xu(e) {
 	let t = e?.closest?.("[data-collapsible]");
 	if (!t) return !1;
 	let n = t.querySelector("[data-group-toggle]");
-	return !n || n.getAttribute("aria-expanded") !== "false" ? !1 : (t.dataset.groupKey && Pu.add(t.dataset.groupKey), Ku(t, !0), qu(), Lu(), !0);
+	return !n || n.getAttribute("aria-expanded") !== "false" ? !1 : (t.dataset.groupKey && Fu.add(t.dataset.groupKey), qu(t, !0), Ju(), Ru(), !0);
 }
-function Xu(e, t) {
-	let n = Hu(), r = Uu(n), i = new Set(Bu(Wu(n), r));
-	t(i), e && Pu.delete(e), Vu(Wu(n), [...i], r);
+function Zu(e, t) {
+	let n = Uu(), r = Wu(n), i = new Set(Vu(Gu(n), r));
+	t(i), e && Fu.delete(e), Hu(Gu(n), [...i], r);
 }
-function Zu(e) {
+function Qu(e) {
 	let t = e.target.closest?.("[data-group-toggle]");
 	if (t) {
 		let e = t.closest("[data-collapsible]"), n = e?.dataset.groupKey, r = t.getAttribute("aria-expanded") !== "false";
-		Xu(n, (e) => {
+		Zu(n, (e) => {
 			r ? e.add(n) : e.delete(n);
-		}), e && Ku(e, !r), qu(), Lu();
+		}), e && qu(e, !r), Ju(), Ru();
 		return;
 	}
-	if (e.target.closest?.("[data-group-expand-all]")) {
-		Pu.clear(), Vu(Wu(), [], Uu(Hu())), Ju(), Lu();
+	let n = e.target.closest?.("[data-group-expand-all]");
+	if (n) {
+		let e = document.activeElement === n ? Uu()?.querySelector("[data-group-toggle][aria-expanded=\"false\"]") : null;
+		Fu.clear(), Hu(Gu(), [], Wu(Uu())), Yu(), e?.focus(), Ru();
 		return;
 	}
-	let n = e.target.closest?.("a[href]");
-	if (!n) return;
-	let r;
+	if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+	let r = e.target.closest?.("a[href]");
+	if (!r || r.target && r.target !== "_self" || r.hasAttribute("download")) return;
+	let i;
 	try {
-		r = new URL(n.href, window.location.href);
+		i = new URL(r.href, window.location.href);
 	} catch {
 		return;
 	}
-	if (r.pathname !== window.location.pathname || r.search !== window.location.search || !r.hash) return;
-	let i = decodeURIComponent(r.hash.slice(1)), a = i ? document.getElementById(i) : null;
-	a && (r.hash === window.location.hash ? (e.preventDefault(), window.dispatchEvent(new HashChangeEvent("hashchange"))) : Yu(a));
+	if (i.origin !== window.location.origin || i.pathname !== window.location.pathname || i.search !== window.location.search || !i.hash) return;
+	let a = Mu(i.hash);
+	a && (i.hash === window.location.hash ? (e.preventDefault(), window.dispatchEvent(new HashChangeEvent("hashchange"))) : Xu(a));
 }
-function Qu(e = () => {}) {
-	Lu = e, !(Ru || typeof document > "u") && (Ru = !0, document.addEventListener("click", Zu));
+function $u(e = () => {}) {
+	Ru = e, !(zu || typeof document > "u") && (zu = !0, document.addEventListener("click", Qu));
 }
 // resources/js/app.js
 Dc.register(xo, Vc, Uc, Gl, Yl, Bl, xl);
-var $u = document.documentElement, ed = /* @__PURE__ */ new Set(), td = {
+var ed = document.documentElement, td = /* @__PURE__ */ new Set(), nd = {
 	get(e, t) {
 		try {
 			return localStorage.getItem(`metribay.${e}`) || t;
@@ -7586,32 +7597,32 @@ var $u = document.documentElement, ed = /* @__PURE__ */ new Set(), td = {
 			localStorage.setItem(`metribay.${e}`, t);
 		} catch {}
 	}
-}, nd = window.matchMedia("(prefers-color-scheme: dark)"), rd = !1, id = {};
+}, rd = window.matchMedia("(prefers-color-scheme: dark)"), id = !1, ad = {};
 try {
-	id = JSON.parse(document.getElementById("metribay-i18n")?.textContent || "{}");
+	ad = JSON.parse(document.getElementById("metribay-i18n")?.textContent || "{}");
 } catch {}
 function Q(e, t = {}) {
-	let n = id[e] ?? e;
+	let n = ad[e] ?? e;
 	for (let [e, r] of Object.entries(t)) n = n.replaceAll(`:${e}`, r);
 	return n;
 }
-function ad() {
-	let e = td.get("theme", "system");
+function od() {
+	let e = nd.get("theme", "system");
 	return [
 		"light",
 		"dark",
 		"system"
 	].includes(e) ? e : "system";
 }
-function od(e = ad(), t = !1) {
+function sd(e = od(), t = !1) {
 	[
 		"light",
 		"dark",
 		"system"
-	].includes(e) && (t && td.set("theme", e), $u.dataset.theme = e === "system" ? nd.matches ? "dark" : "light" : e, document.querySelectorAll("[data-theme-input]").forEach((t) => {
+	].includes(e) && (t && nd.set("theme", e), ed.dataset.theme = e === "system" ? rd.matches ? "dark" : "light" : e, document.querySelectorAll("[data-theme-input]").forEach((t) => {
 		t.checked = t.value === e;
 	}), document.querySelectorAll("[data-theme-cycle]").forEach((t) => {
-		let n = e === "system" ? $u.dataset.theme === "light" ? "dark" : "light" : {
+		let n = e === "system" ? ed.dataset.theme === "light" ? "dark" : "light" : {
 			light: "dark",
 			dark: "system"
 		}[e], r = {
@@ -7623,15 +7634,15 @@ function od(e = ad(), t = !1) {
 			next: r[n]
 		});
 		t.title = i, t.setAttribute("aria-label", i), t.dataset.currentTheme = e;
-	}), Td());
+	}), Ed());
 }
-nd.addEventListener("change", () => {
-	ad() === "system" && od();
+rd.addEventListener("change", () => {
+	od() === "system" && sd();
 });
 function $(e) {
 	return e != null && e !== "" && Number.isFinite(Number(e)) ? Number(e) : null;
 }
-function sd(e, t = "count", n = !1, r = null) {
+function cd(e, t = "count", n = !1, r = null) {
 	if (e === null) return Q("Unavailable");
 	if (t === "status") return {
 		0: Q("Paused"),
@@ -7655,7 +7666,7 @@ function sd(e, t = "count", n = !1, r = null) {
 	let a = new Intl.NumberFormat(document.documentElement.lang || "en", i).format(e);
 	return t === "percent" ? `${a}%` : t === "ms" ? `${a} ms` : t === "score" ? `${a}/100` : a;
 }
-function cd(e, t = !1) {
+function ld(e, t = !1) {
 	let n = /* @__PURE__ */ new Date(`${e}T12:00:00Z`);
 	return Number.isNaN(n.getTime()) ? e : new Intl.DateTimeFormat(document.documentElement.lang || "en", {
 		day: "numeric",
@@ -7664,17 +7675,17 @@ function cd(e, t = !1) {
 		timeZone: "UTC"
 	}).format(n);
 }
-function ld() {
-	let e = td.get("numbers", "full") === "compact";
+function ud() {
+	let e = nd.get("numbers", "full") === "compact";
 	document.querySelectorAll("[data-metric-number]").forEach((t) => {
 		let n = $(t.dataset.metricNumber);
 		if (n === null) return;
-		let r = sd(n, t.dataset.unit, e);
-		t.textContent !== r && (t.textContent = r), t.title = sd(n, t.dataset.unit, !1);
+		let r = cd(n, t.dataset.unit, e);
+		t.textContent !== r && (t.textContent = r), t.title = cd(n, t.dataset.unit, !1);
 	});
 }
-function ud() {
-	let e = getComputedStyle($u);
+function dd() {
+	let e = getComputedStyle(ed);
 	return Object.fromEntries([
 		"chart-line",
 		"chart-previous",
@@ -7690,7 +7701,7 @@ function ud() {
 		"event-automatic"
 	].map((t) => [t, e.getPropertyValue(`--${t}`).trim()]));
 }
-var dd = {
+var fd = {
 	id: "metribayEvents",
 	afterDatasetsDraw(e, t, n) {
 		let r = n.events ?? [];
@@ -7705,19 +7716,19 @@ var dd = {
 		}
 		i.restore();
 	}
-}, fd = null;
-function pd(e, t) {
-	if (e !== fd) {
-		fd = e;
-		for (let n of ed) n.metribayCrossDate = e, n !== t && n.draw();
+}, pd = null;
+function md(e, t) {
+	if (e !== pd) {
+		pd = e;
+		for (let n of td) n.metribayCrossDate = e, n !== t && n.draw();
 	}
 }
-var md = {
+var hd = {
 	id: "metribayCrosshair",
 	afterEvent(e, t) {
 		let { event: n } = t;
 		if (n.type === "mouseout" || !t.inChartArea) {
-			fd !== null && (pd(null, e), t.changed = !0);
+			pd !== null && (md(null, e), t.changed = !0);
 			return;
 		}
 		if (![
@@ -7726,10 +7737,10 @@ var md = {
 			"touchmove"
 		].includes(n.type)) return;
 		let r = Math.round(e.scales.x.getValueForPixel(n.x)), i = e.data.labels[Math.max(0, Math.min(e.data.labels.length - 1, r))] ?? null;
-		i !== fd && (pd(i, e), t.changed = !0);
+		i !== pd && (md(i, e), t.changed = !0);
 	},
 	afterDatasetsDraw(e) {
-		let t = fd === null ? -1 : e.data.labels.indexOf(fd);
+		let t = pd === null ? -1 : e.data.labels.indexOf(pd);
 		if (t < 0) return;
 		let { ctx: n, chartArea: { top: r, bottom: i }, scales: { x: a, y: o } } = e, s = e.metribayColors, c = a.getPixelForValue(t);
 		n.save(), n.strokeStyle = s["text-muted"], n.globalAlpha = .55, n.lineWidth = 1, n.beginPath(), n.moveTo(c, r), n.lineTo(c, i), n.stroke();
@@ -7737,8 +7748,8 @@ var md = {
 		l !== null && !e.tooltip?.getActiveElements().length && (n.globalAlpha = 1, n.fillStyle = s["chart-line"], n.strokeStyle = s.surface, n.lineWidth = 2, n.beginPath(), n.arc(c, o.getPixelForValue(l), 3.5, 0, Math.PI * 2), n.fill(), n.stroke()), n.restore();
 	}
 };
-function hd(e, t, n) {
-	let r = ud(), i = [
+function gd(e, t, n) {
+	let r = dd(), i = [
 		"l",
 		"s",
 		"n"
@@ -7804,7 +7815,7 @@ function hd(e, t, n) {
 			labels: l,
 			datasets: v
 		},
-		plugins: [dd, md],
+		plugins: [fd, hd],
 		options: {
 			responsive: !0,
 			maintainAspectRatio: !1,
@@ -7852,11 +7863,11 @@ function hd(e, t, n) {
 					},
 					callbacks: {
 						title(e) {
-							return e.length ? cd(s[e[0].dataIndex]?.date ?? "", !0) : "";
+							return e.length ? ld(s[e[0].dataIndex]?.date ?? "", !0) : "";
 						},
 						label(e) {
-							let n = (e.datasetIndex === 0 ? s : c)[e.dataIndex], r = sd($(e.raw), t.unit, !1, t.currency);
-							return `${e.datasetIndex === 0 ? t.label : Q("Previous (:date)", { date: cd(n?.date ?? "") })}: ${r}${n?.partial ? ` · ${Q("partial")}` : ""}`;
+							let n = (e.datasetIndex === 0 ? s : c)[e.dataIndex], r = cd($(e.raw), t.unit, !1, t.currency);
+							return `${e.datasetIndex === 0 ? t.label : Q("Previous (:date)", { date: ld(n?.date ?? "") })}: ${r}${n?.partial ? ` · ${Q("partial")}` : ""}`;
 						},
 						afterBody(e) {
 							if (!e.length) return [];
@@ -7882,7 +7893,7 @@ function hd(e, t, n) {
 						padding: 8,
 						font: b,
 						callback(e) {
-							return cd(l[e] ?? "");
+							return ld(l[e] ?? "");
 						}
 					} : {
 						color: r["text-muted"],
@@ -7892,7 +7903,7 @@ function hd(e, t, n) {
 						padding: 5,
 						font: b,
 						callback(e, t) {
-							return t === 0 || t === _ ? cd(l[e] ?? "") : "";
+							return t === 0 || t === _ ? ld(l[e] ?? "") : "";
 						}
 					}
 				},
@@ -7912,7 +7923,7 @@ function hd(e, t, n) {
 						padding: 8,
 						font: b,
 						callback(e) {
-							return sd(e, t.unit, !0, t.currency);
+							return cd(e, t.unit, !0, t.currency);
 						}
 					} : {
 						display: !1,
@@ -7922,7 +7933,7 @@ function hd(e, t, n) {
 			}
 		}
 	});
-	return x.metribaySignature = n, x.metribayColors = r, x.metribayCrossDate = fd, ed.add(x), o || (e.tabIndex = 0, e.setAttribute("aria-keyshortcuts", "ArrowLeft ArrowRight"), e.addEventListener("keydown", (n) => {
+	return x.metribaySignature = n, x.metribayColors = r, x.metribayCrossDate = pd, td.add(x), o || (e.tabIndex = 0, e.setAttribute("aria-keyshortcuts", "ArrowLeft ArrowRight"), e.addEventListener("keydown", (n) => {
 		if (![
 			"ArrowLeft",
 			"ArrowRight",
@@ -7946,7 +7957,7 @@ function hd(e, t, n) {
 					let d = e.closest(".metric")?.querySelector("[data-chart-announcement]");
 					if (d) {
 						let e = [];
-						r.isDatasetVisible(0) && e.push(`${cd(s[o]?.date ?? "", !0)}. ${t.label}: ${sd($(s[o]?.value), t.unit, !1, t.currency)}${s[o]?.partial ? `. ${Q("Partial date.")}` : ""}`), u && r.isDatasetVisible(1) && e.push(`${Q("Previous period")} ${cd(c[o]?.date ?? "", !0)}: ${sd($(c[o]?.value), t.unit, !1, t.currency)}${c[o]?.partial ? `. ${Q("Partial date.")}` : ""}`);
+						r.isDatasetVisible(0) && e.push(`${ld(s[o]?.date ?? "", !0)}. ${t.label}: ${cd($(s[o]?.value), t.unit, !1, t.currency)}${s[o]?.partial ? `. ${Q("Partial date.")}` : ""}`), u && r.isDatasetVisible(1) && e.push(`${Q("Previous period")} ${ld(c[o]?.date ?? "", !0)}: ${cd($(c[o]?.value), t.unit, !1, t.currency)}${c[o]?.partial ? `. ${Q("Partial date.")}` : ""}`);
 						for (let t of f(s[o]?.date)) e.push(Q("Event: :title", { title: t.title }));
 						d.textContent = e.join(". ");
 					}
@@ -7962,25 +7973,24 @@ function hd(e, t, n) {
 				r.update("none");
 			}
 		}
-	}, { signal: gd(x) })), x;
-}
-function gd(e) {
-	return e.metribayAbort = new AbortController(), e.metribayAbort.signal;
+	}, { signal: _d(x) })), x;
 }
 function _d(e) {
-	e.metribayAbort?.abort(), e.destroy(), ed.delete(e);
+	return e.metribayAbort = new AbortController(), e.metribayAbort.signal;
 }
-function vd() {
-	for (let e of ed) e.canvas?.isConnected || _d(e);
+function vd(e) {
+	e.metribayAbort?.abort(), e.destroy(), td.delete(e);
+}
+function yd() {
+	for (let e of td) e.canvas?.isConnected || vd(e);
 	document.querySelectorAll("canvas[data-metric-chart]").forEach((e) => {
 		if (e.closest("[data-group-body][hidden]")) return;
-		let t = e.closest("[data-chart-container]").dataset.chartConfig, n = `${t}|${$u.dataset.theme}|${$u.dataset.density}`, r = Dc.getChart(e);
-		if (r?.metribaySignature === n) r.resize();
-		else {
-			r && _d(r);
+		let t = e.closest("[data-chart-container]").dataset.chartConfig, n = `${t}|${ed.dataset.theme}|${ed.dataset.density}`, r = Dc.getChart(e);
+		if (r?.metribaySignature !== n) {
+			r && vd(r);
 			try {
 				let r = JSON.parse(t);
-				e.setAttribute("aria-label", r.ariaLabel), hd(e, r, n);
+				e.setAttribute("aria-label", r.ariaLabel), gd(e, r, n);
 			} catch (t) {
 				console.error("A metric chart could not be rendered.", t);
 				let n = document.createElement("p");
@@ -7989,9 +7999,9 @@ function vd() {
 		}
 	});
 }
-var yd = /* @__PURE__ */ new Map();
-function bd(e) {
-	let t = yd.get(e.id) ?? {}, n = [...e.querySelectorAll("[data-query-source-panel]")], r = n.find((e) => e.dataset.querySourcePanel === t.source) ?? n[0];
+var bd = /* @__PURE__ */ new Map();
+function xd(e) {
+	let t = bd.get(e.id) ?? {}, n = [...e.querySelectorAll("[data-query-source-panel]")], r = n.find((e) => e.dataset.querySourcePanel === t.source) ?? n[0];
 	if (!r) return;
 	let i = [...e.querySelectorAll("[data-query-view]")], a = i.some((e) => e.dataset.queryView === t.view) ? t.view : i.find((e) => e.getAttribute("aria-selected") === "true")?.dataset.queryView, o = (r.dataset.queryCounts || "").split(",");
 	n.forEach((e) => {
@@ -8000,7 +8010,10 @@ function bd(e) {
 		let i = t.dataset.queryView === a;
 		t.setAttribute("aria-selected", String(i)), t.tabIndex = i ? 0 : -1, t.setAttribute("aria-controls", `${e.id}-${r.dataset.querySourcePanel}-${t.dataset.queryView}`);
 		let s = t.querySelector("[data-query-count]");
-		s && o[n] !== void 0 && (s.textContent = new Intl.NumberFormat(document.documentElement.lang || "en").format(Number(o[n])));
+		if (s && o[n] !== void 0) {
+			let e = new Intl.NumberFormat(document.documentElement.lang || "en").format(Number(o[n]));
+			s.textContent !== e && (s.textContent = e);
+		}
 	}), r.querySelectorAll("[data-query-panel]").forEach((e) => {
 		e.hidden = e.dataset.queryPanel !== a;
 		let n = (t.expanded ?? []).includes(e.id);
@@ -8008,22 +8021,26 @@ function bd(e) {
 			e.hidden = !n;
 		});
 		let r = e.querySelector("[data-query-more]");
-		r && (r.setAttribute("aria-expanded", String(n)), r.textContent = n ? r.dataset.labelLess : r.dataset.labelMore);
+		if (r) {
+			r.setAttribute("aria-expanded", String(n));
+			let e = n ? r.dataset.labelLess : r.dataset.labelMore;
+			r.textContent !== e && (r.textContent = e);
+		}
 	});
 }
-function xd() {
+function Sd() {
 	document.querySelectorAll("[data-query-block]").forEach((e) => {
-		yd.has(e.id) && bd(e);
+		bd.has(e.id) && xd(e);
 	});
 }
-function Sd(e, t) {
+function Cd(e, t) {
 	let n = {
 		expanded: [],
-		...yd.get(e.id) ?? {}
+		...bd.get(e.id) ?? {}
 	};
-	t(n), yd.set(e.id, n), bd(e);
+	t(n), bd.set(e.id, n), xd(e);
 }
-function Cd() {
+function wd() {
 	let e = document.querySelector("[data-project-search]");
 	if (!e) return;
 	let t = e.value.trim().toLocaleLowerCase(), n = 0;
@@ -8033,18 +8050,18 @@ function Cd() {
 	let r = document.querySelector("[data-search-empty]");
 	r && (r.hidden = !t || n > 0);
 }
-function wd() {
+function Td() {
 	let e = document.querySelector("[data-number-preference]"), t = document.querySelector("[data-density-preference]");
-	e && (e.value = td.get("numbers", "full")), t && (t.value = td.get("density", "comfortable")), document.querySelectorAll("[data-theme-input]").forEach((e) => {
-		e.checked = e.value === ad();
+	e && (e.value = nd.get("numbers", "full")), t && (t.value = nd.get("density", "comfortable")), document.querySelectorAll("[data-theme-input]").forEach((e) => {
+		e.checked = e.value === od();
 	});
 }
-function Td() {
-	rd || (rd = !0, requestAnimationFrame(() => {
-		rd = !1, Ju(), vd(), ld(), xd(), Cd();
+function Ed() {
+	id || (id = !0, requestAnimationFrame(() => {
+		id = !1, Yu(), yd(), ud(), Sd(), wd();
 	}));
 }
-function Ed(e, t = !1) {
+function Dd(e, t = !1) {
 	let n = e.querySelector("[data-provider-switch]")?.value;
 	if (!n) return;
 	e.querySelectorAll("[data-provider-panel]").forEach((e) => {
@@ -8062,37 +8079,44 @@ function Ed(e, t = !1) {
 	let i = e.querySelector("[data-provider-timezone]"), a = [...e.querySelectorAll("[data-provider-panel]")].find((e) => e.dataset.providerPanel === n);
 	i && t && a?.dataset.defaultTimezone && (i.value = a.dataset.defaultTimezone);
 }
-function Dd() {
+function Od() {
 	let e = document.querySelector("[data-preference-status]");
 	e && (e.textContent = Q("Preference saved in this browser."));
 }
-function Od() {
-	let e = decodeURIComponent(window.location.hash.slice(1)), t = e ? document.getElementById(e) : null;
-	if (!t || t.tagName === "DIALOG") return;
-	let n = t.closest("details");
-	n && !n.open && (n.open = !0);
-	let r = Yu(t), i = () => {
-		if (t.scrollIntoView({ block: "center" }), t.classList.add("is-target"), t.closest("[data-chart-group]")) {
-			let e = (t.matches("h1, h2, h3") ? t : t.querySelector("h2, h3")) || t;
-			!e.matches("a, button, input, select, textarea, summary") && !e.hasAttribute("tabindex") && (e.tabIndex = -1), e.focus({ preventScroll: !0 });
-		}
-		setTimeout(() => t.classList.remove("is-target"), 2400);
-	};
-	r || t.closest("[data-group-body]") ? requestAnimationFrame(() => requestAnimationFrame(i)) : i();
-}
-window.addEventListener("hashchange", Od);
 function kd() {
-	od(), wd(), Ju(), document.querySelectorAll("dialog[data-open-on-load]").forEach((e) => {
+	let e = Mu(window.location.hash);
+	if (!e || e.tagName === "DIALOG") return;
+	let t = e.closest("details");
+	t && !t.open && (t.open = !0);
+	let n = Xu(e);
+	if (e.matches("[data-query-panel]")) {
+		let t = e.closest("[data-query-block]"), n = e.closest("[data-query-source-panel]");
+		t && n && Cd(t, (t) => {
+			t.source = n.dataset.querySourcePanel, t.view = e.dataset.queryPanel;
+		});
+	}
+	let r = () => {
+		if (e.scrollIntoView({ block: "center" }), e.classList.add("is-target"), e.closest("[data-chart-group]")) {
+			let t = (e.matches("h1, h2, h3") ? e : e.querySelector("h2, h3")) || e;
+			!t.matches("a, button, input, select, textarea, summary") && !t.hasAttribute("tabindex") && (t.tabIndex = -1), t.focus({ preventScroll: !0 });
+		}
+		setTimeout(() => e.classList.remove("is-target"), 2400);
+	};
+	n || e.closest("[data-group-body]") ? requestAnimationFrame(() => requestAnimationFrame(r)) : r();
+}
+window.addEventListener("hashchange", kd);
+function Ad() {
+	sd(), Td(), Yu(), document.querySelectorAll("dialog[data-open-on-load]").forEach((e) => {
 		e.open || e.showModal();
-	}), Od(), document.querySelector("[data-validation-errors]")?.focus(), document.querySelectorAll("[data-provider-form]").forEach((e) => Ed(e)), Td();
+	}), kd(), document.querySelector("[data-validation-errors]")?.focus(), document.querySelectorAll("[data-provider-form]").forEach((e) => Dd(e)), Ed();
 }
 document.addEventListener("click", (e) => {
 	let t = e.target.closest("[data-dialog-open]");
 	t && document.getElementById(t.dataset.dialogOpen)?.showModal();
 	let n = e.target.closest("[data-dialog-close]");
 	if (n && n.closest("dialog")?.close(), e.target.closest("[data-theme-cycle]")) {
-		let e = ad();
-		od(e === "system" ? $u.dataset.theme === "light" ? "dark" : "light" : {
+		let e = od();
+		sd(e === "system" ? ed.dataset.theme === "light" ? "dark" : "light" : {
 			light: "dark",
 			dark: "system"
 		}[e], !0);
@@ -8106,13 +8130,13 @@ document.addEventListener("click", (e) => {
 		});
 	}
 	let i = e.target.closest("[data-query-block]"), a = e.target.closest("[data-query-view]"), o = e.target.closest("[data-query-source]"), s = e.target.closest("[data-query-more]");
-	if (i && a && Sd(i, (e) => {
+	if (i && a && Cd(i, (e) => {
 		e.view = a.dataset.queryView;
-	}), i && o && Sd(i, (e) => {
+	}), i && o && Cd(i, (e) => {
 		e.source = o.dataset.querySource;
 	}), i && s) {
 		let e = s.closest("[data-query-panel]");
-		Sd(i, (t) => {
+		Cd(i, (t) => {
 			t.expanded = t.expanded.includes(e.id) ? t.expanded.filter((t) => t !== e.id) : [...t.expanded, e.id];
 		}), s.getAttribute("aria-expanded") === "false" && s.scrollIntoView({ block: "nearest" });
 	}
@@ -8128,9 +8152,9 @@ document.addEventListener("click", (e) => {
 	});
 }), document.addEventListener("change", (e) => {
 	let t = e.target;
-	t.matches("[data-theme-input]") && (od(t.value, !0), Dd()), t.matches("[data-number-preference]") && (td.set("numbers", t.value), ld(), Dd()), t.matches("[data-density-preference]") && (td.set("density", t.value), $u.dataset.density = t.value, Td(), Dd()), t.matches("[data-provider-switch]") && Ed(t.closest("form"), !0), t.matches("[data-auto-submit]") && t.form.requestSubmit();
+	t.matches("[data-theme-input]") && (sd(t.value, !0), Od()), t.matches("[data-number-preference]") && (nd.set("numbers", t.value), ud(), Od()), t.matches("[data-density-preference]") && (nd.set("density", t.value), ed.dataset.density = t.value, Ed(), Od()), t.matches("[data-provider-switch]") && Dd(t.closest("form"), !0), t.matches("[data-auto-submit]") && t.form.requestSubmit();
 }), document.addEventListener("input", (e) => {
-	e.target.matches("[data-project-search]") && Cd();
+	e.target.matches("[data-project-search]") && wd();
 }), document.addEventListener("submit", (e) => {
 	let t = e.target;
 	if (t.dataset.confirm && !window.confirm(t.dataset.confirm)) {
@@ -8168,19 +8192,19 @@ document.addEventListener("click", (e) => {
 	document.querySelectorAll("button[aria-busy=\"true\"]").forEach((e) => {
 		e.disabled = !1, e.removeAttribute("aria-busy");
 	});
-}), new MutationObserver(Td).observe(document.body, {
+}), new MutationObserver(Ed).observe(document.body, {
 	childList: !0,
 	subtree: !0,
 	attributes: !0,
 	attributeFilter: ["data-chart-config"]
-}), document.addEventListener("livewire:navigated", kd), document.addEventListener("livewire:init", () => {
-	window.Livewire.hook("morphed", Td);
-}), Qu(Td), kd();
-function Ad() {
+}), document.addEventListener("livewire:navigated", Ad), document.addEventListener("livewire:init", () => {
+	window.Livewire.hook("morphed", Ed);
+}), $u(Ed), Ad();
+function jd() {
 	document.querySelectorAll("[data-resource-search]").forEach((e) => {
 		e.oninput = () => document.querySelectorAll("[data-resource-row]").forEach((t) => {
 			t.hidden = !t.textContent.toLowerCase().includes(e.value.toLowerCase());
 		});
 	});
 }
-document.addEventListener("DOMContentLoaded", Ad), document.addEventListener("livewire:navigated", Ad), ku();
+document.addEventListener("DOMContentLoaded", jd), document.addEventListener("livewire:navigated", jd), ku();

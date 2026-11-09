@@ -5,8 +5,10 @@ namespace Metribay\Core\Tests\Feature;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Metribay\Core\Metrics\Period;
 use Metribay\Core\Metrics\ProjectFindings;
 use Metribay\Core\Models\DailyMetric;
+use Metribay\Core\Models\HiddenChart;
 use Metribay\Core\Models\Project;
 use Metribay\Core\Models\ProjectEvent;
 use Metribay\Core\Models\SearchQuery;
@@ -114,7 +116,7 @@ class ProjectFindingsTest extends TestCase
             }
         });
 
-        $project = $this->scoped(fn () => app(DashboardData::class)->projects(\Metribay\Core\Metrics\Period::custom('2026-10-01', '2026-10-15'), $this->project->id)[0]);
+        $project = $this->scoped(fn () => app(DashboardData::class)->projects(Period::custom('2026-10-01', '2026-10-15'), $this->project->id)[0]);
         $this->assertTrue($project['sources'][0]['current_monitor']['incident']);
         $this->assertSame(9, $project['sources'][0]['current_monitor']['value']);
         $this->assertSame(2.0, collect($project['sources'][0]['metrics'])->firstWhere('key', 'monitor_status')['value']);
@@ -123,10 +125,13 @@ class ProjectFindingsTest extends TestCase
         $this->actingAs($this->owner)->get($url)->assertOk()
             ->assertSee('Workers: Down.')
             ->assertSee('UptimeRobot · checked 9 Nov 2026, 15:00 UTC')
-            ->assertSee('#chart-'.$monitor->id.'-monitor_status', false)
+            ->assertSee('?days=7#chart-'.$monitor->id.'-monitor_status', false)
             ->assertSee('Open Reliability')
             ->assertDontSee('No significant changes in the data we checked.');
 
+        $this->get('/w/findings/projects/'.$this->project->id.'?days=7')->assertOk()
+            ->assertSee('id="chart-'.$monitor->id.'-monitor_status"', false)
+            ->assertSee('Current: Down, checked 9 Nov 2026, 15:00 UTC');
         $this->get('/w/findings/projects/'.$this->project->id.'?from=2026-10-01&to=2026-10-15')->assertOk()
             ->assertSee('Current: Down, checked 9 Nov 2026, 15:00 UTC');
     }
@@ -240,6 +245,22 @@ class ProjectFindingsTest extends TestCase
         $this->assertStringContainsString('is delayed', $delayed['notes'][0]);
     }
 
+    public function test_a_monitor_without_a_result_does_not_count_as_checked(): void
+    {
+        foreach ([0 => 'Paused', 1 => 'Not checked yet'] as $value => $status) {
+            $source = $this->source('uptimerobot', 'Monitor '.$value);
+            $this->scoped(fn () => DailyMetric::create([
+                'source_id' => $source->id, 'metric' => 'monitor_status', 'date' => '2026-11-09', 'value' => $value,
+                'is_partial' => false, 'collected_at' => CarbonImmutable::now('UTC'),
+            ]));
+        }
+
+        $this->actingAs($this->owner)->get('/w/findings/projects/'.$this->project->id.'?view=overview')->assertOk()
+            ->assertDontSee('No significant changes in the data we checked.')
+            ->assertSee('UptimeRobot · Monitor 0 · Paused')
+            ->assertSee('UptimeRobot · Monitor 1 · Not checked yet');
+    }
+
     public function test_a_partial_latest_day_uses_the_previous_final_day(): void
     {
         $source = $this->source('gsc', 'Journal');
@@ -268,6 +289,8 @@ class ProjectFindingsTest extends TestCase
         $this->searchQuery($source, 'partial query', true, '2026-10-27', '2026-11-02', 80);
         $this->searchQuery($source, 'other window', false, '2026-11-02', '2026-11-08', 10);
         $this->searchQuery($source, 'other window', true, '2026-10-26', '2026-11-01', 80);
+        $this->searchQuery($source, '1', false, '2026-11-03', '2026-11-09', 10);
+        $this->searchQuery($source, '01', true, '2026-10-27', '2026-11-02', 90);
         $this->scoped(fn () => ProjectEvent::create([
             'project_id' => $this->project->id, 'origin' => 'github_deployment', 'title' => 'Production deploy',
             'date' => '2026-11-05', 'external_id' => 'deploy-1',
@@ -279,10 +302,13 @@ class ProjectFindingsTest extends TestCase
 
         $finding = $this->findings([$this->gsc($source)])['findings'][0];
         $this->assertSame('“brand” fell from 80 to 40 clicks over those same dates.', $finding['extra']);
-        $this->assertSame('queries-search', $finding['anchor']);
+        $this->assertSame('queries-search-'.$source->id.'-ranked', $finding['anchor']);
         $this->assertSame('Open Top queries, 3 Nov – 9 Nov 2026', $finding['action']);
         $this->assertStringContainsString('Production deploy (5 Nov 2026)', $finding['context']);
         $this->assertStringNotContainsString('Editorial note', $finding['context']);
+
+        $this->actingAs($this->owner)->get('/w/findings/projects/'.$this->project->id.'?from=2026-11-03&to=2026-11-09')->assertOk()
+            ->assertSee('id="'.$finding['anchor'].'"', false);
 
         $hidden = $this->findings([$this->gsc($source, ['hidden_keys' => ['top_queries']])])['findings'][0];
         $this->assertSame('“brand” fell from 80 to 40 clicks over those same dates.', $hidden['extra']);
@@ -290,9 +316,7 @@ class ProjectFindingsTest extends TestCase
         $this->assertSame('Open Search, 3 Nov – 9 Nov 2026', $hidden['action']);
 
         $chartHidden = $this->findings([$this->gsc($source, ['hidden_keys' => ['clicks']])])['findings'][0];
-        $this->assertSame('queries-search', $chartHidden['anchor']);
-        $bothHidden = $this->findings([$this->gsc($source, ['hidden_keys' => ['clicks', 'top_queries']])])['findings'][0];
-        $this->assertSame('group-search', $bothHidden['anchor']);
+        $this->assertSame('queries-search-'.$source->id.'-ranked', $chartHidden['anchor']);
     }
 
     public function test_the_largest_loss_follows_incidents_and_other_workspaces_stay_out(): void
@@ -359,6 +383,16 @@ class ProjectFindingsTest extends TestCase
             ->assertSee('Open Search, 3 Nov – 9 Nov 2026')
             ->assertSee('from=2026-11-03&amp;to=2026-11-09#chart-'.$source->id.'-clicks', false)
             ->assertDontSee('data-metric-chart', false);
+
+        $this->scoped(function () use ($source) {
+            foreach (['clicks', 'impressions', 'top_queries'] as $key) {
+                HiddenChart::create(['project_id' => $this->project->id, 'source_id' => $source->id, 'metric_key' => $key]);
+            }
+        });
+        $this->get('/w/findings/projects/'.$this->project->id.'?view=overview')->assertOk()
+            ->assertSee('/settings#hidden-charts', false);
+        $this->get('/w/findings/projects/'.$this->project->id.'/settings')->assertOk()
+            ->assertSee('id="hidden-charts"', false);
     }
 
     private function searchQuery(Source $source, string $text, bool $previous, string $start, string $end, float $clicks, bool $partial = false): void
