@@ -1,4 +1,4 @@
-// node_modules/vanilla-cookieconsent/dist/cookieconsent.mjs
+// ../../core/node_modules/vanilla-cookieconsent/dist/cookieconsent.mjs
 var e = "opt-in", t = "opt-out", n = "show--consent", r = "show--preferences", i = "disable--interaction", a = "data-category", o = "button", s = "aria-hidden", c = "btn-group", l = "click", u = "data-role", d = "consentModal", f = "preferencesModal", p = class {
 	constructor() {
 		this.t = {
@@ -942,7 +942,7 @@ function Ut(e) {
 		document.hidden || s();
 	});
 }
-// node_modules/@kurkle/color/dist/color.esm.js
+// ../../core/node_modules/@kurkle/color/dist/color.esm.js
 function Wt(e) {
 	return e + .5 | 0;
 }
@@ -1410,7 +1410,7 @@ var Pn = class e {
 		return _n(this._rgb, e), this;
 	}
 };
-// node_modules/chart.js/dist/chunks/index.js
+// ../../core/node_modules/chart.js/dist/chunks/index.js
 function Fn() {}
 var In = (() => {
 	let e = 0;
@@ -7437,7 +7437,7 @@ function ku() {
 	}
 	n(), setInterval(n, 6e4), document.addEventListener("visibilitychange", n), document.addEventListener("livewire:navigated", n);
 }
-var Au = [
+var Q = [
 	"revenue",
 	"audience",
 	"search",
@@ -7447,10 +7447,10 @@ var Au = [
 	"reliability",
 	"page_speed"
 ];
-function ju(e, t, n) {
+function Au(e, t, n) {
 	return `metribay.groups.v1.${e}.${t}.${n}`;
 }
-function Mu(e) {
+function ju(e) {
 	try {
 		let t = decodeURIComponent(e.slice(1));
 		return t ? document.getElementById(t) : null;
@@ -7458,7 +7458,7 @@ function Mu(e) {
 		return null;
 	}
 }
-function Nu(e, t = Au) {
+function Mu(e, t = Q) {
 	let n;
 	try {
 		n = JSON.parse(e);
@@ -7469,101 +7469,101 @@ function Nu(e, t = Au) {
 	let r = new Set(t);
 	return [...new Set(n.filter((e) => typeof e == "string" && r.has(e)))];
 }
-var Pu = /* @__PURE__ */ new Map(), Fu = /* @__PURE__ */ new Set(), Iu = !1, Lu = null, Ru = () => {}, zu = !1;
-function Bu() {
+var Nu = /* @__PURE__ */ new Map(), Pu = /* @__PURE__ */ new Set(), Fu = !1, Iu = null, Lu = () => {}, Ru = !1;
+function zu() {
 	try {
 		return globalThis.localStorage;
 	} catch {
 		return null;
 	}
 }
-function Vu(e, t = Au) {
+function Bu(e, t = Q) {
 	if (!e) return [];
-	if (Iu) return Nu(JSON.stringify(Pu.get(e) ?? []), t);
-	let n = Bu();
-	if (!n) return Iu = !0, [];
+	if (Fu) return Mu(JSON.stringify(Nu.get(e) ?? []), t);
+	let n = zu();
+	if (!n) return Fu = !0, [];
 	try {
-		return Nu(n.getItem(e), t);
+		return Mu(n.getItem(e), t);
 	} catch {
-		return Iu = !0, Pu.get(e) ?? [];
+		return Fu = !0, Nu.get(e) ?? [];
 	}
 }
-function Hu(e, t, n = Au) {
-	let r = Nu(JSON.stringify(t), n);
+function Vu(e, t, n = Q) {
+	let r = Mu(JSON.stringify(t), n);
 	if (!e) {
-		Pu.set("page", r), Iu = !0;
+		Nu.set("page", r), Fu = !0;
 		return;
 	}
-	if (Iu) {
-		Pu.set(e, r);
+	if (Fu) {
+		Nu.set(e, r);
 		return;
 	}
-	let i = Bu();
-	if (!i) Iu = !0, Pu.set(e, r);
+	let i = zu();
+	if (!i) Fu = !0, Nu.set(e, r);
 	else try {
 		i.setItem(e, JSON.stringify(r));
 	} catch {
-		Iu = !0, Pu.set(e, r);
+		Fu = !0, Nu.set(e, r);
 	}
 }
-function Uu() {
+function Hu() {
 	return document.querySelector("[data-group-scope]");
 }
-function Wu(e) {
-	let t = (e?.dataset.groupKeys || "").split(",").filter((e) => Au.includes(e));
-	return t.length ? t : Au;
+function Uu(e) {
+	let t = (e?.dataset.groupKeys || "").split(",").filter((e) => Q.includes(e));
+	return t.length ? t : Q;
 }
-function Gu(e = Uu()) {
-	return !e?.dataset.viewerId || !e.dataset.workspaceId || !e.dataset.projectId ? null : ju(e.dataset.viewerId, e.dataset.workspaceId, e.dataset.projectId);
+function Wu(e = Hu()) {
+	return !e?.dataset.viewerId || !e.dataset.workspaceId || !e.dataset.projectId ? null : Au(e.dataset.viewerId, e.dataset.workspaceId, e.dataset.projectId);
 }
-function Ku(e = Uu()) {
-	let t = Wu(e);
-	return Vu(Gu(e), t).filter((e) => !Fu.has(e));
+function Gu(e = Hu()) {
+	let t = Uu(e);
+	return Bu(Wu(e), t).filter((e) => !Pu.has(e));
 }
-function qu(e, t) {
+function Ku(e, t) {
 	let n = e.querySelector("[data-group-toggle]"), r = e.querySelector("[data-group-body]");
 	if (!n || !r) return;
 	n.setAttribute("aria-expanded", String(t)), r.hidden = !t;
 	let i = n.querySelector(".sr-only"), a = t ? n.dataset.labelExpanded : n.dataset.labelCollapsed;
 	i && i.textContent !== a && (i.textContent = a);
 }
-function Ju() {
+function qu() {
 	let e = [...document.querySelectorAll("[data-group-toggle]")].some((e) => e.getAttribute("aria-expanded") === "false");
 	document.querySelectorAll("[data-group-recovery]").forEach((t) => {
 		t.hidden = !e;
 	});
 }
-function Yu() {
-	let e = Uu();
+function Ju() {
+	let e = Hu();
 	if (!e) return;
-	let t = Gu(e) ?? "";
-	t !== Lu && (Fu.clear(), Lu = t);
-	let n = new Set(Ku(e));
-	e.querySelectorAll("[data-collapsible]").forEach((e) => qu(e, !n.has(e.dataset.groupKey))), Ju();
+	let t = Wu(e) ?? "";
+	t !== Iu && (Pu.clear(), Iu = t);
+	let n = new Set(Gu(e));
+	e.querySelectorAll("[data-collapsible]").forEach((e) => Ku(e, !n.has(e.dataset.groupKey))), qu();
 }
-function Xu(e) {
+function Yu(e) {
 	let t = e?.closest?.("[data-collapsible]");
 	if (!t) return !1;
 	let n = t.querySelector("[data-group-toggle]");
-	return !n || n.getAttribute("aria-expanded") !== "false" ? !1 : (t.dataset.groupKey && Fu.add(t.dataset.groupKey), qu(t, !0), Ju(), Ru(), !0);
+	return !n || n.getAttribute("aria-expanded") !== "false" ? !1 : (t.dataset.groupKey && Pu.add(t.dataset.groupKey), Ku(t, !0), qu(), Lu(), !0);
 }
-function Zu(e, t) {
-	let n = Uu(), r = Wu(n), i = new Set(Vu(Gu(n), r));
-	t(i), e && Fu.delete(e), Hu(Gu(n), [...i], r);
+function Xu(e, t) {
+	let n = Hu(), r = Uu(n), i = new Set(Bu(Wu(n), r));
+	t(i), e && Pu.delete(e), Vu(Wu(n), [...i], r);
 }
-function Qu(e) {
+function Zu(e) {
 	let t = e.target.closest?.("[data-group-toggle]");
 	if (t) {
 		let e = t.closest("[data-collapsible]"), n = e?.dataset.groupKey, r = t.getAttribute("aria-expanded") !== "false";
-		Zu(n, (e) => {
+		Xu(n, (e) => {
 			r ? e.add(n) : e.delete(n);
-		}), e && qu(e, !r), Ju(), Ru();
+		}), e && Ku(e, !r), qu(), Lu();
 		return;
 	}
 	let n = e.target.closest?.("[data-group-expand-all]");
 	if (n) {
-		let e = document.activeElement === n ? Uu()?.querySelector("[data-group-toggle][aria-expanded=\"false\"]") : null;
-		Fu.clear(), Hu(Gu(), [], Wu(Uu())), Yu(), e?.focus(), Ru();
+		let e = document.activeElement === n ? Hu()?.querySelector("[data-group-toggle][aria-expanded=\"false\"]") : null;
+		Pu.clear(), Vu(Wu(), [], Uu(Hu())), Ju(), e?.focus(), Lu();
 		return;
 	}
 	if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
@@ -7576,15 +7576,268 @@ function Qu(e) {
 		return;
 	}
 	if (i.origin !== window.location.origin || i.pathname !== window.location.pathname || i.search !== window.location.search || !i.hash) return;
-	let a = Mu(i.hash);
-	a && (i.hash === window.location.hash ? (e.preventDefault(), window.dispatchEvent(new HashChangeEvent("hashchange"))) : Xu(a));
+	let a = ju(i.hash);
+	a && (i.hash === window.location.hash ? (e.preventDefault(), window.dispatchEvent(new HashChangeEvent("hashchange"))) : Yu(a));
 }
-function $u(e = () => {}) {
-	Ru = e, !(zu || typeof document > "u") && (zu = !0, document.addEventListener("click", Qu));
+function Qu(e = () => {}) {
+	Lu = e, !(Ru || typeof document > "u") && (Ru = !0, document.addEventListener("click", Zu));
+}
+function $u(e, t, n) {
+	return `metribay.views.v1.${e}.${t}.${n}`;
+}
+function ed(e) {
+	return String(e ?? "").replace(/[\u0000-\u001F\u007F]/g, "").trim().slice(0, 40);
+}
+function td(e, t = Q) {
+	let n = new Set(t), r = /* @__PURE__ */ new Set();
+	for (let t of e ?? []) typeof t == "string" && n.has(t) && r.add(t);
+	return t.filter((e) => r.has(e));
+}
+function nd(e, t = Q) {
+	let n;
+	try {
+		n = JSON.parse(e);
+	} catch {
+		return [];
+	}
+	if (!Array.isArray(n)) return [];
+	let r = [], i = /* @__PURE__ */ new Set(), a = /* @__PURE__ */ new Set();
+	for (let e of n) {
+		if (!e || typeof e != "object") continue;
+		let n = typeof e.id == "string" && /^[a-z0-9]{8,16}$/.test(e.id) ? e.id : "", o = ed(e.name), s = td(e.groups, t);
+		if (n && o && s.length !== 0 && !a.has(n) && !i.has(o) && (a.add(n), i.add(o), r.push({
+			id: n,
+			name: o,
+			groups: s
+		}), r.length === 12)) break;
+	}
+	return r;
+}
+function rd() {
+	let e = /* @__PURE__ */ new Uint8Array(12);
+	if (globalThis.crypto?.getRandomValues) globalThis.crypto.getRandomValues(e);
+	else for (let t = 0; t < e.length; t++) e[t] = Math.floor(Math.random() * 256);
+	return [...e].map((e) => "abcdefghijklmnopqrstuvwxyz0123456789"[e % 36]).join("");
+}
+function id(e, t, n = Q, r = 12) {
+	let i = ed(t?.name), a = td(t?.groups, n);
+	if (!i) return {
+		views: e,
+		error: "name",
+		saved: null
+	};
+	if (a.length === 0) return {
+		views: e,
+		error: "groups",
+		saved: null
+	};
+	let o = e.findIndex((e) => e.name === i);
+	if (o === -1 && e.length >= r) return {
+		views: e,
+		error: "limit",
+		saved: null
+	};
+	let s = {
+		id: o === -1 ? typeof t.id == "string" && /^[a-z0-9]{8,16}$/.test(t.id) ? t.id : rd() : e[o].id,
+		name: i,
+		groups: a
+	}, c = e.slice();
+	return o === -1 ? c.push(s) : c[o] = s, {
+		views: c,
+		error: null,
+		saved: s
+	};
+}
+function ad(e, t, n) {
+	let r = ed(n);
+	if (!r) return {
+		views: e,
+		error: "name"
+	};
+	let i = e.findIndex((e) => e.id === t);
+	if (i === -1) return {
+		views: e,
+		error: "missing"
+	};
+	if (e.some((e) => e.id !== t && e.name === r)) return {
+		views: e,
+		error: "taken"
+	};
+	let a = e.slice();
+	return a[i] = {
+		...a[i],
+		name: r
+	}, {
+		views: a,
+		error: null
+	};
+}
+function od(e, t) {
+	return e.filter((e) => e.id !== t);
+}
+function sd(e, t) {
+	let n = e instanceof URL ? e : new URL(e, "http://localhost"), r = new URL(t, n);
+	if (r.pathname !== n.pathname) return !1;
+	let i = /* @__PURE__ */ new Set([...r.searchParams.keys(), ...n.searchParams.keys()]);
+	for (let e of i) {
+		let t = r.searchParams.getAll(e), i = n.searchParams.getAll(e);
+		if (t.length !== i.length || t.some((e, t) => e !== i[t])) return !1;
+	}
+	return !0;
+}
+function cd(e, t) {
+	let n = td(e), r = td(t);
+	return n.length === r.length && n.every((e, t) => e === r[t]);
+}
+function ld(e, t, n) {
+	let r = new URL(e, "http://localhost"), i = new FormData(t);
+	for (let [e, t] of i) e !== "groups" && e !== "groups[]" && t !== "" && r.searchParams.append(e, t);
+	let a = td(n);
+	return a.length && r.searchParams.set("groups", a.join(",")), `${r.pathname}${r.search}`;
+}
+var ud = /* @__PURE__ */ new Map(), dd = !1, fd = !1;
+function pd() {
+	try {
+		return globalThis.localStorage;
+	} catch {
+		return null;
+	}
+}
+function md(e, t = Q) {
+	if (!e) return [];
+	if (dd) return nd(JSON.stringify(ud.get(e) ?? []), t);
+	let n = pd();
+	if (!n) return dd = !0, [];
+	try {
+		return nd(n.getItem(e), t);
+	} catch {
+		return dd = !0, ud.get(e) ?? [];
+	}
+}
+function hd(e, t, n = Q) {
+	let r = nd(JSON.stringify(t), n);
+	if (!e) return ud.set("page", r), dd = !0, r;
+	if (dd) return ud.set(e, r), r;
+	let i = pd();
+	if (!i) return dd = !0, ud.set(e, r), r;
+	try {
+		i.setItem(e, JSON.stringify(r));
+	} catch {
+		dd = !0, ud.set(e, r);
+	}
+	return r;
+}
+function gd(e) {
+	return e.closest("[data-group-scope]");
+}
+function _d(e) {
+	let t = gd(e);
+	return !t?.dataset.viewerId || !t.dataset.workspaceId || !t.dataset.projectId ? null : $u(t.dataset.viewerId, t.dataset.workspaceId, t.dataset.projectId);
+}
+function vd(e) {
+	let t = (e.dataset.knownGroups || "").split(",").filter((e) => Q.includes(e));
+	return t.length ? t : Q;
+}
+function yd(e) {
+	return [...e.querySelectorAll("[data-group]:checked")].map((e) => e.value);
+}
+function bd(e, t, n = {}) {
+	let r = e.dataset[t] || "";
+	for (let [e, t] of Object.entries(n)) r = r.replaceAll(`:${e}`, t);
+	let i = e.querySelector("[data-view-status]");
+	return i && (i.textContent = r), r;
+}
+function xd(e) {
+	return td((e.dataset.activeGroups || "").split(",").filter(Boolean), vd(e));
+}
+function Sd(e, t, n) {
+	let r = e.querySelector("[data-saved-link]"), i = e.querySelector("[data-saved-input]"), a = n.querySelector("[data-custom-view-form]");
+	r.href = ld(a.action, a, t.groups), r.textContent = t.name, i.value = t.name, e.dataset.id = t.id, n.dataset.match === "custom" && cd(t.groups, xd(n)) ? r.setAttribute("aria-current", "page") : r.removeAttribute("aria-current");
+}
+function Cd() {
+	document.activeElement?.matches?.("[data-saved-input], [data-view-name]") || document.querySelectorAll("[data-project-views]").forEach((e) => {
+		let t = e.querySelector("[data-saved-views]"), n = e.querySelector("[data-saved-view-template]"), r = e.querySelector("[data-saved-empty]"), i = e.querySelector("[data-saved-heading]");
+		if (!t || !n) return;
+		let a = md(_d(e), vd(e)), o = `${e.dataset.match}|${e.dataset.activeGroups}|${a.map((e) => `${e.id}\t${e.name}\t${e.groups.join(",")}`).join("\n")}`;
+		if (t.dataset.rendered === o) return;
+		t.dataset.rendered = o, t.replaceChildren();
+		for (let r of a) {
+			let i = n.content.firstElementChild.cloneNode(!0);
+			Sd(i, r, e), t.append(i);
+		}
+		r && (r.hidden = a.length > 0), i && (i.hidden = a.length === 0);
+		let s = e.querySelector("summary"), c = a.find((t) => e.dataset.match === "custom" && cd(t.groups, xd(e)));
+		s && e.dataset.summaryLabel && (s.textContent = c ? c.name : e.dataset.summaryLabel);
+	});
+}
+function wd(e) {
+	let t = e.target.closest?.("[data-project-views]");
+	if (!t) return;
+	let n = e.target.closest("[data-saved-rename]"), r = e.target.closest("[data-saved-rename-save]"), i = e.target.closest("[data-saved-remove]"), a = e.target.closest("[data-view-save]");
+	if (n) {
+		let e = n.closest("[data-saved-row]");
+		e.querySelector("[data-saved-link]").hidden = !0;
+		let t = e.querySelector("[data-saved-input]");
+		t.hidden = !1, n.hidden = !0, e.querySelector("[data-saved-rename-save]").hidden = !1, t.focus(), t.select();
+		return;
+	}
+	if (r) {
+		let e = r.closest("[data-saved-row]"), n = vd(t), i = _d(t), a = ad(md(i, n), e.dataset.id, e.querySelector("[data-saved-input]").value);
+		if (a.error) {
+			bd(t, a.error === "taken" ? "msgTaken" : "msgName"), e.querySelector("[data-saved-input]").focus();
+			return;
+		}
+		hd(i, a.views, n), bd(t, "msgRenamed"), document.activeElement?.matches?.("[data-saved-input]") && document.activeElement.blur(), Cd();
+		return;
+	}
+	if (i) {
+		let e = i.closest("[data-saved-row]"), n = vd(t), r = _d(t);
+		hd(r, od(md(r, n), e.dataset.id), n), bd(t, "msgRemoved"), Cd();
+		return;
+	}
+	if (!a) return;
+	let o = vd(t), s = _d(t), c = t.querySelector("[data-view-name]")?.value ?? "", l = id(md(s, o), {
+		name: c,
+		groups: yd(t)
+	}, o, Number(t.dataset.max) || 12);
+	if (l.error) {
+		bd(t, l.error === "limit" ? "msgLimit" : l.error === "groups" ? "msgGroups" : "msgName", { count: t.dataset.max || "12" }), t.querySelector(l.error === "groups" ? "[data-group]" : "[data-view-name]")?.focus();
+		return;
+	}
+	hd(s, l.views, o);
+	let u = t.querySelector("[data-custom-view-form]"), d = ld(u.action, u, l.saved.groups);
+	if (!sd(window.location.href, d)) {
+		window.location.assign(d);
+		return;
+	}
+	bd(t, "msgSaved");
+	let f = t.querySelector("[data-view-name]");
+	f && (f.value = "", document.activeElement === f && f.blur()), Cd();
+}
+function Td(e) {
+	let t = e.target;
+	if (!t?.matches?.("[data-custom-view-form]")) return;
+	e.preventDefault();
+	let n = yd(t.closest("[data-project-views]"));
+	window.location.assign(ld(t.action, t, n));
+}
+function Ed(e) {
+	if (e.target.matches?.("[data-view-name]") && e.key === "Enter") {
+		e.preventDefault(), e.stopPropagation(), e.target.closest("[data-project-views]")?.querySelector("[data-view-save]")?.click();
+		return;
+	}
+	let t = e.target.closest?.("[data-saved-input]");
+	if (!t || !["Enter", "Escape"].includes(e.key)) return;
+	e.stopPropagation();
+	let n = t.closest("[data-saved-row]");
+	e.preventDefault(), e.key === "Escape" ? (t.value = n.querySelector("[data-saved-link]").textContent, t.hidden = !0, n.querySelector("[data-saved-link]").hidden = !1, n.querySelector("[data-saved-rename]").hidden = !1, n.querySelector("[data-saved-rename-save]").hidden = !0, n.querySelector("[data-saved-rename]").focus()) : n.querySelector("[data-saved-rename-save]").click();
+}
+function Dd() {
+	Cd(), !(fd || typeof document > "u") && (fd = !0, document.addEventListener("click", wd), document.addEventListener("submit", Td), document.addEventListener("keydown", Ed, !0));
 }
 // resources/js/app.js
 Dc.register(xo, Vc, Uc, Gl, Yl, Bl, xl);
-var ed = document.documentElement, td = /* @__PURE__ */ new Set(), nd = {
+var Od = document.documentElement, kd = /* @__PURE__ */ new Set(), Ad = {
 	get(e, t) {
 		try {
 			return localStorage.getItem(`metribay.${e}`) || t;
@@ -7597,59 +7850,59 @@ var ed = document.documentElement, td = /* @__PURE__ */ new Set(), nd = {
 			localStorage.setItem(`metribay.${e}`, t);
 		} catch {}
 	}
-}, rd = window.matchMedia("(prefers-color-scheme: dark)"), id = !1, ad = {};
+}, jd = window.matchMedia("(prefers-color-scheme: dark)"), Md = !1, Nd = {};
 try {
-	ad = JSON.parse(document.getElementById("metribay-i18n")?.textContent || "{}");
+	Nd = JSON.parse(document.getElementById("metribay-i18n")?.textContent || "{}");
 } catch {}
-function Q(e, t = {}) {
-	let n = ad[e] ?? e;
+function $(e, t = {}) {
+	let n = Nd[e] ?? e;
 	for (let [e, r] of Object.entries(t)) n = n.replaceAll(`:${e}`, r);
 	return n;
 }
-function od() {
-	let e = nd.get("theme", "system");
+function Pd() {
+	let e = Ad.get("theme", "system");
 	return [
 		"light",
 		"dark",
 		"system"
 	].includes(e) ? e : "system";
 }
-function sd(e = od(), t = !1) {
+function Fd(e = Pd(), t = !1) {
 	[
 		"light",
 		"dark",
 		"system"
-	].includes(e) && (t && nd.set("theme", e), ed.dataset.theme = e === "system" ? rd.matches ? "dark" : "light" : e, document.querySelectorAll("[data-theme-input]").forEach((t) => {
+	].includes(e) && (t && Ad.set("theme", e), Od.dataset.theme = e === "system" ? jd.matches ? "dark" : "light" : e, document.querySelectorAll("[data-theme-input]").forEach((t) => {
 		t.checked = t.value === e;
 	}), document.querySelectorAll("[data-theme-cycle]").forEach((t) => {
-		let n = e === "system" ? ed.dataset.theme === "light" ? "dark" : "light" : {
+		let n = e === "system" ? Od.dataset.theme === "light" ? "dark" : "light" : {
 			light: "dark",
 			dark: "system"
 		}[e], r = {
-			light: Q("Light"),
-			dark: Q("Dark"),
-			system: Q("System")
-		}, i = Q("Theme: :current. Switch to :next.", {
+			light: $("Light"),
+			dark: $("Dark"),
+			system: $("System")
+		}, i = $("Theme: :current. Switch to :next.", {
 			current: r[e],
 			next: r[n]
 		});
 		t.title = i, t.setAttribute("aria-label", i), t.dataset.currentTheme = e;
-	}), Ed());
+	}), tf());
 }
-rd.addEventListener("change", () => {
-	od() === "system" && sd();
+jd.addEventListener("change", () => {
+	Pd() === "system" && Fd();
 });
-function $(e) {
+function Id(e) {
 	return e != null && e !== "" && Number.isFinite(Number(e)) ? Number(e) : null;
 }
-function cd(e, t = "count", n = !1, r = null) {
-	if (e === null) return Q("Unavailable");
+function Ld(e, t = "count", n = !1, r = null) {
+	if (e === null) return $("Unavailable");
 	if (t === "status") return {
-		0: Q("Paused"),
-		1: Q("Not checked yet"),
-		2: Q("Up"),
-		8: Q("Seems down"),
-		9: Q("Down")
+		0: $("Paused"),
+		1: $("Not checked yet"),
+		2: $("Up"),
+		8: $("Seems down"),
+		9: $("Down")
 	}[e] ?? String(e);
 	if (t === "currency" && r) return new Intl.NumberFormat(document.documentElement.lang || "en", {
 		style: "currency",
@@ -7666,7 +7919,7 @@ function cd(e, t = "count", n = !1, r = null) {
 	let a = new Intl.NumberFormat(document.documentElement.lang || "en", i).format(e);
 	return t === "percent" ? `${a}%` : t === "ms" ? `${a} ms` : t === "score" ? `${a}/100` : a;
 }
-function ld(e, t = !1) {
+function Rd(e, t = !1) {
 	let n = /* @__PURE__ */ new Date(`${e}T12:00:00Z`);
 	return Number.isNaN(n.getTime()) ? e : new Intl.DateTimeFormat(document.documentElement.lang || "en", {
 		day: "numeric",
@@ -7675,17 +7928,17 @@ function ld(e, t = !1) {
 		timeZone: "UTC"
 	}).format(n);
 }
-function ud() {
-	let e = nd.get("numbers", "full") === "compact";
+function zd() {
+	let e = Ad.get("numbers", "full") === "compact";
 	document.querySelectorAll("[data-metric-number]").forEach((t) => {
-		let n = $(t.dataset.metricNumber);
+		let n = Id(t.dataset.metricNumber);
 		if (n === null) return;
-		let r = cd(n, t.dataset.unit, e);
-		t.textContent !== r && (t.textContent = r), t.title = cd(n, t.dataset.unit, !1);
+		let r = Ld(n, t.dataset.unit, e);
+		t.textContent !== r && (t.textContent = r), t.title = Ld(n, t.dataset.unit, !1);
 	});
 }
-function dd() {
-	let e = getComputedStyle(ed);
+function Bd() {
+	let e = getComputedStyle(Od);
 	return Object.fromEntries([
 		"chart-line",
 		"chart-previous",
@@ -7701,7 +7954,7 @@ function dd() {
 		"event-automatic"
 	].map((t) => [t, e.getPropertyValue(`--${t}`).trim()]));
 }
-var fd = {
+var Vd = {
 	id: "metribayEvents",
 	afterDatasetsDraw(e, t, n) {
 		let r = n.events ?? [];
@@ -7716,19 +7969,19 @@ var fd = {
 		}
 		i.restore();
 	}
-}, pd = null;
-function md(e, t) {
-	if (e !== pd) {
-		pd = e;
-		for (let n of td) n.metribayCrossDate = e, n !== t && n.draw();
+}, Hd = null;
+function Ud(e, t) {
+	if (e !== Hd) {
+		Hd = e;
+		for (let n of kd) n.metribayCrossDate = e, n !== t && n.draw();
 	}
 }
-var hd = {
+var Wd = {
 	id: "metribayCrosshair",
 	afterEvent(e, t) {
 		let { event: n } = t;
 		if (n.type === "mouseout" || !t.inChartArea) {
-			pd !== null && (md(null, e), t.changed = !0);
+			Hd !== null && (Ud(null, e), t.changed = !0);
 			return;
 		}
 		if (![
@@ -7737,23 +7990,23 @@ var hd = {
 			"touchmove"
 		].includes(n.type)) return;
 		let r = Math.round(e.scales.x.getValueForPixel(n.x)), i = e.data.labels[Math.max(0, Math.min(e.data.labels.length - 1, r))] ?? null;
-		i !== pd && (md(i, e), t.changed = !0);
+		i !== Hd && (Ud(i, e), t.changed = !0);
 	},
 	afterDatasetsDraw(e) {
-		let t = pd === null ? -1 : e.data.labels.indexOf(pd);
+		let t = Hd === null ? -1 : e.data.labels.indexOf(Hd);
 		if (t < 0) return;
 		let { ctx: n, chartArea: { top: r, bottom: i }, scales: { x: a, y: o } } = e, s = e.metribayColors, c = a.getPixelForValue(t);
 		n.save(), n.strokeStyle = s["text-muted"], n.globalAlpha = .55, n.lineWidth = 1, n.beginPath(), n.moveTo(c, r), n.lineTo(c, i), n.stroke();
-		let l = e.isDatasetVisible(0) ? $(e.data.datasets[0].data[t]) : null;
+		let l = e.isDatasetVisible(0) ? Id(e.data.datasets[0].data[t]) : null;
 		l !== null && !e.tooltip?.getActiveElements().length && (n.globalAlpha = 1, n.fillStyle = s["chart-line"], n.strokeStyle = s.surface, n.lineWidth = 2, n.beginPath(), n.arc(c, o.getPixelForValue(l), 3.5, 0, Math.PI * 2), n.fill(), n.stroke()), n.restore();
 	}
 };
-function gd(e, t, n) {
-	let r = dd(), i = [
+function Gd(e, t, n) {
+	let r = Bd(), i = [
 		"l",
 		"s",
 		"n"
-	].includes(t.size) ? t.size : "l", a = i === "l", o = i === "n", s = Array.isArray(t.series) ? t.series : [], c = !o && Array.isArray(t.previous) ? t.previous : [], l = s.map((e) => e.date), u = c.some((e) => $(e.value) !== null), d = o || !Array.isArray(t.events) ? [] : t.events.filter((e) => l.includes(e.date)), f = (e) => d.filter((t) => t.date === e), p = (e, n) => {
+	].includes(t.size) ? t.size : "l", a = i === "l", o = i === "n", s = Array.isArray(t.series) ? t.series : [], c = !o && Array.isArray(t.previous) ? t.previous : [], l = s.map((e) => e.date), u = c.some((e) => Id(e.value) !== null), d = o || !Array.isArray(t.events) ? [] : t.events.filter((e) => l.includes(e.date)), f = (e) => d.filter((t) => t.date === e), p = (e, n) => {
 		if (!t.eventsUrl || !d.length) return null;
 		let r = null;
 		for (let t of new Set(d.map((e) => e.date))) {
@@ -7767,9 +8020,9 @@ function gd(e, t, n) {
 	}, m = (e) => {
 		let n = f(e);
 		n.length && t.eventsUrl && window.location.assign(`${t.eventsUrl}${t.eventsUrl.includes("?") ? "&" : "?"}date=${e}#${n.length === 1 ? n[0].anchor : `day-${e}`}`);
-	}, h = (e) => $(s[e]?.value) !== null, g = (e) => h(e) && !h(e - 1) && !h(e + 1), _ = s.length - 1, v = [{
-		label: Q("Selected period"),
-		data: s.map((e) => $(e.value)),
+	}, h = (e) => Id(s[e]?.value) !== null, g = (e) => h(e) && !h(e - 1) && !h(e + 1), _ = s.length - 1, v = [{
+		label: $("Selected period"),
+		data: s.map((e) => Id(e.value)),
 		borderColor: r["chart-line"],
 		backgroundColor: `${r["chart-line"]}${o ? "14" : "0c"}`,
 		borderWidth: a ? 2 : 1.6,
@@ -7791,8 +8044,8 @@ function gd(e, t, n) {
 		stepped: t.unit === "status"
 	}];
 	u && v.push({
-		label: Q("Previous period"),
-		data: l.map((e, t) => $(c[t]?.value)),
+		label: $("Previous period"),
+		data: l.map((e, t) => Id(c[t]?.value)),
 		borderColor: r["chart-previous"],
 		backgroundColor: "transparent",
 		borderDash: [3, 3],
@@ -7815,7 +8068,7 @@ function gd(e, t, n) {
 			labels: l,
 			datasets: v
 		},
-		plugins: [fd, hd],
+		plugins: [Vd, Wd],
 		options: {
 			responsive: !0,
 			maintainAspectRatio: !1,
@@ -7863,11 +8116,11 @@ function gd(e, t, n) {
 					},
 					callbacks: {
 						title(e) {
-							return e.length ? ld(s[e[0].dataIndex]?.date ?? "", !0) : "";
+							return e.length ? Rd(s[e[0].dataIndex]?.date ?? "", !0) : "";
 						},
 						label(e) {
-							let n = (e.datasetIndex === 0 ? s : c)[e.dataIndex], r = cd($(e.raw), t.unit, !1, t.currency);
-							return `${e.datasetIndex === 0 ? t.label : Q("Previous (:date)", { date: ld(n?.date ?? "") })}: ${r}${n?.partial ? ` · ${Q("partial")}` : ""}`;
+							let n = (e.datasetIndex === 0 ? s : c)[e.dataIndex], r = Ld(Id(e.raw), t.unit, !1, t.currency);
+							return `${e.datasetIndex === 0 ? t.label : $("Previous (:date)", { date: Rd(n?.date ?? "") })}: ${r}${n?.partial ? ` · ${$("partial")}` : ""}`;
 						},
 						afterBody(e) {
 							if (!e.length) return [];
@@ -7893,7 +8146,7 @@ function gd(e, t, n) {
 						padding: 8,
 						font: b,
 						callback(e) {
-							return ld(l[e] ?? "");
+							return Rd(l[e] ?? "");
 						}
 					} : {
 						color: r["text-muted"],
@@ -7903,7 +8156,7 @@ function gd(e, t, n) {
 						padding: 5,
 						font: b,
 						callback(e, t) {
-							return t === 0 || t === _ ? ld(l[e] ?? "") : "";
+							return t === 0 || t === _ ? Rd(l[e] ?? "") : "";
 						}
 					}
 				},
@@ -7923,7 +8176,7 @@ function gd(e, t, n) {
 						padding: 8,
 						font: b,
 						callback(e) {
-							return cd(e, t.unit, !0, t.currency);
+							return Ld(e, t.unit, !0, t.currency);
 						}
 					} : {
 						display: !1,
@@ -7933,7 +8186,7 @@ function gd(e, t, n) {
 			}
 		}
 	});
-	return x.metribaySignature = n, x.metribayColors = r, x.metribayCrossDate = pd, td.add(x), o || (e.tabIndex = 0, e.setAttribute("aria-keyshortcuts", "ArrowLeft ArrowRight"), e.addEventListener("keydown", (n) => {
+	return x.metribaySignature = n, x.metribayColors = r, x.metribayCrossDate = Hd, kd.add(x), o || (e.tabIndex = 0, e.setAttribute("aria-keyshortcuts", "ArrowLeft ArrowRight"), e.addEventListener("keydown", (n) => {
 		if (![
 			"ArrowLeft",
 			"ArrowRight",
@@ -7951,20 +8204,20 @@ function gd(e, t, n) {
 					y: 0
 				});
 				else {
-					let i = n.key === "ArrowRight" ? 1 : -1, a = r.metribayCursor ?? r.getActiveElements()[0]?.index ?? (i > 0 ? -1 : s.length), o = Math.max(0, Math.min(s.length - 1, a + i)), l = (e) => r.data.datasets.some((t, n) => r.isDatasetVisible(n) && $(t.data[e]) !== null);
+					let i = n.key === "ArrowRight" ? 1 : -1, a = r.metribayCursor ?? r.getActiveElements()[0]?.index ?? (i > 0 ? -1 : s.length), o = Math.max(0, Math.min(s.length - 1, a + i)), l = (e) => r.data.datasets.some((t, n) => r.isDatasetVisible(n) && Id(t.data[e]) !== null);
 					for (; !l(o) && o + i >= 0 && o + i < s.length;) o += i;
 					r.metribayCursor = o;
 					let d = e.closest(".metric")?.querySelector("[data-chart-announcement]");
 					if (d) {
 						let e = [];
-						r.isDatasetVisible(0) && e.push(`${ld(s[o]?.date ?? "", !0)}. ${t.label}: ${cd($(s[o]?.value), t.unit, !1, t.currency)}${s[o]?.partial ? `. ${Q("Partial date.")}` : ""}`), u && r.isDatasetVisible(1) && e.push(`${Q("Previous period")} ${ld(c[o]?.date ?? "", !0)}: ${cd($(c[o]?.value), t.unit, !1, t.currency)}${c[o]?.partial ? `. ${Q("Partial date.")}` : ""}`);
-						for (let t of f(s[o]?.date)) e.push(Q("Event: :title", { title: t.title }));
+						r.isDatasetVisible(0) && e.push(`${Rd(s[o]?.date ?? "", !0)}. ${t.label}: ${Ld(Id(s[o]?.value), t.unit, !1, t.currency)}${s[o]?.partial ? `. ${$("Partial date.")}` : ""}`), u && r.isDatasetVisible(1) && e.push(`${$("Previous period")} ${Rd(c[o]?.date ?? "", !0)}: ${Ld(Id(c[o]?.value), t.unit, !1, t.currency)}${c[o]?.partial ? `. ${$("Partial date.")}` : ""}`);
+						for (let t of f(s[o]?.date)) e.push($("Event: :title", { title: t.title }));
 						d.textContent = e.join(". ");
 					}
 					let p = r.data.datasets.map((e, t) => ({
 						datasetIndex: t,
 						index: o
-					})).filter((e) => r.isDatasetVisible(e.datasetIndex) && $(r.data.datasets[e.datasetIndex].data[o]) !== null);
+					})).filter((e) => r.isDatasetVisible(e.datasetIndex) && Id(r.data.datasets[e.datasetIndex].data[o]) !== null);
 					r.setActiveElements(p), r.tooltip.setActiveElements(p, {
 						x: r.scales.x.getPixelForValue(o),
 						y: r.chartArea.top
@@ -7973,35 +8226,35 @@ function gd(e, t, n) {
 				r.update("none");
 			}
 		}
-	}, { signal: _d(x) })), x;
+	}, { signal: Kd(x) })), x;
 }
-function _d(e) {
+function Kd(e) {
 	return e.metribayAbort = new AbortController(), e.metribayAbort.signal;
 }
-function vd(e) {
-	e.metribayAbort?.abort(), e.destroy(), td.delete(e);
+function qd(e) {
+	e.metribayAbort?.abort(), e.destroy(), kd.delete(e);
 }
-function yd() {
-	for (let e of td) e.canvas?.isConnected || vd(e);
+function Jd() {
+	for (let e of kd) e.canvas?.isConnected || qd(e);
 	document.querySelectorAll("canvas[data-metric-chart]").forEach((e) => {
 		if (e.closest("[data-group-body][hidden]")) return;
-		let t = e.closest("[data-chart-container]").dataset.chartConfig, n = `${t}|${ed.dataset.theme}|${ed.dataset.density}`, r = Dc.getChart(e);
+		let t = e.closest("[data-chart-container]").dataset.chartConfig, n = `${t}|${Od.dataset.theme}|${Od.dataset.density}`, r = Dc.getChart(e);
 		if (r?.metribaySignature !== n) {
-			r && vd(r);
+			r && qd(r);
 			try {
 				let r = JSON.parse(t);
-				e.setAttribute("aria-label", r.ariaLabel), gd(e, r, n);
+				e.setAttribute("aria-label", r.ariaLabel), Gd(e, r, n);
 			} catch (t) {
 				console.error("A metric chart could not be rendered.", t);
 				let n = document.createElement("p");
-				n.className = "field-hint", n.textContent = Q("The chart could not load. Daily values remain available below."), e.replaceWith(n);
+				n.className = "field-hint", n.textContent = $("The chart could not load. Daily values remain available below."), e.replaceWith(n);
 			}
 		}
 	});
 }
-var bd = /* @__PURE__ */ new Map();
-function xd(e) {
-	let t = bd.get(e.id) ?? {}, n = [...e.querySelectorAll("[data-query-source-panel]")], r = n.find((e) => e.dataset.querySourcePanel === t.source) ?? n[0];
+var Yd = /* @__PURE__ */ new Map();
+function Xd(e) {
+	let t = Yd.get(e.id) ?? {}, n = [...e.querySelectorAll("[data-query-source-panel]")], r = n.find((e) => e.dataset.querySourcePanel === t.source) ?? n[0];
 	if (!r) return;
 	let i = [...e.querySelectorAll("[data-query-view]")], a = i.some((e) => e.dataset.queryView === t.view) ? t.view : i.find((e) => e.getAttribute("aria-selected") === "true")?.dataset.queryView, o = (r.dataset.queryCounts || "").split(",");
 	n.forEach((e) => {
@@ -8028,19 +8281,19 @@ function xd(e) {
 		}
 	});
 }
-function Sd() {
+function Zd() {
 	document.querySelectorAll("[data-query-block]").forEach((e) => {
-		bd.has(e.id) && xd(e);
+		Yd.has(e.id) && Xd(e);
 	});
 }
-function Cd(e, t) {
+function Qd(e, t) {
 	let n = {
 		expanded: [],
-		...bd.get(e.id) ?? {}
+		...Yd.get(e.id) ?? {}
 	};
-	t(n), bd.set(e.id, n), xd(e);
+	t(n), Yd.set(e.id, n), Xd(e);
 }
-function wd() {
+function $d() {
 	let e = document.querySelector("[data-project-search]");
 	if (!e) return;
 	let t = e.value.trim().toLocaleLowerCase(), n = 0;
@@ -8050,18 +8303,18 @@ function wd() {
 	let r = document.querySelector("[data-search-empty]");
 	r && (r.hidden = !t || n > 0);
 }
-function Td() {
+function ef() {
 	let e = document.querySelector("[data-number-preference]"), t = document.querySelector("[data-density-preference]");
-	e && (e.value = nd.get("numbers", "full")), t && (t.value = nd.get("density", "comfortable")), document.querySelectorAll("[data-theme-input]").forEach((e) => {
-		e.checked = e.value === od();
+	e && (e.value = Ad.get("numbers", "full")), t && (t.value = Ad.get("density", "comfortable")), document.querySelectorAll("[data-theme-input]").forEach((e) => {
+		e.checked = e.value === Pd();
 	});
 }
-function Ed() {
-	id || (id = !0, requestAnimationFrame(() => {
-		id = !1, Yu(), yd(), ud(), Sd(), wd();
+function tf() {
+	Md || (Md = !0, requestAnimationFrame(() => {
+		Md = !1, Ju(), Cd(), Jd(), zd(), Zd(), $d();
 	}));
 }
-function Dd(e, t = !1) {
+function nf(e, t = !1) {
 	let n = e.querySelector("[data-provider-switch]")?.value;
 	if (!n) return;
 	e.querySelectorAll("[data-provider-panel]").forEach((e) => {
@@ -8070,7 +8323,7 @@ function Dd(e, t = !1) {
 	let r = e.querySelector("[data-connection-select]");
 	if (r) {
 		let i = n === "wporg", a = r.querySelector("option[value=\"\"]");
-		a && (a.textContent = Q(i ? "No credentials needed" : "Choose a connected account")), r.querySelectorAll("[data-provider-kind]").forEach((e) => {
+		a && (a.textContent = $(i ? "No credentials needed" : "Choose a connected account")), r.querySelectorAll("[data-provider-kind]").forEach((e) => {
 			e.hidden = e.dataset.providerKind !== n, e.disabled = e.hidden;
 		}), (t || r.selectedOptions[0]?.disabled) && (r.value = ""), r.required = !i;
 		let o = e.querySelector("[data-connection-hint]");
@@ -8079,19 +8332,19 @@ function Dd(e, t = !1) {
 	let i = e.querySelector("[data-provider-timezone]"), a = [...e.querySelectorAll("[data-provider-panel]")].find((e) => e.dataset.providerPanel === n);
 	i && t && a?.dataset.defaultTimezone && (i.value = a.dataset.defaultTimezone);
 }
-function Od() {
+function rf() {
 	let e = document.querySelector("[data-preference-status]");
-	e && (e.textContent = Q("Preference saved in this browser."));
+	e && (e.textContent = $("Preference saved in this browser."));
 }
-function kd() {
-	let e = Mu(window.location.hash);
+function af() {
+	let e = ju(window.location.hash);
 	if (!e || e.tagName === "DIALOG") return;
 	let t = e.closest("details");
 	t && !t.open && (t.open = !0);
-	let n = Xu(e);
+	let n = Yu(e);
 	if (e.matches("[data-query-panel]")) {
 		let t = e.closest("[data-query-block]"), n = e.closest("[data-query-source-panel]");
-		t && n && Cd(t, (t) => {
+		t && n && Qd(t, (t) => {
 			t.source = n.dataset.querySourcePanel, t.view = e.dataset.queryPanel;
 		});
 	}
@@ -8104,19 +8357,19 @@ function kd() {
 	};
 	n || e.closest("[data-group-body]") ? requestAnimationFrame(() => requestAnimationFrame(r)) : r();
 }
-window.addEventListener("hashchange", kd);
-function Ad() {
-	sd(), Td(), Yu(), document.querySelectorAll("dialog[data-open-on-load]").forEach((e) => {
+window.addEventListener("hashchange", af);
+function of() {
+	Fd(), ef(), Ju(), Dd(), document.querySelectorAll("dialog[data-open-on-load]").forEach((e) => {
 		e.open || e.showModal();
-	}), kd(), document.querySelector("[data-validation-errors]")?.focus(), document.querySelectorAll("[data-provider-form]").forEach((e) => Dd(e)), Ed();
+	}), af(), document.querySelector("[data-validation-errors]")?.focus(), document.querySelectorAll("[data-provider-form]").forEach((e) => nf(e)), tf();
 }
 document.addEventListener("click", (e) => {
 	let t = e.target.closest("[data-dialog-open]");
 	t && document.getElementById(t.dataset.dialogOpen)?.showModal();
 	let n = e.target.closest("[data-dialog-close]");
 	if (n && n.closest("dialog")?.close(), e.target.closest("[data-theme-cycle]")) {
-		let e = od();
-		sd(e === "system" ? ed.dataset.theme === "light" ? "dark" : "light" : {
+		let e = Pd();
+		Fd(e === "system" ? Od.dataset.theme === "light" ? "dark" : "light" : {
 			light: "dark",
 			dark: "system"
 		}[e], !0);
@@ -8130,13 +8383,13 @@ document.addEventListener("click", (e) => {
 		});
 	}
 	let i = e.target.closest("[data-query-block]"), a = e.target.closest("[data-query-view]"), o = e.target.closest("[data-query-source]"), s = e.target.closest("[data-query-more]");
-	if (i && a && Cd(i, (e) => {
+	if (i && a && Qd(i, (e) => {
 		e.view = a.dataset.queryView;
-	}), i && o && Cd(i, (e) => {
+	}), i && o && Qd(i, (e) => {
 		e.source = o.dataset.querySource;
 	}), i && s) {
 		let e = s.closest("[data-query-panel]");
-		Cd(i, (t) => {
+		Qd(i, (t) => {
 			t.expanded = t.expanded.includes(e.id) ? t.expanded.filter((t) => t !== e.id) : [...t.expanded, e.id];
 		}), s.getAttribute("aria-expanded") === "false" && s.scrollIntoView({ block: "nearest" });
 	}
@@ -8145,16 +8398,16 @@ document.addEventListener("click", (e) => {
 	let l = e.target.closest("[data-two-factor-toggle]");
 	if (l) {
 		let e = l.closest("form"), t = e.querySelector("[data-recovery-field]"), n = e.querySelector("[data-authenticator-field]"), r = t.hidden;
-		t.hidden = !r, n.hidden = r, t.querySelector("input").disabled = !r, n.querySelector("input").disabled = r, t.querySelector("input").required = r, n.querySelector("input").required = !r, l.textContent = Q(r ? "Use an authenticator code" : "Use a recovery code"), (r ? t : n).querySelector("input").focus();
+		t.hidden = !r, n.hidden = r, t.querySelector("input").disabled = !r, n.querySelector("input").disabled = r, t.querySelector("input").required = r, n.querySelector("input").required = !r, l.textContent = $(r ? "Use an authenticator code" : "Use a recovery code"), (r ? t : n).querySelector("input").focus();
 	}
-	document.querySelectorAll(".account-menu[open], .range-picker[open]").forEach((t) => {
+	document.querySelectorAll(".account-menu[open], .range-picker[open], .view-menu[open]").forEach((t) => {
 		t.contains(e.target) || (t.open = !1);
 	});
 }), document.addEventListener("change", (e) => {
 	let t = e.target;
-	t.matches("[data-theme-input]") && (sd(t.value, !0), Od()), t.matches("[data-number-preference]") && (nd.set("numbers", t.value), ud(), Od()), t.matches("[data-density-preference]") && (nd.set("density", t.value), ed.dataset.density = t.value, Ed(), Od()), t.matches("[data-provider-switch]") && Dd(t.closest("form"), !0), t.matches("[data-auto-submit]") && t.form.requestSubmit();
+	t.matches("[data-theme-input]") && (Fd(t.value, !0), rf()), t.matches("[data-number-preference]") && (Ad.set("numbers", t.value), zd(), rf()), t.matches("[data-density-preference]") && (Ad.set("density", t.value), Od.dataset.density = t.value, tf(), rf()), t.matches("[data-provider-switch]") && nf(t.closest("form"), !0), t.matches("[data-auto-submit]") && t.form.requestSubmit();
 }), document.addEventListener("input", (e) => {
-	e.target.matches("[data-project-search]") && wd();
+	e.target.matches("[data-project-search]") && $d();
 }), document.addEventListener("submit", (e) => {
 	let t = e.target;
 	if (t.dataset.confirm && !window.confirm(t.dataset.confirm)) {
@@ -8181,30 +8434,30 @@ document.addEventListener("click", (e) => {
 	}[e.key]];
 	e.preventDefault(), i.focus(), i.click();
 }), document.addEventListener("keydown", (e) => {
-	e.key === "Escape" && document.querySelectorAll(".account-menu[open], .range-picker[open]").forEach((e) => {
+	e.key === "Escape" && document.querySelectorAll(".account-menu[open], .range-picker[open], .view-menu[open]").forEach((e) => {
 		e.open = !1, e.querySelector("summary")?.focus();
 	});
 }), document.addEventListener("focusin", (e) => {
-	document.querySelectorAll(".account-menu[open], .range-picker[open]").forEach((t) => {
+	document.querySelectorAll(".account-menu[open], .range-picker[open], .view-menu[open]").forEach((t) => {
 		t.contains(e.target) || (t.open = !1);
 	});
 }), window.addEventListener("pageshow", () => {
 	document.querySelectorAll("button[aria-busy=\"true\"]").forEach((e) => {
 		e.disabled = !1, e.removeAttribute("aria-busy");
 	});
-}), new MutationObserver(Ed).observe(document.body, {
+}), new MutationObserver(tf).observe(document.body, {
 	childList: !0,
 	subtree: !0,
 	attributes: !0,
 	attributeFilter: ["data-chart-config"]
-}), document.addEventListener("livewire:navigated", Ad), document.addEventListener("livewire:init", () => {
-	window.Livewire.hook("morphed", Ed);
-}), $u(Ed), Ad();
-function jd() {
+}), document.addEventListener("livewire:navigated", of), document.addEventListener("livewire:init", () => {
+	window.Livewire.hook("morphed", tf);
+}), Qu(tf), of();
+function sf() {
 	document.querySelectorAll("[data-resource-search]").forEach((e) => {
 		e.oninput = () => document.querySelectorAll("[data-resource-row]").forEach((t) => {
 			t.hidden = !t.textContent.toLowerCase().includes(e.value.toLowerCase());
 		});
 	});
 }
-document.addEventListener("DOMContentLoaded", jd), document.addEventListener("livewire:navigated", jd), ku();
+document.addEventListener("DOMContentLoaded", sf), document.addEventListener("livewire:navigated", sf), ku();

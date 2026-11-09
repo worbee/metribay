@@ -282,11 +282,23 @@
     .period-switch a, .view-switch a { padding: 6px 11px; border-radius: 4px; font-size: 11px; color: var(--text-secondary); white-space: nowrap; text-align: center; }
     .period-switch a:hover, .view-switch a:hover { color: var(--text); }
     .period-switch a[aria-current='page'], .view-switch a[aria-current='page'] { background: var(--surface-hover); color: var(--text); font-weight: 600; }
-    .range-picker { position: relative; display: inline-flex; }
-    .range-picker summary { list-style: none; cursor: pointer; padding: 6px 11px; border-radius: 4px; font-size: 11px; color: var(--text-secondary); white-space: nowrap; text-align: center; }
-    .range-picker summary::-webkit-details-marker { display: none; }
-    .range-picker summary:hover { color: var(--text); }
-    .range-picker summary[aria-current='page'] { background: var(--surface-hover); color: var(--text); font-weight: 600; }
+    .range-picker, .view-menu { position: relative; display: inline-flex; }
+    .range-picker summary, .view-menu summary { list-style: none; cursor: pointer; padding: 6px 11px; border-radius: 4px; font-size: 11px; color: var(--text-secondary); white-space: nowrap; text-align: center; }
+    .range-picker summary::-webkit-details-marker, .view-menu summary::-webkit-details-marker { display: none; }
+    .range-picker summary:hover, .view-menu summary:hover { color: var(--text); }
+    .range-picker summary[aria-current='page'], .view-menu summary[aria-current='page'] { background: var(--surface-hover); color: var(--text); font-weight: 600; }
+    .view-menu-panel { position: absolute; right: 0; top: calc(100% + 8px); z-index: 30; width: min(280px, calc(100vw - 32px)); max-height: min(70vh, 480px); overflow: auto; padding: 12px; border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); background: var(--surface); }
+    .view-saved-heading { margin: 0 0 6px; font-size: 11px; color: var(--text-secondary); }
+    .view-saved { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+    .view-saved-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+    .view-saved-row [data-saved-link], .view-saved-row [data-saved-input] { flex: 1 1 8rem; min-width: 0; font-size: 12px; overflow-wrap: anywhere; }
+    .view-saved-row [data-saved-link][aria-current='page'] { font-weight: 600; }
+    .view-menu-groups { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; padding: 0; border: 0; }
+    .view-menu-groups legend { padding: 0; font-size: 11px; color: var(--text-secondary); }
+    .view-menu-groups label { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+    .view-name { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; font-size: 11px; color: var(--text-secondary); }
+    .view-menu-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .view-menu .field-hint { margin: 8px 0 0; }
     .range-picker .range-form { position: absolute; right: 0; top: calc(100% + 8px); z-index: 30; width: min(320px, calc(100vw - 32px)); padding: 12px; border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); background: var(--surface); }
     .range-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }
     .range-form label { display: flex; flex-direction: column; gap: 4px; flex: 1 1 120px; font-size: 11px; color: var(--text-secondary); }
@@ -710,8 +722,9 @@
         .project-head { align-items: flex-start; }
         .project-actions { width: 100%; }
         .period-switch, .view-switch { flex: 1 1 100%; }
-        .period-switch a, .view-switch a, .range-picker { flex: 1 1 auto; }
-        .range-picker summary { flex: 1; }
+        .period-switch a, .view-switch a, .range-picker, .view-menu { flex: 1 1 auto; }
+        .range-picker summary, .view-menu summary { flex: 1; }
+        .view-menu-panel { left: 0; right: auto; }
         .project-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
         .span-2, .span-3 { grid-column: span 1; }

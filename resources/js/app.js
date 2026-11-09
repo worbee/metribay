@@ -3,6 +3,7 @@ import '../css/app.css';
 import { Chart, LineController, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Filler } from 'chart.js';
 import { setupHourlyRefresh } from './hourly-refresh.js';
 import { applyGroupCollapse, fragmentTarget, openCollapsedGroup, setupGroupCollapse } from './group-collapse.js';
+import { renderProjectViews, setupProjectViews } from './project-views.js';
 
 Chart.register(LineController, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Filler);
 
@@ -438,6 +439,7 @@ function queueSync() {
     requestAnimationFrame(() => {
         scheduled = false;
         applyGroupCollapse();
+        renderProjectViews();
         syncCharts();
         syncNumbers();
         syncQueries();
@@ -512,6 +514,7 @@ function initialize() {
     applyTheme();
     syncPreferences();
     applyGroupCollapse();
+    setupProjectViews();
     // A form sent from a dialog reopens it when it comes back with errors.
     document.querySelectorAll('dialog[data-open-on-load]').forEach(dialog => { if (!dialog.open) dialog.showModal(); });
     revealTarget();
@@ -572,7 +575,7 @@ document.addEventListener('click', event => {
         twoFactor.textContent = useRecovery ? t('Use an authenticator code') : t('Use a recovery code');
         (useRecovery ? recovery : authenticator).querySelector('input').focus();
     }
-    document.querySelectorAll('.account-menu[open], .range-picker[open]').forEach(menu => { if (!menu.contains(event.target)) menu.open = false; });
+    document.querySelectorAll('.account-menu[open], .range-picker[open], .view-menu[open]').forEach(menu => { if (!menu.contains(event.target)) menu.open = false; });
 });
 document.addEventListener('change', event => {
     const target = event.target;
@@ -605,8 +608,8 @@ document.addEventListener('keydown', event => {
     next.focus();
     next.click();
 });
-document.addEventListener('keydown', event => { if (event.key === 'Escape') document.querySelectorAll('.account-menu[open], .range-picker[open]').forEach(menu => { menu.open = false; menu.querySelector('summary')?.focus(); }); });
-document.addEventListener('focusin', event => { document.querySelectorAll('.account-menu[open], .range-picker[open]').forEach(menu => { if (!menu.contains(event.target)) menu.open = false; }); });
+document.addEventListener('keydown', event => { if (event.key === 'Escape') document.querySelectorAll('.account-menu[open], .range-picker[open], .view-menu[open]').forEach(menu => { menu.open = false; menu.querySelector('summary')?.focus(); }); });
+document.addEventListener('focusin', event => { document.querySelectorAll('.account-menu[open], .range-picker[open], .view-menu[open]').forEach(menu => { if (!menu.contains(event.target)) menu.open = false; }); });
 window.addEventListener('pageshow', () => {
     document.querySelectorAll('button[aria-busy="true"]').forEach(button => { button.disabled = false; button.removeAttribute('aria-busy'); });
 });

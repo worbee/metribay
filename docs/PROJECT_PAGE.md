@@ -32,6 +32,14 @@ Events are not listed on this page: their markers stay on the charts, and clicki
 
 `?view=overview` shares the project header and reporting period with All metrics. Recent findings use the latest usable observations even when the reporting period is historical. The view shows current UptimeRobot incidents and the largest qualifying drop in Search Console clicks for one property. A click loss must be at least 25 clicks and 20% across two adjacent seven-day windows with complete final data. A query is named only when both stored rows match those dates and the query text exactly. Finding links open the relevant recent report or the project's Hidden charts settings. The Overview reads stored data.
 
+## Project views
+
+The header switches views without a server write. **Overview** and **All metrics** are unchanged, and a project still opens on All metrics. Three presets use the same group keys: **Search** (`?view=search`), **Development and Issues** (`?view=development`) and **Revenue** (`?view=revenue`). A preset is offered when that group exists on the project. Opening a preset the project does not have shows the view with an empty note, and the other charts stay one link away.
+
+**Custom view** lists only the groups on the project. **Show** applies the checked groups (`?groups=audience,search`, known keys, in group order). An unknown or empty `groups` value stays on All metrics. A preset in `view` wins over `groups`. Period links, the date form and the query archive keep the current view. Summary cells and status links still open the chart: on the current page when its group is visible, otherwise on All metrics. A failed or delayed source whose group is outside the view keeps its warning on the page.
+
+**Save view** stores a name for the checked groups in `localStorage` (`metribay.views.v1.{viewer}.{workspace}.{project}`, at most 12). Rename and remove change only that list. The saved name is not on the server, so Core and the read-only demo can use it. A link shares the groups, not the private name. Folding a group is still the separate per-viewer preference.
+
 ## Reporting period
 
 The overview (a menu) and the project page (the segmented control) share one period, `Metrics\Period`, carried in the URL:
