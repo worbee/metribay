@@ -10,6 +10,7 @@ use Metribay\Core\Metrics\Period;
 use Metribay\Core\Models\DailyMetric;
 use Metribay\Core\Models\PeriodMetric;
 use Metribay\Core\Models\Project;
+use Metribay\Core\Models\Source;
 
 class DashboardData
 {
@@ -31,10 +32,12 @@ class DashboardData
         $last = $period->latestDate($now);
         $daily = DailyMetric::query()->whereIn('source_id', $ids)->where('date', '>=', $start)->where('date', '<=', $last)->orderBy('date')->get()->groupBy('source_id');
         $periods = PeriodMetric::query()->whereIn('source_id', $ids)->where('start_date', '>=', $start)->get()->groupBy('source_id');
-        $monitors = DailyMetric::query()->whereIn('source_id', $ids)->where('metric', 'monitor_status')->where('date', '>=', $now->subDays(2)->toDateString())->orderBy('date')->get()->groupBy('source_id');
+        // A bounded recent window: the last two days can confirm a current incident, and the last 45 keep a last-known result.
+        $monitors = DailyMetric::query()->whereIn('source_id', $ids)->where('metric', 'monitor_status')->where('date', '>=', $now->subDays(45)->toDateString())->orderBy('date')->get()->groupBy('source_id');
+        $recentMonitorSince = $now->subDays(2)->toDateString();
 
-        return $projects->map(function ($project) use ($period, $days, $now, $daily, $periods, $monitors) {
-            $sources = $project->sources->map(function ($source) use ($period, $days, $now, $daily, $periods, $monitors) {
+        return $projects->map(function ($project) use ($period, $days, $now, $daily, $periods, $monitors, $recentMonitorSince) {
+            $sources = $project->sources->map(function ($source) use ($period, $days, $now, $daily, $periods, $monitors, $recentMonitorSince) {
                 [$start, $end] = $period->window($source->reporting_timezone, $now);
                 [$previousStart, $previousEnd] = $period->previousWindow($source->reporting_timezone, $now);
                 $rows = $daily->get($source->id, collect())->groupBy('metric');
@@ -83,13 +86,15 @@ class DashboardData
                 // Health always looks at today, whatever period is shown.
                 $today = $now->setTimezone($source->reporting_timezone)->startOfDay();
                 $status = ! $source->enabled ? 'disabled' : ($source->consecutive_failures > 0 ? 'failed' : (! $source->last_success_at ? 'pending' : ($source->last_success_at->lt($now->subHours($source->kind === 'pagespeed' ? 36 : ($source->kind === 'uptimerobot' ? 2 : 8))) ? 'failed' : (($source->latest_data_date && $source->latest_data_date < $today->subDays(3)->toDateString()) ? 'delayed' : 'healthy'))));
-                // The current monitor status, also when the period lies in the past.
-                $monitor = $monitors->get($source->id)?->last();
-                if ($source->enabled && in_array($monitor?->value, [8, 9, 8.0, 9.0], true)) {
+                // The current monitor status, also when the period lies in the past. Only a recent observation counts.
+                $monitorRows = $monitors->get($source->id, collect());
+                $recentMonitor = $monitorRows->last(fn (DailyMetric $row): bool => $row->date->toDateString() >= $recentMonitorSince);
+                if ($source->enabled && in_array($recentMonitor?->value, [8, 9, 8.0, 9.0], true)) {
                     $status = 'failed';
                 }
+                $currentMonitor = $this->currentMonitor($source, $monitorRows->last(), $now, $recentMonitorSince);
 
-                return ['id' => $source->id, 'label' => $source->label, 'kind' => $source->kind, 'reporting_timezone' => $source->reporting_timezone, 'enabled' => $source->enabled, 'status' => $status, 'last_success_at' => $source->last_success_at ? $source->last_success_at->utc()->translatedFormat('j M Y, H:i').' UTC' : null, 'last_success_timestamp' => $source->last_success_at?->getTimestamp(), 'latest_date' => $source->latest_data_date, 'error_code' => $source->error_code, 'connection_id' => $source->connection_id, 'metrics' => $metrics, 'page_speed' => $source->kind === 'pagespeed' ? $source->config : null];
+                return ['id' => $source->id, 'label' => $source->label, 'kind' => $source->kind, 'reporting_timezone' => $source->reporting_timezone, 'enabled' => $source->enabled, 'status' => $status, 'last_success_at' => $source->last_success_at ? $source->last_success_at->utc()->translatedFormat('j M Y, H:i').' UTC' : null, 'last_success_timestamp' => $source->last_success_at?->getTimestamp(), 'latest_date' => $source->latest_data_date, 'error_code' => $source->error_code, 'connection_id' => $source->connection_id, 'metrics' => $metrics, 'current_monitor' => $currentMonitor, 'page_speed' => $source->kind === 'pagespeed' ? $source->config : null];
             })->all();
 
             return ['id' => $project->id, 'name' => $project->name, 'slug' => $project->slug, 'domain' => $project->domain, 'group' => $project->group?->name, 'archived' => $project->archived, 'sources' => $sources, 'status' => $this->projectStatus($sources), 'summary' => $this->summary($sources, $days)];
@@ -248,5 +253,38 @@ class DashboardData
         return match (MetricRegistry::get($metric)->unit) {
             'ratio' => Number::format($value, 3, locale: app()->getLocale()), 'score' => Number::format($value, 0, locale: app()->getLocale()).'/100', 'percent' => Number::format($value, 2, locale: app()->getLocale()).'%', 'ms' => Number::format($value, 1, locale: app()->getLocale()).' ms',default => Number::format($value, 0, locale: app()->getLocale())
         };
+    }
+
+    /**
+     * The latest stored monitor observation, independent of the selected reporting period.
+     * Down or Seems down is a current incident only when that observation is recent and the fetch is fresh.
+     *
+     * @return array{value: int, date: string, checked_at: string|null, incident: bool, withheld: 'disabled'|'pending'|'failed'|'stale'|null}|null
+     */
+    private function currentMonitor(Source $source, ?DailyMetric $latest, CarbonImmutable $now, string $recentSince): ?array
+    {
+        if ($source->kind !== 'uptimerobot' || $latest === null) {
+            return null;
+        }
+        $today = $now->setTimezone($source->reporting_timezone)->startOfDay();
+        $recent = $latest->date->toDateString() >= $recentSince;
+        $stale = $source->latest_data_date && $source->latest_data_date < $today->subDays(3)->toDateString();
+        $withheld = match (true) {
+            ! $source->enabled => 'disabled',
+            ! $source->last_success_at => 'pending',
+            $source->consecutive_failures > 0 || $source->last_success_at->lt($now->subHours(2)) => 'failed',
+            $stale || ! $recent => 'stale',
+            default => null,
+        };
+        $value = (int) $latest->value;
+        $checked = $latest->window_end ?? $latest->observed_at;
+
+        return [
+            'value' => $value,
+            'date' => $latest->date->toDateString(),
+            'checked_at' => $checked?->utc()->toIso8601String(),
+            'incident' => $withheld === null && in_array($value, [8, 9], true),
+            'withheld' => $withheld,
+        ];
     }
 }

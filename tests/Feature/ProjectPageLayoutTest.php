@@ -9,6 +9,7 @@ use Metribay\Core\Connectors\CollectionResult;
 use Metribay\Core\Models\Connection;
 use Metribay\Core\Models\HiddenChart;
 use Metribay\Core\Models\Project;
+use Metribay\Core\Models\SearchQueryMonth;
 use Metribay\Core\Models\Source;
 use Metribay\Core\Models\Workspace;
 use Metribay\Core\Services\MetricStore;
@@ -39,16 +40,20 @@ class ProjectPageLayoutTest extends TestCase
     }
 
     /** @param array<string, float> $values metric => daily value for the last ten days */
-    private function source(string $kind, string $label, array $values, array $state = []): Source
+    private function source(string $kind, string $label, array $values, array $state = [], array $context = []): Source
     {
-        return $this->scoped(function () use ($kind, $label, $values, $state) {
+        return $this->scoped(function () use ($kind, $label, $values, $state, $context) {
             $now = CarbonImmutable::now('UTC');
             $source = Source::create(['project_id' => $this->project->id, 'kind' => $kind, 'label' => $label, 'config' => [], 'identity_hash' => hash('sha256', $kind.$label), 'reporting_timezone' => 'UTC', 'last_success_at' => $now, 'latest_data_date' => $now->toDateString()]);
             $source->forceFill($state)->save();
             $rows = [];
             foreach ($values as $metric => $value) {
                 for ($i = 0; $i < 10; $i++) {
-                    $rows[] = ['metric' => $metric, 'date' => $now->subDays($i)->toDateString(), 'value' => $value, 'is_partial' => false];
+                    $row = ['metric' => $metric, 'date' => $now->subDays($i)->toDateString(), 'value' => $value, 'is_partial' => false];
+                    if ($context !== []) {
+                        $row['context'] = $context;
+                    }
+                    $rows[] = $row;
                 }
             }
             app(MetricStore::class)->persist($source, new CollectionResult($rows), $now);
@@ -156,5 +161,52 @@ class ProjectPageLayoutTest extends TestCase
 
         $this->owner->forceFill(['locale' => 'de'])->save();
         $this->get('/w/layout/projects/'.$this->project->id)->assertOk()->assertSee('Publikum')->assertSee('Zuverlässigkeit')->assertSee('Tageswerte');
+    }
+
+    public function test_overview_and_all_metrics_share_the_period_and_archive(): void
+    {
+        $this->source('umami', 'Website', ['visits' => 4.0]);
+        $search = $this->source('gsc', 'Search', ['clicks' => 2.0]);
+        $this->scoped(fn () => SearchQueryMonth::create([
+            'source_id' => $search->id, 'month' => '2026-10-01', 'start_date' => '2026-10-01', 'end_date' => '2026-10-31', 'query_count' => 1, 'collected_at' => now(),
+        ]));
+        $url = '/w/layout/projects/'.$this->project->id;
+        $params = ['workspace' => 'layout', 'project' => $this->project->id];
+
+        $this->actingAs($this->owner)->get($url.'?days=7')->assertOk()
+            ->assertSee('aria-current="page" >All metrics', false)
+            ->assertSee('data-group-toggle', false)
+            ->assertSee('aria-expanded="true"', false)
+            ->assertSee('aria-controls="group-audience-body"', false)
+            ->assertSee('Expand all')
+            ->assertSee('id="group-audience-heading"', false)
+            ->assertDontSee('Recent findings');
+
+        $thirty = route('metribay.projects.show', $params + ['days' => 30, 'queries' => '2026-10', 'view' => 'overview']);
+        $metrics = route('metribay.projects.show', $params + ['days' => 7, 'queries' => '2026-10']);
+        $this->get($url.'?view=overview&days=7&queries=2026-10')->assertOk()
+            ->assertSee('aria-current="page" >Overview', false)
+            ->assertSee('Recent findings')
+            ->assertSee('Google Search Console for Search is missing final daily click totals')
+            ->assertSee('href="'.e($thirty).'"', false)
+            ->assertSee('href="'.e($metrics).'"', false)
+            ->assertDontSee('data-metric-chart', false)
+            ->assertDontSee('data-group-toggle', false)
+            ->assertDontSee('No significant changes in the data we checked.');
+
+        $this->get($url.'?view=metrics&days=7')->assertOk()->assertSee('aria-current="page" >All metrics', false)->assertSee('id="group-search-heading"', false);
+        $this->get($url.'?view=nope')->assertOk()->assertSee('aria-current="page" >All metrics', false)->assertSee('id="group-audience-heading"', false);
+    }
+
+    public function test_a_group_without_a_summary_link_gets_its_own_navigation(): void
+    {
+        $this->source('umami', 'Website', ['visits' => 4.0]);
+        $this->actingAs($this->owner)->get('/w/layout/projects/'.$this->project->id)->assertOk()->assertDontSee('class="group-nav"', false);
+
+        $this->source('paddle', 'Billing', ['paddle_revenue' => 12.0], context: ['currency' => 'EUR']);
+        $this->get('/w/layout/projects/'.$this->project->id)->assertOk()
+            ->assertSee('class="group-nav"', false)
+            ->assertSee('href="#group-revenue">Revenue', false)
+            ->assertSee('href="#group-audience"', false);
     }
 }

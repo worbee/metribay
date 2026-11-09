@@ -2,6 +2,7 @@ import './usage-analytics.js';
 import '../css/app.css';
 import { Chart, LineController, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Filler } from 'chart.js';
 import { setupHourlyRefresh } from './hourly-refresh.js';
+import { applyGroupCollapse, fragmentTarget, openCollapsedGroup, setupGroupCollapse } from './group-collapse.js';
 
 Chart.register(LineController, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Filler);
 
@@ -351,6 +352,7 @@ function destroyChart(chart) {
 function syncCharts() {
     for (const chart of charts) if (!chart.canvas?.isConnected) destroyChart(chart);
     document.querySelectorAll('canvas[data-metric-chart]').forEach(canvas => {
+        if (canvas.closest('[data-group-body][hidden]')) return;
         const chartConfig = canvas.closest('[data-chart-container]').dataset.chartConfig;
         const signature = `${chartConfig}|${root.dataset.theme}|${root.dataset.density}`;
         const existing = Chart.getChart(canvas);
@@ -387,7 +389,10 @@ function showQueries(block) {
         tab.tabIndex = selected ? 0 : -1;
         tab.setAttribute('aria-controls', `${block.id}-${source.dataset.querySourcePanel}-${tab.dataset.queryView}`);
         const count = tab.querySelector('[data-query-count]');
-        if (count && counts[index] !== undefined) count.textContent = new Intl.NumberFormat(document.documentElement.lang || 'en').format(Number(counts[index]));
+        if (count && counts[index] !== undefined) {
+            const text = new Intl.NumberFormat(document.documentElement.lang || 'en').format(Number(counts[index]));
+            if (count.textContent !== text) count.textContent = text;
+        }
     });
     source.querySelectorAll('[data-query-panel]').forEach(panel => {
         panel.hidden = panel.dataset.queryPanel !== view;
@@ -396,7 +401,8 @@ function showQueries(block) {
         const more = panel.querySelector('[data-query-more]');
         if (more) {
             more.setAttribute('aria-expanded', String(expanded));
-            more.textContent = expanded ? more.dataset.labelLess : more.dataset.labelMore;
+            const text = expanded ? more.dataset.labelLess : more.dataset.labelMore;
+            if (more.textContent !== text) more.textContent = text;
         }
     });
 }
@@ -431,6 +437,7 @@ function queueSync() {
     scheduled = true;
     requestAnimationFrame(() => {
         scheduled = false;
+        applyGroupCollapse();
         syncCharts();
         syncNumbers();
         syncQueries();
@@ -471,20 +478,40 @@ function announcePreference() {
 
 // A linked event may sit in a collapsed bundle: open it, bring it into view and mark it briefly.
 function revealTarget() {
-    const id = decodeURIComponent(window.location.hash.slice(1));
-    const target = id ? document.getElementById(id) : null;
+    const target = fragmentTarget(window.location.hash);
     if (!target || target.tagName === 'DIALOG') return;
     const bundle = target.closest('details');
     if (bundle && !bundle.open) bundle.open = true;
-    target.scrollIntoView({ block: 'center' });
-    target.classList.add('is-target');
-    setTimeout(() => target.classList.remove('is-target'), 2400);
+    const opened = openCollapsedGroup(target);
+    if (target.matches('[data-query-panel]')) {
+        const block = target.closest('[data-query-block]');
+        const source = target.closest('[data-query-source-panel]');
+        if (block && source) updateQueries(block, state => {
+            state.source = source.dataset.querySourcePanel;
+            state.view = target.dataset.queryPanel;
+        });
+    }
+    const finish = () => {
+        target.scrollIntoView({ block: 'center' });
+        target.classList.add('is-target');
+        if (target.closest('[data-chart-group]')) {
+            const heading = target.matches('h1, h2, h3') ? target : target.querySelector('h2, h3');
+            const destination = heading || target;
+            if (!destination.matches('a, button, input, select, textarea, summary') && !destination.hasAttribute('tabindex')) destination.tabIndex = -1;
+            destination.focus({ preventScroll: true });
+        }
+        setTimeout(() => target.classList.remove('is-target'), 2400);
+    };
+    // Charts inside a group that was folded need a frame to take their size before the scroll.
+    if (opened || target.closest('[data-group-body]')) requestAnimationFrame(() => requestAnimationFrame(finish));
+    else finish();
 }
 window.addEventListener('hashchange', revealTarget);
 
 function initialize() {
     applyTheme();
     syncPreferences();
+    applyGroupCollapse();
     // A form sent from a dialog reopens it when it comes back with errors.
     document.querySelectorAll('dialog[data-open-on-load]').forEach(dialog => { if (!dialog.open) dialog.showModal(); });
     revealTarget();
@@ -586,6 +613,7 @@ window.addEventListener('pageshow', () => {
 new MutationObserver(queueSync).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-chart-config'] });
 document.addEventListener('livewire:navigated', initialize);
 document.addEventListener('livewire:init', () => { window.Livewire.hook('morphed', queueSync); });
+setupGroupCollapse(queueSync);
 initialize();
 
 function setupSourceForms() {

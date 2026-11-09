@@ -12,7 +12,7 @@ This is the self-hosted edition. It's free and open source under Apache-2.0. One
 
 **The overview is one row per project.** Visits, search clicks, commits and pull requests, open issues, downloads, release downloads and uptime, with a trend line and the change against the previous period. Projects that need attention come first.
 
-**Each project gets its own page.** Charts are grouped by meaning: audience, search, development, distribution, reliability and page speed. Top search queries show what people clicked, where you rank and where you're close.
+**Each project gets its own page.** Open **Overview** for recent uptime incidents and drops in Google Search Console clicks. In **All metrics**, you can fold chart groups and inspect daily values. Top search queries show what people clicked, where you rank and where you're close. [Project page details](docs/PROJECT_PAGE.md)
 
 ![A project page with visits compared to the previous period and markers for events](docs/screenshots/project-tallybird.webp)
 

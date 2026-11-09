@@ -15,6 +15,11 @@
     <div class="metric-head">
         <div class="metric-top"><h3 id="{{ $chartId }}-label">{{ $metricLabel }}</h3>@if(!empty($card['label']))<span class="metric-source">{{ $card['label'] }}</span>@endif @include('metribay::partials/chart-hide', ['metric' => $metric, 'sourceId' => $sourceId])</div>
         <div class="metric-value-row"><strong class="metric-value"><span class="status-dot strip-{{ $state($value) }}" aria-hidden="true"></span>{{ $value === null ? __('Unknown') : ($statusNames[(int) $value] ?? __('Unknown')) }}</strong><span class="metric-previous">{{ $summary }}</span></div>
+        @php($monitor = $card['source']['current_monitor'] ?? null)
+        @if(is_array($monitor) && in_array((int) $monitor['value'], [8, 9], true))
+        @php($checked = !empty($monitor['checked_at']) ? \Carbon\CarbonImmutable::parse($monitor['checked_at'])->utc()->translatedFormat('j M Y, H:i').' UTC' : \Carbon\CarbonImmutable::parse($monitor['date'])->translatedFormat('j M Y'))
+        <p class="metric-current">@if(!empty($monitor['incident'])){{ __('Current: :status, checked :time', ['status' => $statusNames[(int) $monitor['value']] ?? __('Unknown'), 'time' => $checked]) }}@else{{ __('Last known: :status, checked :time', ['status' => $statusNames[(int) $monitor['value']] ?? __('Unknown'), 'time' => $checked]) }}@endif</p>
+        @endif
     </div>
     <div class="status-strip" role="img" aria-label="{{ $metricLabel }}: {{ $summary }}" style="--days: {{ max(1, count($series)) }}">@foreach($series as $point)<i class="strip-{{ $state($point['value']) }}" title="{{ \Carbon\CarbonImmutable::parse($point['date'])->translatedFormat('j M') }}: {{ $point['value'] === null ? __('Missing') : ($statusNames[(int) $point['value']] ?? __('Unknown')) }}"></i>@endforeach</div>
     @if($series)<div class="strip-axis" aria-hidden="true"><span>{{ \Carbon\CarbonImmutable::parse($series[0]['date'])->translatedFormat('j M') }}</span><span>{{ \Carbon\CarbonImmutable::parse(end($series)['date'])->translatedFormat('j M') }}</span></div>@endif

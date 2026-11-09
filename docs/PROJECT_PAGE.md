@@ -8,8 +8,8 @@ Today every metric is the same ~410 px card: a 35 px number, a 215 px line chart
 
 ## Principles
 
-1. **The index summarises, the project page shows everything.** Someone who opens a project wants more, not less. No metric moves behind an extra click, drawer or detail page. Every chart stays visible and interactive.
-2. **Hierarchy comes from grouping, size and chart type**, not from hiding.
+1. **The index summarises the portfolio.** Each project offers an optional **Overview** for recent findings and **All metrics** for the full reporting detail. The project opens on All metrics by default.
+2. **Group related metrics and let each viewer fold a group.** The group heading and source warnings stay visible. The browser remembers the choice for this viewer, workspace and project. A link to the group or one of its charts opens it for that visit.
 3. **Same language as the index.** Group order follows the index columns; changes use the index's arrows, rounding and colours.
 4. **Say it once.** Small print that is identical on every chart (legend, unit, full coverage) is shown once per group or only when it carries information.
 5. **Core data rules are unchanged:** unknown stays "—" and never 0, missing days stay gaps, partial days stay marked, visitors are never summed, percent change against a missing or zero baseline is unavailable, the daily-values table stays available for every chart.
@@ -27,6 +27,10 @@ Target: at 1440 × 900 every headline number and the first group fit on the firs
 4. **Footnote** (existing data note), unchanged.
 
 Events are not listed on this page: their markers stay on the charts, and clicking one opens it on the project's events page (docs/EVENTS_PAGE.md).
+
+## Project Overview
+
+`?view=overview` shares the project header and reporting period with All metrics. Recent findings use the latest usable observations even when the reporting period is historical. The view shows current UptimeRobot incidents and the largest qualifying drop in Search Console clicks for one property. A click loss must be at least 25 clicks and 20% across two adjacent seven-day windows with complete final data. A query is named only when both stored rows match those dates and the query text exactly. Finding links open the relevant recent report or the project's Hidden charts settings. The Overview reads stored data.
 
 ## Reporting period
 
