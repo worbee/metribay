@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Open a project's **Overview** for recent uptime incidents and significant drops in Google Search Console clicks. **All metrics** opens by default. Fold chart groups to focus on the ones you need. Your browser remembers which groups you folded for each project.
+- The project reporting controls and wide tables fit narrow screens.
+
 ## 1.0.0 — 2026-11-09
 
 - Metribay 1.0.0, the first stable release. The code is the same as 0.17.1, after the 0.17 Google reconnect and account security work. No database migration or configuration change: update an existing 0.17.1 install by pulling the new image or running `composer update metribay/core`.
