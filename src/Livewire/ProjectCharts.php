@@ -9,6 +9,7 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 use Metribay\Core\Contracts\WorkspaceAccess;
 use Metribay\Core\Metrics\Period;
+use Metribay\Core\Metrics\ProjectFindings;
 use Metribay\Core\Metrics\ProjectLayout;
 use Metribay\Core\Models\HiddenChart;
 use Metribay\Core\Models\Project;
@@ -35,6 +36,10 @@ class ProjectCharts extends Component
     #[Locked]
     public string $to = '';
 
+    /** "overview" or empty. Empty and anything else open All metrics. */
+    #[Url(as: 'view', except: '')]
+    public string $view = '';
+
     /** Archived month (Y-m) shown by Top queries instead of the period; empty for the period. */
     #[Url(as: 'queries', except: '')]
     public string $queryMonth = '';
@@ -57,6 +62,8 @@ class ProjectCharts extends Component
 
         return app(WorkspaceContext::class)->run($workspace, function () use ($workspace, $period) {
             $project = Project::query()->findOrFail($this->projectId);
+            $projectView = $this->view === 'overview' ? 'overview' : 'metrics';
+            $metricsView = $projectView === 'metrics';
             $data = app(DashboardData::class);
             $projectData = $data->projects($period, $project->id)[0] ?? ['sources' => [], 'summary' => []];
             $sources = $projectData['sources'];
@@ -64,7 +71,8 @@ class ProjectCharts extends Component
             $hidden = HiddenChart::query()->where('project_id', $project->id)->get();
             foreach ($sources as &$source) {
                 $range = $source['metrics'][0] ?? null;
-                $source['events'] = $range ? $this->chartEvents($events, (int) $source['id'], CarbonImmutable::parse($range['start_date']), CarbonImmutable::parse($range['end_date'])) : [];
+                // Chart markers are part of All metrics. Overview keeps the event count in the header only.
+                $source['events'] = $metricsView && $range ? $this->chartEvents($events, (int) $source['id'], CarbonImmutable::parse($range['start_date']), CarbonImmutable::parse($range['end_date'])) : [];
                 // Hidden charts leave the page only; context such as page speed test details still reads every metric.
                 $hiddenKeys = $hidden->where('source_id', (int) $source['id'])->pluck('metric_key')->all();
                 $source['all_metrics'] = $source['metrics'];
@@ -88,25 +96,47 @@ class ProjectCharts extends Component
             $months = $searchQueries->months(array_values($queryIds));
             // Unknown or removed months fall back to the period instead of an error.
             // A custom range that is exactly an archived month opens on that month, once; the menu can still leave it.
-            if (! $this->monthChecked && $this->queryMonth === '' && in_array($period->calendarMonth(), $months, true)) {
+            if ($metricsView && ! $this->monthChecked && $this->queryMonth === '' && in_array($period->calendarMonth(), $months, true)) {
                 $this->queryMonth = (string) $period->calendarMonth();
             }
-            $this->monthChecked = true;
+            if ($metricsView) {
+                $this->monthChecked = true;
+            }
             $month = in_array($this->queryMonth, $months, true) ? $this->queryMonth : null;
             $compare = $month !== null && ($this->queryCompare === 'none' || (in_array($this->queryCompare, $months, true) && $this->queryCompare !== $month)) ? $this->queryCompare : null;
-            $queries = $searchQueries->forSources($sources, $period, $month, $compare);
+            $queries = $metricsView ? $searchQueries->forSources($sources, $period, $month, $compare) : [];
             foreach ($sources as &$source) {
                 $source['queries'] = in_array((int) $source['id'], $queryIds, true) ? ($queries[(int) $source['id']] ?? null) : null;
             }
             unset($source);
+            $rows = $metricsView ? ProjectLayout::rows($sources, $period->days === 1) : [];
+            $linked = [];
+            foreach (array_keys($projectData['summary']) as $column) {
+                $group = ProjectLayout::SUMMARY[$column] ?? null;
+                if ($group !== null) {
+                    $linked[$group] = true;
+                }
+            }
+            $unlinkedGroups = [];
+            foreach ($rows as $row) {
+                foreach ($row as $group) {
+                    if (! isset($linked[$group['key']])) {
+                        $unlinkedGroups[] = ['key' => $group['key'], 'title' => $group['title']];
+                    }
+                }
+            }
+            $report = ! $metricsView && $sources !== [] ? app(ProjectFindings::class)->forSources($sources, $project->id) : ['findings' => [], 'checked' => false, 'notes' => []];
 
             [$eventsFrom, $eventsTo] = $period->window('UTC', CarbonImmutable::now('UTC'));
             $eventCount = $events->sum(fn (ProjectEvent $event): int => count($event->occurrencesBetween($eventsFrom, $eventsTo)));
             $statuses = array_count_values(array_column($sources, 'status'));
             $lastSync = max([0, ...array_filter(array_column($sources, 'last_success_timestamp'))]);
 
-            return view('metribay::components.project-charts', ['workspace' => $workspace, 'project' => $project, 'sources' => $sources, 'rows' => ProjectLayout::rows($sources, $period->days === 1), 'summary' => $projectData['summary'], 'statuses' => $statuses, 'lastSync' => $lastSync ? CarbonImmutable::createFromTimestampUTC($lastSync) : null, 'days' => $period->days, 'period' => $period,
-                'queryMonths' => $months, 'queryMonth' => $month, 'queryCompare' => $compare, 'hiddenCount' => $hidden->count(), 'justHidden' => $hidden->firstWhere('id', (int) session('chart_hidden')), 'eventCount' => $eventCount]);
+            return view('metribay::components.project-charts', [
+                'workspace' => $workspace, 'project' => $project, 'sources' => $sources, 'rows' => $rows, 'summary' => $projectData['summary'], 'statuses' => $statuses, 'lastSync' => $lastSync ? CarbonImmutable::createFromTimestampUTC($lastSync) : null, 'days' => $period->days, 'period' => $period, 'projectView' => $projectView,
+                'queryMonths' => $months, 'queryMonth' => $month, 'queryCompare' => $compare, 'hiddenCount' => $hidden->count(), 'justHidden' => $hidden->firstWhere('id', (int) session('chart_hidden')), 'eventCount' => $eventCount,
+                'findings' => $report['findings'], 'findingsChecked' => $report['checked'], 'findingNotes' => $report['notes'], 'unlinkedGroups' => $unlinkedGroups,
+            ]);
         });
     }
 

@@ -2,6 +2,7 @@ import './usage-analytics.js';
 import '../css/app.css';
 import { Chart, LineController, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Filler } from 'chart.js';
 import { setupHourlyRefresh } from './hourly-refresh.js';
+import { applyGroupCollapse, openCollapsedGroup, setupGroupCollapse } from './group-collapse.js';
 
 Chart.register(LineController, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Filler);
 
@@ -351,10 +352,14 @@ function destroyChart(chart) {
 function syncCharts() {
     for (const chart of charts) if (!chart.canvas?.isConnected) destroyChart(chart);
     document.querySelectorAll('canvas[data-metric-chart]').forEach(canvas => {
+        if (canvas.closest('[data-group-body][hidden]')) return;
         const chartConfig = canvas.closest('[data-chart-container]').dataset.chartConfig;
         const signature = `${chartConfig}|${root.dataset.theme}|${root.dataset.density}`;
         const existing = Chart.getChart(canvas);
-        if (existing?.metribaySignature === signature) return;
+        if (existing?.metribaySignature === signature) {
+            existing.resize();
+            return;
+        }
         if (existing) destroyChart(existing);
         try {
             const config = JSON.parse(chartConfig);
@@ -431,6 +436,7 @@ function queueSync() {
     scheduled = true;
     requestAnimationFrame(() => {
         scheduled = false;
+        applyGroupCollapse();
         syncCharts();
         syncNumbers();
         syncQueries();
@@ -476,15 +482,28 @@ function revealTarget() {
     if (!target || target.tagName === 'DIALOG') return;
     const bundle = target.closest('details');
     if (bundle && !bundle.open) bundle.open = true;
-    target.scrollIntoView({ block: 'center' });
-    target.classList.add('is-target');
-    setTimeout(() => target.classList.remove('is-target'), 2400);
+    const opened = openCollapsedGroup(target);
+    const finish = () => {
+        target.scrollIntoView({ block: 'center' });
+        target.classList.add('is-target');
+        if (target.closest('[data-chart-group]')) {
+            const heading = target.matches('h1, h2, h3') ? target : target.querySelector('h2, h3');
+            const destination = heading || target;
+            if (!destination.matches('a, button, input, select, textarea, summary') && !destination.hasAttribute('tabindex')) destination.tabIndex = -1;
+            destination.focus({ preventScroll: true });
+        }
+        setTimeout(() => target.classList.remove('is-target'), 2400);
+    };
+    // Charts inside a group that was folded need a frame to take their size before the scroll.
+    if (opened || target.closest('[data-group-body]')) requestAnimationFrame(() => requestAnimationFrame(finish));
+    else finish();
 }
 window.addEventListener('hashchange', revealTarget);
 
 function initialize() {
     applyTheme();
     syncPreferences();
+    applyGroupCollapse();
     // A form sent from a dialog reopens it when it comes back with errors.
     document.querySelectorAll('dialog[data-open-on-load]').forEach(dialog => { if (!dialog.open) dialog.showModal(); });
     revealTarget();
@@ -586,6 +605,7 @@ window.addEventListener('pageshow', () => {
 new MutationObserver(queueSync).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-chart-config'] });
 document.addEventListener('livewire:navigated', initialize);
 document.addEventListener('livewire:init', () => { window.Livewire.hook('morphed', queueSync); });
+setupGroupCollapse(queueSync);
 initialize();
 
 function setupSourceForms() {
