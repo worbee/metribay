@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.1.0 — 2026-11-09
+
 - Open a project's **Overview** for recent uptime incidents and significant drops in Google Search Console clicks. **All metrics** opens by default. Fold chart groups to focus on the ones you need. Your browser remembers which groups you folded for each project.
 - The project reporting controls and wide tables fit narrow screens.
 
