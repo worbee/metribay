@@ -11,11 +11,13 @@ use Metribay\Core\Contracts\WorkspaceAccess;
 use Metribay\Core\Metrics\Period;
 use Metribay\Core\Metrics\ProjectFindings;
 use Metribay\Core\Metrics\ProjectLayout;
+use Metribay\Core\Metrics\ProjectViews;
 use Metribay\Core\Models\HiddenChart;
 use Metribay\Core\Models\Project;
 use Metribay\Core\Models\ProjectEvent;
 use Metribay\Core\Models\Workspace;
 use Metribay\Core\Services\DashboardData;
+use Metribay\Core\Services\ProviderCatalog;
 use Metribay\Core\Services\SearchQueries;
 use Metribay\Core\Services\WorkspaceContext;
 
@@ -36,9 +38,13 @@ class ProjectCharts extends Component
     #[Locked]
     public string $to = '';
 
-    /** "overview" or empty. Empty and anything else open All metrics. */
+    /** "overview", a preset, or empty. Empty opens All metrics unless groups selects a custom mix. */
     #[Url(as: 'view', except: '')]
     public string $view = '';
+
+    /** Comma-separated chart groups for a custom view. Empty on Overview, All metrics and presets. */
+    #[Url(as: 'groups', except: '')]
+    public string $groups = '';
 
     /** Archived month (Y-m) shown by Top queries instead of the period; empty for the period. */
     #[Url(as: 'queries', except: '')]
@@ -59,11 +65,16 @@ class ProjectCharts extends Component
         $period = Period::fromInput($this->days, $this->from, $this->to);
         abort_if($period === null, 422);
         request()->attributes->set('metribay.workspace', $workspace);
+        $rawGroups = request()->query('groups');
+        $resolved = ProjectViews::resolve($this->view, is_array($rawGroups) ? $rawGroups : (is_string($rawGroups) ? $rawGroups : $this->groups));
+        if ($resolved['kind'] === 'custom') {
+            $this->groups = implode(',', $resolved['groups']);
+        }
 
-        return app(WorkspaceContext::class)->run($workspace, function () use ($workspace, $period) {
+        return app(WorkspaceContext::class)->run($workspace, function () use ($workspace, $period, $resolved) {
             $project = Project::query()->findOrFail($this->projectId);
-            $projectView = $this->view === 'overview' ? 'overview' : 'metrics';
-            $metricsView = $projectView === 'metrics';
+            $projectView = $resolved['kind'];
+            $metricsView = $projectView !== 'overview';
             $data = app(DashboardData::class);
             $projectData = $data->projects($period, $project->id)[0] ?? ['sources' => [], 'summary' => []];
             $sources = $projectData['sources'];
@@ -109,7 +120,65 @@ class ProjectCharts extends Component
                 $source['queries'] = in_array((int) $source['id'], $queryIds, true) ? ($queries[(int) $source['id']] ?? null) : null;
             }
             unset($source);
-            $rows = $metricsView ? ProjectLayout::rows($sources, $period->days === 1) : [];
+            $singleDay = $period->days === 1;
+            $allRows = ProjectLayout::rows($sources, $singleDay);
+            $present = [];
+            foreach ($allRows as $row) {
+                foreach ($row as $group) {
+                    $present[] = ['key' => $group['key'], 'title' => $group['title']];
+                }
+            }
+            $searchView = config('metribay.project_search.view');
+            if (is_string($searchView) && ! in_array('search', array_column($present, 'key'), true)) {
+                $present[] = ['key' => 'search', 'title' => ProjectLayout::TITLES['search']];
+            }
+            $presentKeys = array_column($present, 'key');
+            $rows = $projectView === 'overview' ? [] : ($projectView === 'metrics' ? $allRows : ProjectLayout::rows($sources, $singleDay, $resolved['groups']));
+            $visibleGroups = $projectView === 'metrics' ? null : [];
+            $shownSources = [];
+            if (is_array($visibleGroups)) {
+                foreach ($rows as $row) {
+                    foreach ($row as $group) {
+                        $visibleGroups[] = $group['key'];
+                        foreach ($group['sources'] as $source) {
+                            $shownSources[(int) $source['id']] = true;
+                        }
+                    }
+                }
+            }
+            $membership = [];
+            foreach (ProjectLayout::GROUPS as $key => $metricKeys) {
+                foreach ($sources as $source) {
+                    if (array_intersect(ProviderCatalog::metricKeys($source['kind']), $metricKeys) !== []) {
+                        $membership[(int) $source['id']][] = $key;
+                    }
+                }
+            }
+            foreach ($sources as &$source) {
+                $source['attention_group'] = null;
+                foreach ($membership[(int) $source['id']] ?? [] as $key) {
+                    $source['attention_group'] ??= $key;
+                    if ($visibleGroups === null || in_array($key, $visibleGroups, true)) {
+                        $source['attention_group'] = $key;
+                        break;
+                    }
+                }
+            }
+            unset($source);
+            $offViewSources = [];
+            if ($projectView !== 'overview' && $projectView !== 'metrics') {
+                foreach ($sources as $source) {
+                    if (! isset($shownSources[(int) $source['id']]) && in_array($source['status'], ['failed', 'delayed'], true)) {
+                        $offViewSources[] = $source;
+                    }
+                }
+            }
+            $presets = [];
+            foreach (ProjectViews::PRESETS as $key => $preset) {
+                if (array_intersect($preset['groups'], $presentKeys) !== [] || $resolved['preset'] === $key) {
+                    $presets[] = ['key' => $key, 'label' => $preset['label']];
+                }
+            }
             $linked = [];
             foreach (array_keys($projectData['summary']) as $column) {
                 $group = ProjectLayout::SUMMARY[$column] ?? null;
@@ -136,6 +205,11 @@ class ProjectCharts extends Component
                 'workspace' => $workspace, 'project' => $project, 'sources' => $sources, 'rows' => $rows, 'summary' => $projectData['summary'], 'statuses' => $statuses, 'lastSync' => $lastSync ? CarbonImmutable::createFromTimestampUTC($lastSync) : null, 'days' => $period->days, 'period' => $period, 'projectView' => $projectView,
                 'queryMonths' => $months, 'queryMonth' => $month, 'queryCompare' => $compare, 'hiddenCount' => $hidden->count(), 'justHidden' => $hidden->firstWhere('id', (int) session('chart_hidden')), 'eventCount' => $eventCount,
                 'findings' => $report['findings'], 'findingsChecked' => $report['checked'], 'findingNotes' => $report['notes'], 'unlinkedGroups' => $unlinkedGroups,
+                'presets' => $presets, 'availableGroups' => $present, 'activePreset' => $resolved['preset'], 'checkedGroups' => $projectView === 'preset' || $projectView === 'custom' ? $resolved['groups'] : [],
+                'viewQuery' => ProjectViews::linkQuery($resolved), 'offViewSources' => $offViewSources, 'visibleGroups' => $visibleGroups,
+                'matchGroups' => $projectView === 'custom' ? implode(',', $resolved['groups']) : '',
+                'projectSearchView' => $searchView,
+                'showProjectSearch' => $projectView === 'metrics' || in_array('search', $resolved['groups'], true),
             ]);
         });
     }

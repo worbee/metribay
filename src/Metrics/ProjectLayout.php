@@ -49,12 +49,17 @@ final class ProjectLayout
      *
      * @param  list<array<string, mixed>>  $sources  Project sources from DashboardData, hidden charts already removed.
      * @param  bool  $singleDay  One day (yesterday) shows number tiles instead of charts.
+     * @param  list<string>|null  $only  Group keys to keep. Null shows every group the project has.
      * @return list<list<array<string, mixed>>>
      */
-    public static function rows(array $sources, bool $singleDay = false): array
+    public static function rows(array $sources, bool $singleDay = false, ?array $only = null): array
     {
         $groups = [];
+        $onlyKeys = $only === null ? null : array_flip($only);
         foreach (self::GROUPS as $key => $keys) {
+            if ($onlyKeys !== null && ! isset($onlyKeys[$key])) {
+                continue;
+            }
             $members = array_values(array_filter($sources, fn (array $source): bool => array_intersect(ProviderCatalog::metricKeys($source['kind']), $keys) !== []));
             if ($members === []) {
                 continue;

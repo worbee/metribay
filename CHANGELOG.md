@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Choose **Search**, **Development and Issues** or **Revenue** on a project, or save a named mix of the chart groups that project has. **Overview** and **All metrics** stay as they are, and All metrics remains the default. A saved name stays in this browser for that project. The address keeps the view, the reporting period and the query archive, so a link still opens the same charts. No database migration.
+
 ## 1.1.0 — 2026-11-09
 
 - Open a project's **Overview** for recent uptime incidents and significant drops in Google Search Console clicks. **All metrics** opens by default. Fold chart groups to focus on the ones you need. Your browser remembers which groups you folded for each project.

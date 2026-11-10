@@ -11,6 +11,9 @@
     <div class="form-width"><p><strong>{{ $project->name }}</strong></p><p class="muted">{{ $project->domain ?: __('No domain') }}</p></div>
     @endif
 </section>
+@if(is_string(config('metribay.project_search.settings_view')))
+@include(config('metribay.project_search.settings_view'))
+@endif
 <section class="settings-section" aria-labelledby="sources-heading">
     <div class="section-intro"><h2 id="sources-heading">{{ __('Data sources') }}</h2><p>{{ __('Each data source tracks one property, site, repository, plugin or monitor through a connected account.') }}</p></div>
     <div class="form-width">

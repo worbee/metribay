@@ -17,7 +17,7 @@ Use npm test from core/ for JavaScript changes. Pure calculation tests need no d
 
 For executable PHP/test changes, run the complete Core suite on SQLite, composer analyse and Pint on changed PHP. Database/schema/query, tenant scope, transactions/locking, queue or test fixture/discovery changes also require the complete PostgreSQL suite. Use an isolated loopback database with a name ending in _test and explicit connection settings; clear DB_URL so a saved URL cannot override them. For database-independent helpers/mock-only connectors, targeted SQLite checks during development are enough; complete affected-suite checks still apply at handoff.
 
-For JavaScript changes run npm test. Asset changes require npm run build; committed dist/ must match the source. Layout, chart or interaction changes need the affected browser flow, representative narrow/wide viewports and relevant themes/locales. scripts/check-overview-layout.mjs checks the synthetic overview, not every app page; its local demo must already be running. No browser download or new dependency is implicit.
+For JavaScript changes run npm test. Asset changes require npm run build; committed dist/ must match the source. Install dependencies in the worktree with npm ci before building there. Vite records resolved module paths in the bundle, so linking another checkout's node_modules changes the output checked by CI. Layout, chart or interaction changes need the affected browser flow, representative narrow/wide viewports and relevant themes/locales. scripts/check-overview-layout.mjs checks the synthetic overview, not every app page; its local demo must already be running. No browser download or new dependency is implicit.
 
 ## Release
 

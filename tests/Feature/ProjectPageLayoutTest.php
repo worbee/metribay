@@ -209,4 +209,91 @@ class ProjectPageLayoutTest extends TestCase
             ->assertSee('href="#group-revenue">Revenue', false)
             ->assertSee('href="#group-audience"', false);
     }
+
+    public function test_presets_and_custom_mixes_keep_the_period_and_a_way_back_to_every_chart(): void
+    {
+        $this->source('umami', 'Website', ['visits' => 4.0]);
+        $failed = $this->source('gsc', 'Search', ['clicks' => 2.0], ['consecutive_failures' => 1, 'error_code' => 'ProviderRequestLimit']);
+        $this->source('azure_devops', 'Pipelines', ['commits' => 3.0]);
+        $this->source('paddle', 'Billing', ['paddle_revenue' => 12.0], context: ['currency' => 'EUR']);
+        $url = '/w/layout/projects/'.$this->project->id;
+        $params = ['workspace' => 'layout', 'project' => $this->project->id];
+        $metrics = route('metribay.projects.show', $params + ['days' => 7]);
+        $searchThirty = route('metribay.projects.show', $params + ['days' => 30, 'view' => 'search']);
+
+        $this->actingAs($this->owner)->get($url.'?view=search&days=7')->assertOk()
+            ->assertSee('aria-current="page" >Search', false)
+            ->assertSee('Development and Issues')
+            ->assertSee('Custom view')
+            ->assertSee('name="groups[]" value="search"', false)
+            ->assertSee('name="view" value="search"', false)
+            ->assertSee('href="'.e($searchThirty).'"', false)
+            ->assertSee('href="'.e($metrics).'"', false)
+            ->assertSee('id="group-search-heading"', false)
+            ->assertSee('id="source-attention-'.$failed->id.'"', false)
+            ->assertDontSee('id="group-audience-heading"', false)
+            ->assertDontSee('id="group-development-heading"', false)
+            ->assertDontSee('id="group-revenue-heading"', false)
+            ->assertSee('href="'.e($metrics).'#group-audience"', false)
+            ->assertSee('href="#group-search"', false);
+
+        $this->get($url.'?view=development&days=7')->assertOk()
+            ->assertSee('aria-current="page" >Development and Issues', false)
+            ->assertSee('id="group-development-heading"', false)
+            ->assertDontSee('id="group-search-heading"', false)
+            ->assertSee('id="source-attention-'.$failed->id.'"', false)
+            ->assertSee('href="#source-attention-'.$failed->id.'"', false);
+
+        $this->get($url.'?view=revenue&days=7')->assertOk()
+            ->assertSee('aria-current="page" >Revenue', false)
+            ->assertSee('id="group-revenue-heading"', false)
+            ->assertDontSee('id="group-audience-heading"', false);
+
+        $this->get($url.'?view=search&groups=audience&days=7')->assertOk()
+            ->assertSee('aria-current="page" >Search', false)
+            ->assertDontSee('id="group-audience-heading"', false);
+
+        $this->get($url.'?groups=audience,search&days=7')->assertOk()
+            ->assertSee('aria-current="page" >Custom view', false)
+            ->assertSee('id="group-audience-heading"', false)
+            ->assertSee('id="group-search-heading"', false)
+            ->assertDontSee('id="group-development-heading"', false)
+            ->assertSee('href="'.e($metrics).'#group-development"', false)
+            ->assertSee('href="#group-audience"', false);
+
+        $this->get($url.'?groups[]=development&groups[]=revenue&days=7')->assertOk()
+            ->assertSee('id="group-development-heading"', false)
+            ->assertSee('id="group-revenue-heading"', false)
+            ->assertDontSee('id="group-audience-heading"', false);
+
+        $this->get($url.'?groups=nope&days=7')->assertOk()
+            ->assertSee('aria-current="page" >All metrics', false)
+            ->assertSee('id="group-audience-heading"', false);
+
+        $this->get($url.'?view=overview&days=7')->assertOk()
+            ->assertSee('aria-current="page" >Overview', false)
+            ->assertSee('Development and Issues')
+            ->assertDontSee('data-group-toggle', false);
+
+        $this->owner->forceFill(['locale' => 'de'])->save();
+        $this->get($url.'?view=development&days=7')->assertOk()->assertSee('Entwicklung und Issues')->assertSee('Eigene Ansicht');
+    }
+
+    public function test_a_view_offers_only_groups_the_project_has(): void
+    {
+        $this->source('umami', 'Website', ['visits' => 4.0]);
+        $url = '/w/layout/projects/'.$this->project->id;
+
+        $this->actingAs($this->owner)->get($url)->assertOk()
+            ->assertSee('Custom view')
+            ->assertSee('name="groups[]" value="audience"', false)
+            ->assertDontSee('Development and Issues')
+            ->assertDontSee('>Search</a>', false)
+            ->assertDontSee('>Revenue</a>', false);
+
+        $this->get($url.'?view=revenue')->assertOk()
+            ->assertSee('aria-current="page" >Revenue', false)
+            ->assertSee('This project has no charts in this view.')
+            ->assertDontSee('id="group-audience-heading"', false);
+    }
 }
