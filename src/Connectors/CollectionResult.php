@@ -19,6 +19,7 @@ final readonly class CollectionResult
      * @param  array<string, list<string>>  $replaceDailyDates  Complete snapshot metric sets to replace atomically.
      * @param  list<array{days: int, previous: bool, start_date: string, end_date: string, query: string, clicks: float, impressions: float, position: float|null, is_partial: bool}>|null  $queries
      * @param  list<array{month: string, start_date: string, end_date: string, weeks: int|null, rows: list<array{query: string, clicks: float, impressions: float, position: float|null}>}>  $queryMonths
+     * @param  list<array{url: string, last_modified_at: string|null}>|null  $sitemapUrls  A complete sitemap catalog, independent of optional events. Null leaves tracking unchanged.
      */
     public function __construct(
         public array $daily = [],
@@ -28,5 +29,6 @@ final readonly class CollectionResult
         public array $replaceDailyDates = [],
         public ?array $queries = null,
         public array $queryMonths = [],
+        public ?array $sitemapUrls = null,
     ) {}
 }

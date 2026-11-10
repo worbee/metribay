@@ -10,8 +10,8 @@ use DOMElement;
 
 /**
  * Published URLs from one sitemap. A sitemap index is read through to its urlsets.
- * The current URL count is a snapshot. URLs with a lastmod inside the history window
- * also count as items published that day, and every URL is an event.
+ * The current URL count is a snapshot. The store tracks first-seen URLs independently
+ * of optional events; lastmod is modification metadata, never a publication date.
  */
 final class SitemapConnector extends ContentConnector
 {
@@ -30,7 +30,7 @@ final class SitemapConnector extends ContentConnector
         $this->utcOnly($source, 'Sitemap');
         $url = ContentUrl::normalize($source->config['url'] ?? null);
         $configuration = new SourceConfiguration($source->kind, $source->config, $source->reportingTimezone);
-        [$start, $today] = $this->window($configuration, $now, 1, 180);
+        [, $today] = $this->window($configuration, $now, 1, 180);
         $now = $now->utc();
         $seen = [];
         $root = $this->fetch($url, $seen);
@@ -50,7 +50,7 @@ final class SitemapConnector extends ContentConnector
         } else {
             throw new ConnectorException('This URL did not return a sitemap or a sitemap index.');
         }
-        $counts = [];
+        $catalog = [];
         $events = [];
         $seenUrls = [];
         foreach ($urls as $entry) {
@@ -66,11 +66,8 @@ final class SitemapConnector extends ContentConnector
                     throw new ConnectorException('The sitemap returned a future lastmod date.');
                 }
                 $occurred = $published->toIso8601String();
-                if ($published >= $start) {
-                    $date = $published->toDateString();
-                    $counts[$date] = ($counts[$date] ?? 0) + 1;
-                }
             }
+            $catalog[] = ['url' => $loc, 'last_modified_at' => $occurred];
             $events[] = [
                 'origin' => 'sitemap_url',
                 'external_id' => hash('sha256', $loc),
@@ -80,16 +77,12 @@ final class SitemapConnector extends ContentConnector
                 'occurred_at' => $occurred,
             ];
         }
-        ksort($counts);
         $daily = [];
-        foreach ($counts as $date => $count) {
-            $daily[] = $this->daily('published_items', $date, (float) $count, $date === $today->toDateString());
-        }
         $daily[] = $this->daily('published_urls', $today->toDateString(), (float) count($urls));
 
         // The sitemap is the current catalog, so URLs that disappeared are removed at any age.
         return new CollectionResult(daily: $daily, events: $events, authoritativeEvents: ['sitemap_url' => null],
-            replaceDailyDates: [$today->toDateString() => ['published_urls']]);
+            replaceDailyDates: [$today->toDateString() => ['published_urls']], sitemapUrls: $catalog);
     }
 
     /**

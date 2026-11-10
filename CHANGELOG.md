@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Sitemap sources now track **New URLs detected** internally after an initial baseline. Missing or changing `lastmod` values no longer hide or inflate new-page counts. Tracking survives optional event settings, removed/returning URLs and project moves. Feed **Items published** stays separate. Both sitemap metrics appear in the overview and each project’s **Content** section. Existing sources establish their baseline on their first successful collection after upgrading; earlier detections stay unknown. Adds a URL-history table and a nullable source baseline timestamp. Run migrations and keep the additive schema when rolling back.
+
 ## 1.1.1 — 2026-11-10
 
 - Choose **Search**, **Development and Issues** or **Revenue** on a project, or save a named mix of the chart groups that project has. **Overview** and **All metrics** stay as they are, and All metrics remains the default. A saved name stays in this browser for that project. The address keeps the view, the reporting period and the query archive, so a link still opens the same charts. No database migration.
@@ -129,6 +131,8 @@ First public release.
 - Import only deployments from the repository's default branch or a tag. Deployments from other branches, or whose branch was deleted, are skipped: for example, jobs that only use the production environment's secrets on pull requests. Existing deployment events are replaced at the next sync. No migration or new strings.
 
 ## Unreleased
+
+- Sitemap sources now track **New URLs detected** internally after an initial baseline. Missing or changing `lastmod` values no longer hide or inflate new-page counts. Tracking survives optional event settings, removed/returning URLs and project moves. Feed **Items published** stays separate. Both sitemap metrics appear in the overview and each project’s **Content** section. Existing sources establish their baseline on their first successful collection after upgrading; earlier detections stay unknown. Adds a URL-history table and a nullable source baseline timestamp. Run migrations and keep the additive schema when rolling back.
 
 - Remove **Sync now** from the project page and Project settings, together with the `metribay.sources.sync` route. Data sources are collected on the schedule only (and after setup or a change of GitHub deployment environments). `php artisan metribay:sync` remains for operators. Hosts that referenced the route name, such as Cloud's refresh limits, can drop it once they consume this release.
 

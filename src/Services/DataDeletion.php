@@ -16,7 +16,7 @@ use Metribay\Core\Models\Workspace;
 class DataDeletion
 {
     /** Tables whose rows belong to exactly one data source. */
-    private const SOURCE_TABLES = ['daily_metrics', 'period_metrics', 'search_queries', 'sync_runs'];
+    private const SOURCE_TABLES = ['daily_metrics', 'period_metrics', 'sitemap_urls', 'search_queries', 'sync_runs'];
 
     public function project(Workspace $workspace, int $projectId): void
     {
