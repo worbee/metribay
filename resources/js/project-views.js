@@ -15,9 +15,10 @@ export function cleanName(name) {
 
 /** @returns {string[]} Known keys only, in group order. */
 export function normalizeGroups(groups, known = KNOWN_GROUPS) {
+    if (!Array.isArray(groups)) return [];
     const allow = new Set(known);
     const seen = new Set();
-    for (const key of groups ?? []) {
+    for (const key of groups) {
         if (typeof key === 'string' && allow.has(key)) seen.add(key);
     }
     return known.filter(key => seen.has(key));
@@ -33,7 +34,7 @@ export function parseViews(raw, known = KNOWN_GROUPS) {
     for (const entry of parsed) {
         if (!entry || typeof entry !== 'object') continue;
         const id = typeof entry.id === 'string' && /^[a-z0-9]{8,16}$/.test(entry.id) ? entry.id : '';
-        const name = cleanName(entry.name);
+        const name = typeof entry.name === 'string' ? cleanName(entry.name) : '';
         const groups = normalizeGroups(entry.groups, known);
         if (!id || !name || groups.length === 0 || ids.has(id) || names.has(name)) continue;
         ids.add(id);
@@ -174,7 +175,7 @@ function message(menu, name, values = {}) {
 }
 
 function activeGroups(menu) {
-    return normalizeGroups((menu.dataset.activeGroups || '').split(',').filter(Boolean), knownFor(menu));
+    return normalizeGroups((menu.dataset.activeGroups || '').split(','));
 }
 
 function fillRow(row, view, menu) {
@@ -197,10 +198,11 @@ export function renderProjectViews() {
         const template = menu.querySelector('[data-saved-view-template]');
         const empty = menu.querySelector('[data-saved-empty]');
         const heading = menu.querySelector('[data-saved-heading]');
-        if (!list || !template) return;
-        const views = readViews(storageKeyFor(menu), knownFor(menu));
+        const form = menu.querySelector('[data-custom-view-form]');
+        if (!list || !template || !form) return;
+        const views = readViews(storageKeyFor(menu));
         // The page observer re-renders after DOM edits. Skip when this list already matches.
-        const signature = `${menu.dataset.match}|${menu.dataset.activeGroups}|${views.map(view => `${view.id}\t${view.name}\t${view.groups.join(',')}`).join('\n')}`;
+        const signature = JSON.stringify([menu.dataset.match, menu.dataset.activeGroups, viewPath(form.action, form, []), views]);
         if (list.dataset.rendered === signature) return;
         list.dataset.rendered = signature;
         list.replaceChildren();
@@ -239,15 +241,14 @@ function onClick(event) {
     }
     if (renameSave) {
         const row = renameSave.closest('[data-saved-row]');
-        const known = knownFor(menu);
         const key = storageKeyFor(menu);
-        const result = renameView(readViews(key, known), row.dataset.id, row.querySelector('[data-saved-input]').value);
+        const result = renameView(readViews(key), row.dataset.id, row.querySelector('[data-saved-input]').value);
         if (result.error) {
             message(menu, result.error === 'taken' ? 'msgTaken' : 'msgName');
             row.querySelector('[data-saved-input]').focus();
             return;
         }
-        writeViews(key, result.views, known);
+        writeViews(key, result.views);
         message(menu, 'msgRenamed');
         if (document.activeElement?.matches?.('[data-saved-input]')) document.activeElement.blur();
         renderProjectViews();
@@ -255,9 +256,8 @@ function onClick(event) {
     }
     if (remove) {
         const row = remove.closest('[data-saved-row]');
-        const known = knownFor(menu);
         const key = storageKeyFor(menu);
-        writeViews(key, removeView(readViews(key, known), row.dataset.id), known);
+        writeViews(key, removeView(readViews(key), row.dataset.id));
         message(menu, 'msgRemoved');
         renderProjectViews();
         return;
@@ -266,13 +266,13 @@ function onClick(event) {
     const known = knownFor(menu);
     const key = storageKeyFor(menu);
     const name = menu.querySelector('[data-view-name]')?.value ?? '';
-    const result = upsertView(readViews(key, known), { name, groups: checkedGroups(menu) }, known, Number(menu.dataset.max) || MAX_SAVED_VIEWS);
+    const result = upsertView(readViews(key), { name, groups: checkedGroups(menu) }, known, Number(menu.dataset.max) || MAX_SAVED_VIEWS);
     if (result.error) {
         message(menu, result.error === 'limit' ? 'msgLimit' : (result.error === 'groups' ? 'msgGroups' : 'msgName'), { count: menu.dataset.max || String(MAX_SAVED_VIEWS) });
         menu.querySelector(result.error === 'groups' ? '[data-group]' : '[data-view-name]')?.focus();
         return;
     }
-    writeViews(key, result.views, known);
+    writeViews(key, result.views);
     const form = menu.querySelector('[data-custom-view-form]');
     const path = viewPath(form.action, form, result.saved.groups);
     if (!sameAddress(window.location.href, path)) {

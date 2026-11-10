@@ -15,6 +15,8 @@ test('names and groups stay inside the limits', () => {
 
 test('stored views drop unknown, duplicate and incomplete entries', () => {
     const raw = JSON.stringify([
+        { id: 'eeeeeeee', name: 'Broken groups', groups: { search: true } },
+        { id: 'ffffffff', name: { invalid: true }, groups: ['search'] },
         { id: 'abcdef12', name: 'Launch', groups: ['search', 'nope', 'search'] },
         { id: 'abcdef12', name: 'Again', groups: ['audience'] },
         { id: 'short', name: 'Nope', groups: ['search'] },

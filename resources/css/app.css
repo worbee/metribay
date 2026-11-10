@@ -283,7 +283,9 @@
     .period-switch a:hover, .view-switch a:hover { color: var(--text); }
     .period-switch a[aria-current='page'], .view-switch a[aria-current='page'] { background: var(--surface-hover); color: var(--text); font-weight: 600; }
     .range-picker, .view-menu { position: relative; display: inline-flex; }
+    .view-menu { min-width: 0; max-width: 100%; }
     .range-picker summary, .view-menu summary { list-style: none; cursor: pointer; padding: 6px 11px; border-radius: 4px; font-size: 11px; color: var(--text-secondary); white-space: nowrap; text-align: center; }
+    .view-menu summary { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
     .range-picker summary::-webkit-details-marker, .view-menu summary::-webkit-details-marker { display: none; }
     .range-picker summary:hover, .view-menu summary:hover { color: var(--text); }
     .range-picker summary[aria-current='page'], .view-menu summary[aria-current='page'] { background: var(--surface-hover); color: var(--text); font-weight: 600; }
@@ -724,7 +726,9 @@
         .period-switch, .view-switch { flex: 1 1 100%; }
         .period-switch a, .view-switch a, .range-picker, .view-menu { flex: 1 1 auto; }
         .range-picker summary, .view-menu summary { flex: 1; }
-        .view-menu-panel { left: 0; right: auto; }
+        .view-switch { position: relative; }
+        .view-menu { position: static; }
+        .view-menu-panel { left: 0; right: auto; max-width: 100%; }
         .project-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
         .span-2, .span-3 { grid-column: span 1; }

@@ -1,4 +1,4 @@
-// ../../core/node_modules/vanilla-cookieconsent/dist/cookieconsent.mjs
+// node_modules/vanilla-cookieconsent/dist/cookieconsent.mjs
 var e = "opt-in", t = "opt-out", n = "show--consent", r = "show--preferences", i = "disable--interaction", a = "data-category", o = "button", s = "aria-hidden", c = "btn-group", l = "click", u = "data-role", d = "consentModal", f = "preferencesModal", p = class {
 	constructor() {
 		this.t = {
@@ -942,7 +942,7 @@ function Ut(e) {
 		document.hidden || s();
 	});
 }
-// ../../core/node_modules/@kurkle/color/dist/color.esm.js
+// node_modules/@kurkle/color/dist/color.esm.js
 function Wt(e) {
 	return e + .5 | 0;
 }
@@ -1410,7 +1410,7 @@ var Pn = class e {
 		return _n(this._rgb, e), this;
 	}
 };
-// ../../core/node_modules/chart.js/dist/chunks/index.js
+// node_modules/chart.js/dist/chunks/index.js
 function Fn() {}
 var In = (() => {
 	let e = 0;
@@ -7589,8 +7589,9 @@ function ed(e) {
 	return String(e ?? "").replace(/[\u0000-\u001F\u007F]/g, "").trim().slice(0, 40);
 }
 function td(e, t = Q) {
+	if (!Array.isArray(e)) return [];
 	let n = new Set(t), r = /* @__PURE__ */ new Set();
-	for (let t of e ?? []) typeof t == "string" && n.has(t) && r.add(t);
+	for (let t of e) typeof t == "string" && n.has(t) && r.add(t);
 	return t.filter((e) => r.has(e));
 }
 function nd(e, t = Q) {
@@ -7604,7 +7605,7 @@ function nd(e, t = Q) {
 	let r = [], i = /* @__PURE__ */ new Set(), a = /* @__PURE__ */ new Set();
 	for (let e of n) {
 		if (!e || typeof e != "object") continue;
-		let n = typeof e.id == "string" && /^[a-z0-9]{8,16}$/.test(e.id) ? e.id : "", o = ed(e.name), s = td(e.groups, t);
+		let n = typeof e.id == "string" && /^[a-z0-9]{8,16}$/.test(e.id) ? e.id : "", o = typeof e.name == "string" ? ed(e.name) : "", s = td(e.groups, t);
 		if (n && o && s.length !== 0 && !a.has(n) && !i.has(o) && (a.add(n), i.add(o), r.push({
 			id: n,
 			name: o,
@@ -7748,7 +7749,7 @@ function bd(e, t, n = {}) {
 	return i && (i.textContent = r), r;
 }
 function xd(e) {
-	return td((e.dataset.activeGroups || "").split(",").filter(Boolean), vd(e));
+	return td((e.dataset.activeGroups || "").split(","));
 }
 function Sd(e, t, n) {
 	let r = e.querySelector("[data-saved-link]"), i = e.querySelector("[data-saved-input]"), a = n.querySelector("[data-custom-view-form]");
@@ -7756,18 +7757,23 @@ function Sd(e, t, n) {
 }
 function Cd() {
 	document.activeElement?.matches?.("[data-saved-input], [data-view-name]") || document.querySelectorAll("[data-project-views]").forEach((e) => {
-		let t = e.querySelector("[data-saved-views]"), n = e.querySelector("[data-saved-view-template]"), r = e.querySelector("[data-saved-empty]"), i = e.querySelector("[data-saved-heading]");
-		if (!t || !n) return;
-		let a = md(_d(e), vd(e)), o = `${e.dataset.match}|${e.dataset.activeGroups}|${a.map((e) => `${e.id}\t${e.name}\t${e.groups.join(",")}`).join("\n")}`;
-		if (t.dataset.rendered === o) return;
-		t.dataset.rendered = o, t.replaceChildren();
-		for (let r of a) {
+		let t = e.querySelector("[data-saved-views]"), n = e.querySelector("[data-saved-view-template]"), r = e.querySelector("[data-saved-empty]"), i = e.querySelector("[data-saved-heading]"), a = e.querySelector("[data-custom-view-form]");
+		if (!t || !n || !a) return;
+		let o = md(_d(e)), s = JSON.stringify([
+			e.dataset.match,
+			e.dataset.activeGroups,
+			ld(a.action, a, []),
+			o
+		]);
+		if (t.dataset.rendered === s) return;
+		t.dataset.rendered = s, t.replaceChildren();
+		for (let r of o) {
 			let i = n.content.firstElementChild.cloneNode(!0);
 			Sd(i, r, e), t.append(i);
 		}
-		r && (r.hidden = a.length > 0), i && (i.hidden = a.length === 0);
-		let s = e.querySelector("summary"), c = a.find((t) => e.dataset.match === "custom" && cd(t.groups, xd(e)));
-		s && e.dataset.summaryLabel && (s.textContent = c ? c.name : e.dataset.summaryLabel);
+		r && (r.hidden = o.length > 0), i && (i.hidden = o.length === 0);
+		let c = e.querySelector("summary"), l = o.find((t) => e.dataset.match === "custom" && cd(t.groups, xd(e)));
+		c && e.dataset.summaryLabel && (c.textContent = l ? l.name : e.dataset.summaryLabel);
 	});
 }
 function wd(e) {
@@ -7782,21 +7788,21 @@ function wd(e) {
 		return;
 	}
 	if (r) {
-		let e = r.closest("[data-saved-row]"), n = vd(t), i = _d(t), a = ad(md(i, n), e.dataset.id, e.querySelector("[data-saved-input]").value);
-		if (a.error) {
-			bd(t, a.error === "taken" ? "msgTaken" : "msgName"), e.querySelector("[data-saved-input]").focus();
+		let e = r.closest("[data-saved-row]"), n = _d(t), i = ad(md(n), e.dataset.id, e.querySelector("[data-saved-input]").value);
+		if (i.error) {
+			bd(t, i.error === "taken" ? "msgTaken" : "msgName"), e.querySelector("[data-saved-input]").focus();
 			return;
 		}
-		hd(i, a.views, n), bd(t, "msgRenamed"), document.activeElement?.matches?.("[data-saved-input]") && document.activeElement.blur(), Cd();
+		hd(n, i.views), bd(t, "msgRenamed"), document.activeElement?.matches?.("[data-saved-input]") && document.activeElement.blur(), Cd();
 		return;
 	}
 	if (i) {
-		let e = i.closest("[data-saved-row]"), n = vd(t), r = _d(t);
-		hd(r, od(md(r, n), e.dataset.id), n), bd(t, "msgRemoved"), Cd();
+		let e = i.closest("[data-saved-row]"), n = _d(t);
+		hd(n, od(md(n), e.dataset.id)), bd(t, "msgRemoved"), Cd();
 		return;
 	}
 	if (!a) return;
-	let o = vd(t), s = _d(t), c = t.querySelector("[data-view-name]")?.value ?? "", l = id(md(s, o), {
+	let o = vd(t), s = _d(t), c = t.querySelector("[data-view-name]")?.value ?? "", l = id(md(s), {
 		name: c,
 		groups: yd(t)
 	}, o, Number(t.dataset.max) || 12);
@@ -7804,7 +7810,7 @@ function wd(e) {
 		bd(t, l.error === "limit" ? "msgLimit" : l.error === "groups" ? "msgGroups" : "msgName", { count: t.dataset.max || "12" }), t.querySelector(l.error === "groups" ? "[data-group]" : "[data-view-name]")?.focus();
 		return;
 	}
-	hd(s, l.views, o);
+	hd(s, l.views);
 	let u = t.querySelector("[data-custom-view-form]"), d = ld(u.action, u, l.saved.groups);
 	if (!sd(window.location.href, d)) {
 		window.location.assign(d);
