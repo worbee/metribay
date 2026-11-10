@@ -75,6 +75,9 @@
 @if($justHidden)<div class="notice notice-success chart-hidden-notice" role="status">@include('metribay::partials/icon',['name'=>'eye-off'])<div>{{ __(':chart chart hidden from this project.', ['chart' => \Metribay\Core\Metrics\ProjectLayout::chartLabel($justHidden->metric_key)]) }}</div><form method="POST" action="{{ route('metribay.charts.show',['workspace'=>$workspace->slug,'project'=>$project->id,'chart'=>$justHidden->id]) }}">@csrf @method('DELETE')<input type="hidden" name="return" value="project"><button class="button button-small button-secondary" type="submit">{{ __('Undo') }}</button></form></div>@endif
 @if($projectView === 'overview')
 @foreach($sources as $source)@include('metribay::partials/source-notice', ['source' => $source, 'providerName' => $providerNames[$source['kind']] ?? $source['kind']])@endforeach
+@if(is_string($projectSearchView ?? null))
+@include($projectSearchView, ['searchOverview' => true])
+@endif
 @if($sources)
 @include('metribay::partials/project-findings')
 @else
@@ -82,6 +85,9 @@
 @endif
 @else
 @foreach($offViewSources as $source)@include('metribay::partials/source-notice', ['source' => $source, 'providerName' => $providerNames[$source['kind']] ?? $source['kind']])@endforeach
+@if(($showProjectSearch ?? false) && is_string($projectSearchView ?? null))
+@include($projectSearchView, ['searchOverview' => false])
+@endif
 @if($unlinkedGroups)<nav class="group-nav" aria-label="{{ __('Groups') }}">@foreach($unlinkedGroups as $group)<a href="#group-{{ $group['key'] }}">{{ __($group['title']) }}</a>@endforeach</nav>@endif
 <p class="group-recovery" data-group-recovery hidden><button type="button" data-group-expand-all>{{ __('Expand all') }}</button></p>
 <div class="project-groups">
@@ -90,7 +96,9 @@
 @foreach($row as $group)@include('metribay::partials/project-group', ['group' => $group])@endforeach
 @if(count($row) > 1)</div>@endif
 @empty
-@if($sources && $projectView !== 'metrics')
+@if(($showProjectSearch ?? false) && is_string($projectSearchView ?? null) && $projectView !== 'metrics')
+{{-- The host supplies the Search content above. --}}
+@elseif($sources && $projectView !== 'metrics')
 <div class="inline-empty"><span>{{ __('This project has no charts in this view.') }}</span></div>
 @elseif($sources)
 <div class="inline-empty">@include('metribay::partials/icon',['name'=>'eye-off'])<span>{{ __('All charts from this data source are hidden.') }}</span></div>

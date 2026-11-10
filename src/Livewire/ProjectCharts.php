@@ -128,6 +128,10 @@ class ProjectCharts extends Component
                     $present[] = ['key' => $group['key'], 'title' => $group['title']];
                 }
             }
+            $searchView = config('metribay.project_search.view');
+            if (is_string($searchView) && ! in_array('search', array_column($present, 'key'), true)) {
+                $present[] = ['key' => 'search', 'title' => ProjectLayout::TITLES['search']];
+            }
             $presentKeys = array_column($present, 'key');
             $rows = $projectView === 'overview' ? [] : ($projectView === 'metrics' ? $allRows : ProjectLayout::rows($sources, $singleDay, $resolved['groups']));
             $visibleGroups = $projectView === 'metrics' ? null : [];
@@ -204,6 +208,8 @@ class ProjectCharts extends Component
                 'presets' => $presets, 'availableGroups' => $present, 'activePreset' => $resolved['preset'], 'checkedGroups' => $projectView === 'preset' || $projectView === 'custom' ? $resolved['groups'] : [],
                 'viewQuery' => ProjectViews::linkQuery($resolved), 'offViewSources' => $offViewSources, 'visibleGroups' => $visibleGroups,
                 'matchGroups' => $projectView === 'custom' ? implode(',', $resolved['groups']) : '',
+                'projectSearchView' => $searchView,
+                'showProjectSearch' => $projectView === 'metrics' || in_array('search', $resolved['groups'], true),
             ]);
         });
     }
