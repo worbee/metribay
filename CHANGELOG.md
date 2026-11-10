@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.1.1 — 2026-11-10
+
 - Choose **Search**, **Development and Issues** or **Revenue** on a project, or save a named mix of the chart groups that project has. **Overview** and **All metrics** stay as they are, and All metrics remains the default. A saved name stays in this browser for that project. The address keeps the view, the reporting period and the query archive, so a link still opens the same charts. No database migration.
 
 ## 1.1.0 — 2026-11-09
