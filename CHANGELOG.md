@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.1.2 — 2026-11-11
+
 - Sitemap sources now track **New URLs detected** internally after an initial baseline. Missing or changing `lastmod` values no longer hide or inflate new-page counts. Tracking survives optional event settings, removed/returning URLs and project moves. Feed **Items published** stays separate. Both sitemap metrics appear in the overview and each project’s **Content** section. Existing sources establish their baseline on their first successful collection after upgrading; earlier detections stay unknown. Adds a URL-history table and a nullable source baseline timestamp. Run migrations and keep the additive schema when rolling back.
 
 ## 1.1.1 — 2026-11-10
