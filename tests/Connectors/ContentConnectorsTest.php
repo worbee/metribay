@@ -83,7 +83,8 @@ final class ContentConnectorsTest extends FixtureTestCase
         $this->assertCount(3, $result->events);
         $this->assertSame('2026-10-24T00:00:00+00:00', $result->events[0]['occurred_at']);
         $this->assertNull($result->events[2]['occurred_at']);
-        $this->assertSame([['metric' => 'published_items', 'date' => '2026-10-24', 'value' => 1.0, 'is_partial' => false]], array_values(array_filter($result->daily, fn (array $row): bool => $row['metric'] === 'published_items')));
+        $this->assertSame(['published_urls'], array_column($result->daily, 'metric'));
+        $this->assertSame(['url' => 'http://example.com/plain', 'last_modified_at' => null], $result->sitemapUrls[2]);
         Http::assertSentCount(2);
     }
 

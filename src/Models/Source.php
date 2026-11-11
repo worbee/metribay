@@ -15,7 +15,7 @@ class Source extends Model
     /** @return array<string, string> */
     protected function casts(): array
     {
-        return ['version' => 'integer', 'config' => 'array', 'enabled' => 'boolean', 'last_success_at' => 'immutable_datetime', 'last_error_at' => 'immutable_datetime', 'last_started_at' => 'immutable_datetime'];
+        return ['version' => 'integer', 'config' => 'array', 'enabled' => 'boolean', 'last_success_at' => 'immutable_datetime', 'last_error_at' => 'immutable_datetime', 'last_started_at' => 'immutable_datetime', 'sitemap_baselined_at' => 'immutable_datetime'];
     }
 
     /** @return BelongsTo<Project, $this> */

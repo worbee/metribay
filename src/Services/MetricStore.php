@@ -151,11 +151,15 @@ class MetricStore
         $this->queryMonths($source, $result->queryMonths);
 
         return DB::transaction(function () use ($source, $result, $now) {
+            $daily = $result->daily;
+            if ($result->sitemapUrls !== null) {
+                $daily[] = app(SitemapTracking::class)->record($source, $result->sitemapUrls, $now);
+            }
             foreach ($result->replaceDailyDates as $date => $metrics) {
                 $present = array_column(array_filter($result->daily, fn ($r) => $r['date'] === $date), 'metric');
                 DailyMetric::query()->where('source_id', $source->id)->whereDate('date', $date)->whereIn('metric', $metrics)->whereNotIn('metric', $present)->delete();
             }
-            foreach ($result->daily as $row) {
+            foreach ($daily as $row) {
                 $metric = DailyMetric::query()->firstOrNew(['source_id' => $source->id, 'metric' => $row['metric'], 'date' => $row['date']]);
                 $changed = $metric->exists && (float) $metric->value !== (float) $row['value'];
                 $metric->fill(['value' => $row['value'], 'is_partial' => $row['is_partial'], 'observed_at' => $now, 'context' => $row['context'] ?? null]);
@@ -231,7 +235,7 @@ class MetricStore
             $finalized = DailyMetric::query()->where('source_id', $source->id)->where('is_partial', false)->whereNotIn('metric', array_keys(array_filter(MetricRegistry::all(), fn ($definition) => $definition->snapshot)))->max('date');
             $source->forceFill(['latest_data_date' => $observed, 'finalized_through' => $finalized])->save();
 
-            return count($result->daily) + count($result->periods);
+            return count($daily) + count($result->periods);
         });
     }
 }

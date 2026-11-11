@@ -20,7 +20,7 @@ class DataDeletionTest extends TestCase
 {
     use RefreshDatabase;
 
-    private const HISTORY_TABLES = ['daily_metrics', 'period_metrics', 'search_queries', 'search_query_months', 'sync_runs', 'project_events', 'hidden_charts'];
+    private const HISTORY_TABLES = ['daily_metrics', 'period_metrics', 'sitemap_urls', 'search_queries', 'search_query_months', 'sync_runs', 'project_events', 'hidden_charts'];
 
     private User $owner;
 
@@ -63,6 +63,7 @@ class DataDeletionTest extends TestCase
             DB::table('search_queries')->insert($row + ['days' => 28, 'start_date' => '2026-10-01', 'end_date' => '2026-10-28', 'query' => 'fixture', 'clicks' => 3, 'impressions' => 40, 'collected_at' => now()]);
             $month = DB::table('search_query_months')->insertGetId($row + ['month' => '2026-09-01', 'start_date' => '2026-09-01', 'end_date' => '2026-09-30', 'query_count' => 1, 'collected_at' => now()]);
             DB::table('search_query_month_rows')->insert(['search_query_month_id' => $month, 'query' => 'fixture', 'clicks' => 3, 'impressions' => 40]);
+            DB::table('sitemap_urls')->insert($row + ['url_hash' => hash('sha256', 'https://example.com/page'), 'url' => 'https://example.com/page', 'first_seen_at' => now(), 'last_seen_at' => now(), 'is_baseline' => true]);
             DB::table('sync_runs')->insert($row + ['started_at' => now(), 'status' => 'success']);
             ProjectEvent::create(['project_id' => $project->id, 'date' => '2026-10-02', 'title' => 'Launch']);
             HiddenChart::create(['project_id' => $project->id, 'source_id' => $source->id, 'metric_key' => 'visitors']);

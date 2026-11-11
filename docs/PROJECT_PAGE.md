@@ -59,7 +59,7 @@ The overview (a menu) and the project page (the segmented control) share one per
 | Search | **Clicks**, Impressions, Indexed pages | Search Console, Bing Webmaster |
 | Development | **Commits**, PRs merged, Lines changed, Open issues, Pipeline runs succeeded / failed | GitHub, Azure DevOps |
 | Distribution | **Downloads**, Release downloads | WordPress.org, GitHub releases |
-| Content | **Items published**, Published URLs | RSS / Atom, Sitemap |
+| Content | **Items published**, New URLs detected, Published URLs | RSS / Atom, Sitemap |
 | Reliability | **Monitor status** (status strip), Uptime, Response time | UptimeRobot |
 | Page speed | **Lab performance score**, lab LCP / CLS / TBT, real-user page and site LCP / INP / CLS | PageSpeed Insights |
 

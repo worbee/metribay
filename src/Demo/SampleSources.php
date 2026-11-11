@@ -700,7 +700,7 @@ final class SampleSources
     }
 
     /**
-     * A documentation sitemap: the current URL count, plus lastmod dates inside the window.
+     * A documentation sitemap: the current URL count, plus synthetic first-seen dates inside the window.
      *
      * @param  list<string>  $pages
      */
@@ -714,7 +714,7 @@ final class SampleSources
             $dated = $ago <= $this->first(null);
             if ($dated && $index % 5 !== 0) {
                 $date = $today->subDays($ago);
-                $daily[] = $this->row('published_items', $date, 1, false);
+                $daily[] = $this->row('new_urls', $date, 1, false);
                 $occurred = $this->moment($ago, 'sitemap:'.$index, 8, 18)->toIso8601String();
             } else {
                 $occurred = null;
