@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 1.2.0 — 2026-11-14
+
+- Remove a connected account even while data sources use it. **Remove connected account** in **Settings → Connected accounts** now shows how many data sources will pause and asks you to confirm. Removing the account deletes its saved credentials. Data sources that need an account pause, keep their history and show **Paused** with a link to choose another account. Choosing one under **Manage data source** and turning on **Collect automatically** resumes collection. A GitHub releases source keeps reading its public repository without the token. Previously an account in use could only be removed after switching all its data sources to another account.
+- Google accounts connected by signing in with Google offer **Also revoke Metribay’s access at Google** when you remove them. It is off by default. Google withdraws the whole grant for that Google login, so other connected accounts created with the same Google login stop collecting too, also in other workspaces. Revocation runs after the account is removed. If Google doesn't confirm it, the account is still removed and Metribay says where to remove access in the Google Account. Service-account keys have no revocation option.
+- The read-only demo no longer marks its sample data sources as **Needs attention** a few hours after it starts. With collection switched off (`METRIBAY_COLLECTION_ENABLED=false`), the time since the last sync is no longer treated as a failure; recorded collection failures and uptime incidents still show. Installations that collect are unchanged. No database migration.
+- The README data source table now lists RSS / Atom, Sitemap and Paddle Billing.
+- New strings in all twelve languages. No database migration or configuration change.
+
 ## 1.1.2 — 2026-11-11
 
 - Sitemap sources now track **New URLs detected** internally after an initial baseline. Missing or changing `lastmod` values no longer hide or inflate new-page counts. Tracking survives optional event settings, removed/returning URLs and project moves. Feed **Items published** stays separate. Both sitemap metrics appear in the overview and each project’s **Content** section. Existing sources establish their baseline on their first successful collection after upgrading; earlier detections stay unknown. Adds a URL-history table and a nullable source baseline timestamp. Run migrations and keep the additive schema when rolling back.

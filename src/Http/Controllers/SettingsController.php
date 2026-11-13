@@ -13,6 +13,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Metribay\Core\Connectors\ConnectorRegistry;
 use Metribay\Core\Connectors\DeploymentAccess;
+use Metribay\Core\Connectors\GoogleRevocation;
 use Metribay\Core\Connectors\ProviderRequestLimit;
 use Metribay\Core\Connectors\SourceConfiguration;
 use Metribay\Core\Contracts\ConnectionCredentials;
@@ -96,16 +97,38 @@ class SettingsController
     public function connectionDestroy(Request $request): RedirectResponse
     {
         $this->authorize($request, 'manage_connections');
-        DB::transaction(function () use ($request): void {
+        $request->validate(['revoke' => ['sometimes', 'boolean']]);
+        [$paused, $revocable] = DB::transaction(function () use ($request): array {
             $connection = Connection::query()->lockForUpdate()->whereKey($request->route('connection'))->firstOrFail();
-            // Removing an account in use would silently stop its data sources; ask for a switch first.
-            if (Source::query()->where('connection_id', $connection->id)->lockForUpdate()->exists()) {
-                throw ValidationException::withMessages(['connection' => __('This account is used by data sources. Switch them to another account first.')]);
+            $revocable = null;
+            if ($request->boolean('revoke') && $connection->googleSignIn()) {
+                try {
+                    $revocable = app(ConnectionCredentials::class)->resolve($connection);
+                } catch (\Throwable) {
+                    $revocable = [];
+                }
+            }
+            // Data sources keep their history. Those that need an account pause until another one is chosen;
+            // a GitHub releases source without a token keeps reading the public repository.
+            $paused = 0;
+            foreach (Source::query()->where('connection_id', $connection->id)->lockForUpdate()->get() as $source) {
+                $pause = ProviderCatalog::requiresConnection($source->kind);
+                $paused += $pause && $source->enabled ? 1 : 0;
+                $source->fill(['connection_id' => null, 'enabled' => $pause ? false : $source->enabled, 'version' => $source->version + 1])->save();
             }
             $connection->delete();
-        });
 
-        return back()->with('status', __('Connected account removed. Its saved credentials were deleted.'));
+            return [$paused, $revocable];
+        });
+        $messages = [trans_choice('{0} Connected account removed. Its saved credentials were deleted.|{1} Connected account removed. Its saved credentials were deleted. :count data source is paused until you choose another account; its history stays.|[2,*] Connected account removed. Its saved credentials were deleted. :count data sources are paused until you choose another account; their history stays.', $paused, ['count' => $paused])];
+        if ($revocable !== null) {
+            // After the commit: a slow or failing provider never keeps the account or blocks its removal.
+            $messages[] = app(GoogleRevocation::class)->revoke($revocable)
+                ? __('Metribay’s access was revoked at Google.')
+                : __('Google did not confirm the revocation. Remove Metribay under Third-party connections in your Google Account.');
+        }
+
+        return back()->with('status', implode(' ', $messages));
     }
 
     public function sourceStore(Request $request): RedirectResponse

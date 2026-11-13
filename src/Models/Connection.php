@@ -37,6 +37,21 @@ class Connection extends Model
         }
     }
 
+    /** A Google account authorized by signing in (a refresh token), whose access can be revoked at Google. */
+    public function googleSignIn(): bool
+    {
+        if (! in_array($this->kind, ['ga4', 'gsc'], true)) {
+            return false;
+        }
+        try {
+            $token = $this->reveal()['refresh_token'] ?? null;
+        } catch (DecryptException) {
+            return false;
+        }
+
+        return is_string($token) && trim($token) !== '';
+    }
+
     /** @return array<string, mixed> */
     public function reveal(): array
     {

@@ -72,6 +72,11 @@ class GoogleReconnectTest extends TestCase
     /** @var list<string> GA4 properties the new sign-in can read. */
     private array $properties = [];
 
+    /** @var list<string> Tokens sent to Google's revocation endpoint. */
+    private array $revoked = [];
+
+    private mixed $revokeResponse = null;
+
     private function fakeGoogle(): void
     {
         Http::fake(function (Request $request) {
@@ -79,6 +84,11 @@ class GoogleReconnectTest extends TestCase
                 return $request['grant_type'] === 'authorization_code'
                     ? Http::response(['refresh_token' => 'new-refresh'])
                     : Http::response(['access_token' => 'synthetic-access', 'expires_in' => 3600]);
+            }
+            if ($request->url() === 'https://oauth2.googleapis.com/revoke') {
+                $this->revoked[] = $request['token'];
+
+                return $this->revokeResponse ?? Http::response([]);
             }
             if ($request->url() === 'https://www.googleapis.com/webmasters/v3/sites') {
                 return Http::response(['siteEntry' => array_map(fn (string $site) => ['siteUrl' => $site, 'permissionLevel' => 'siteOwner'], $this->sites)]);
@@ -217,5 +227,49 @@ class GoogleReconnectTest extends TestCase
 
         config(['metribay.google.client_id' => null]);
         $this->get('/w/reconnect/settings?tab=accounts')->assertOk()->assertDontSee('Reconnect Google');
+    }
+
+    public function test_removing_a_google_account_can_revoke_its_access_at_google(): void
+    {
+        $connection = $this->connection('gsc');
+        $source = $this->source($connection, ['site_url' => 'https://example.test/']);
+        $this->actingAs($this->owner)->get('/w/reconnect/settings?tab=accounts')->assertOk()->assertSee('Also revoke Metribay’s access at Google')->assertSee('Removing this account pauses 1 data source.');
+
+        $this->delete('/w/reconnect/connections/'.$connection->id, ['revoke' => '1'])->assertSessionHasNoErrors()
+            ->assertSessionHas('status', 'Connected account removed. Its saved credentials were deleted. 1 data source is paused until you choose another account; its history stays. Metribay’s access was revoked at Google.');
+        $this->assertSame(['old-refresh'], $this->revoked);
+        $this->assertDatabaseMissing('connections', ['id' => $connection->id]);
+        $this->assertDatabaseHas('sources', ['id' => $source->id, 'connection_id' => null, 'enabled' => false]);
+    }
+
+    public function test_google_access_is_left_alone_unless_revocation_is_chosen(): void
+    {
+        $connection = $this->connection('ga4');
+        $this->actingAs($this->owner)->delete('/w/reconnect/connections/'.$connection->id, ['revoke' => '0'])
+            ->assertSessionHas('status', 'Connected account removed. Its saved credentials were deleted.');
+        $this->assertSame([], $this->revoked);
+        $this->assertDatabaseMissing('connections', ['id' => $connection->id]);
+    }
+
+    public function test_a_failed_revocation_still_removes_the_account_and_explains_the_next_step(): void
+    {
+        $this->revokeResponse = Http::response(['error' => 'server_error'], 503);
+        $connection = $this->connection('gsc');
+        $this->actingAs($this->owner)->delete('/w/reconnect/connections/'.$connection->id, ['revoke' => '1'])
+            ->assertSessionHas('status', 'Connected account removed. Its saved credentials were deleted. Google did not confirm the revocation. Remove Metribay under Third-party connections in your Google Account.');
+        $this->assertSame(['old-refresh'], $this->revoked);
+        $this->assertDatabaseMissing('connections', ['id' => $connection->id]);
+
+        $this->revokeResponse = Http::response(['error' => 'invalid_token'], 400);
+        $expired = $this->connection('ga4');
+        $this->delete('/w/reconnect/connections/'.$expired->id, ['revoke' => '1'])->assertSessionHas('status', 'Connected account removed. Its saved credentials were deleted. Metribay’s access was revoked at Google.');
+    }
+
+    public function test_service_account_keys_offer_no_google_revocation(): void
+    {
+        $key = $this->connection('ga4', ['service_account' => ['client_email' => 'fixture@example.iam.gserviceaccount.com', 'private_key' => 'fixture-key']]);
+        $this->actingAs($this->owner)->get('/w/reconnect/settings?tab=accounts')->assertOk()->assertDontSee('Also revoke Metribay’s access at Google');
+        $this->delete('/w/reconnect/connections/'.$key->id, ['revoke' => '1'])->assertSessionHas('status', 'Connected account removed. Its saved credentials were deleted.');
+        $this->assertSame([], $this->revoked);
     }
 }
