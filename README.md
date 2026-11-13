@@ -38,8 +38,11 @@ The app speaks twelve languages: English, German, Bulgarian, Czech, Spanish, Fre
 | GitHub releases | Total release asset downloads | Nothing for a public repository; an optional token for a private one |
 | Azure DevOps | Commits, completed pull requests, pipeline runs, open bugs, deployments | A personal access token for one organization |
 | WordPress.org | Plugin downloads | Nothing |
+| RSS / Atom | Items published, each entry as an event on the charts | Nothing; a public HTTPS feed |
+| Sitemap | Published URLs, new URLs detected, each page as an event | Nothing; a public HTTPS sitemap |
 | PageSpeed Insights | Lighthouse scores and real-user Core Web Vitals | Your own Google API key |
 | UptimeRobot | Monitor status, uptime, response time | A read-only API key |
+| Paddle Billing | Net revenue, monthly recurring revenue, active paying subscribers | An API key with only `metrics.read`. Customer records stay at Paddle ([details](docs/PADDLE_BILLING.md)) |
 
 Everything uses your own credentials. Nothing goes through a Metribay server. Credentials are encrypted with your `APP_KEY` and bound to their provider. Details per provider: [docs/PROVIDERS.md](docs/PROVIDERS.md).
 

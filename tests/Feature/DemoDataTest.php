@@ -128,6 +128,23 @@ class DemoDataTest extends TestCase
         Bus::assertNothingDispatched();
     }
 
+    public function test_samples_do_not_age_into_failures_while_collection_is_switched_off(): void
+    {
+        config(['metribay.collection.enabled' => false]);
+        app(DemoData::class)->populate($this->workspace, days: 30);
+        $failed = fn (): int => app(WorkspaceContext::class)->run($this->workspace, fn (): int => collect(app(DashboardData::class)->projects(30))
+            ->flatMap(fn (array $project): array => $project['sources'])->where('status', 'failed')->count());
+        $fresh = $failed();
+
+        // A demo is rebuilt once a day and never collects, so every source outlives its usual schedule.
+        $this->travel(20)->hours();
+        $this->assertSame($fresh, $failed());
+
+        // An installation that does collect still reports the same sources as overdue.
+        config(['metribay.collection.enabled' => true]);
+        $this->assertGreaterThan($fresh, $failed());
+    }
+
     public function test_the_command_adds_labelled_samples_and_only_rebuilds_a_dedicated_database(): void
     {
         $this->artisan('metribay:demo', ['--email' => 'owner@example.test', '--days' => 30])->expectsOutputToContain('paused')->assertSuccessful();

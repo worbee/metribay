@@ -85,7 +85,7 @@ class DashboardData
                 }
                 // Health always looks at today, whatever period is shown.
                 $today = $now->setTimezone($source->reporting_timezone)->startOfDay();
-                $status = ! $source->enabled ? 'disabled' : ($source->consecutive_failures > 0 ? 'failed' : (! $source->last_success_at ? 'pending' : ($source->last_success_at->lt($now->subHours($source->kind === 'pagespeed' ? 36 : ($source->kind === 'uptimerobot' ? 2 : 8))) ? 'failed' : (($source->latest_data_date && $source->latest_data_date < $today->subDays(3)->toDateString()) ? 'delayed' : 'healthy'))));
+                $status = ! $source->enabled ? 'disabled' : ($source->consecutive_failures > 0 ? 'failed' : (! $source->last_success_at ? 'pending' : ($this->overdue($source, $now) ? 'failed' : (($source->latest_data_date && $source->latest_data_date < $today->subDays(3)->toDateString()) ? 'delayed' : 'healthy'))));
                 // The current monitor status, also when the period lies in the past. Only a recent observation counts.
                 $monitorRows = $monitors->get($source->id, collect());
                 $recentMonitor = $monitorRows->last(fn (DailyMetric $row): bool => $row->date->toDateString() >= $recentMonitorSince);
@@ -256,6 +256,23 @@ class DashboardData
     }
 
     /**
+     * Whether the last successful collection is older than the source's schedule allows.
+     * With collection switched off (the demo) nothing refreshes a source, so its age alone is not a fault.
+     */
+    private function overdue(Source $source, CarbonImmutable $now): bool
+    {
+        if (! config('metribay.collection.enabled', true)) {
+            return false;
+        }
+
+        return $source->last_success_at->lt($now->subHours(match ($source->kind) {
+            'pagespeed' => 36,
+            'uptimerobot' => 2,
+            default => 8,
+        }));
+    }
+
+    /**
      * The latest stored monitor observation, independent of the selected reporting period.
      * Down or Seems down is a current incident only when that observation is recent and the fetch is fresh.
      *
@@ -272,7 +289,7 @@ class DashboardData
         $withheld = match (true) {
             ! $source->enabled => 'disabled',
             ! $source->last_success_at => 'pending',
-            $source->consecutive_failures > 0 || $source->last_success_at->lt($now->subHours(2)) => 'failed',
+            $source->consecutive_failures > 0 || $this->overdue($source, $now) => 'failed',
             $stale || ! $recent => 'stale',
             default => null,
         };
