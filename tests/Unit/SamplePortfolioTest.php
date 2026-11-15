@@ -6,11 +6,35 @@ use Carbon\CarbonImmutable;
 use Metribay\Core\Demo\SamplePortfolio;
 use Metribay\Core\Demo\SampleSources;
 use Metribay\Core\Services\ProviderCatalog;
+use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\TestCase;
 
 class SamplePortfolioTest extends TestCase
 {
     private const DAYS = 100;
+
+    /** Builds fourteen full portfolios, so it runs in its own process to stay clear of the suite's memory limit. */
+    #[RunInSeparateProcess]
+    public function test_no_sample_source_looks_delayed_on_any_day(): void
+    {
+        // Health marks a source delayed when its newest data is older than three days (DashboardData).
+        foreach (range(0, 13) as $offset) {
+            $now = CarbonImmutable::parse('2026-11-03 01:20:00', 'UTC')->addDays($offset)->addHours($offset % 2 === 0 ? 0 : 21);
+            foreach ((new SamplePortfolio(SamplePortfolio::SEED, $now, SamplePortfolio::DAYS))->projects() as $project) {
+                foreach ($project->sources as $source) {
+                    $dates = [];
+                    foreach ($source->collections as $collection) {
+                        foreach ($collection['result']->daily as $row) {
+                            $dates[] = $row['date'] instanceof CarbonImmutable ? $row['date']->toDateString() : (string) $row['date'];
+                        }
+                    }
+                    $limit = $now->setTimezone($source->timezone)->startOfDay()->subDays(3)->toDateString();
+                    $this->assertNotSame([], $dates, $project->slug.' · '.$source->label);
+                    $this->assertGreaterThanOrEqual($limit, max($dates), $project->slug.' · '.$source->label.' on '.$now->toDateTimeString());
+                }
+            }
+        }
+    }
 
     public function test_the_same_seed_and_day_give_the_same_portfolio(): void
     {

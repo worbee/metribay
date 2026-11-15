@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 1.3.1 — 2026-11-15
+
+- The demo's sample blog feed no longer shows **Delayed**. Its posts are now counted back from yesterday, so the newest post is always recent; a test checks that no sample data source looks delayed on any day.
+- Dependency updates for the standalone host and Docker image: Laravel 13.42.0 (fixes advisory GHSA-63hm-g96r-2m2q), Vite 8.3.8 and patch/minor development tools. No database migration or configuration change.
+
 ## 1.3.0 — 2026-11-15
 
 - Track **Followers** of public Bluesky and Mastodon accounts. Add a data source, choose **Bluesky** or **Mastodon** and paste the handle, `name@server` or the profile link. No login, API key or connected account is needed: Metribay reads the public count from Bluesky's public API and from the account's own Mastodon server. Neither network publishes a follower history, so Metribay keeps one count per day (UTC), updated at each sync, from the day you add the source. Projects with these sources get a **Social** chart group and the overview a **Followers** column, which adds a project's accounts together.

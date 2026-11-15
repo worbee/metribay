@@ -708,10 +708,11 @@ final class SampleSources
         $today = $this->today('UTC');
         $daily = [];
         $events = [];
-        for ($ago = $this->first(null); $ago >= 0; $ago -= 14) {
+        // Counted back from yesterday, so the newest post is always recent whatever the portfolio length.
+        for ($ago = 1; $ago <= $this->first(null); $ago += 14) {
             $date = $today->subDays($ago);
-            $count = $ago === 0 ? 1 : 2;
-            $daily[] = $this->row('published_items', $date, $count, $ago === 0);
+            $count = 2;
+            $daily[] = $this->row('published_items', $date, $count, false);
             for ($n = 0; $n < $count; $n++) {
                 $events[] = ['origin' => 'feed_item', 'external_id' => 'post-'.$ago.'-'.$n, 'title' => 'Note '.$ago, 'body' => '',
                     'url' => 'https://quillform.example/blog/note-'.$ago.'-'.$n, 'occurred_at' => $this->moment($ago, 'feed:'.$n, 9, 16)->toIso8601String()];
