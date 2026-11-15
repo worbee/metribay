@@ -11,6 +11,7 @@ use Metribay\Core\Connectors\ContentUrl;
 use Metribay\Core\Connectors\PaddleConnector;
 use Metribay\Core\Connectors\PageSpeedUrl;
 use Metribay\Core\Connectors\ProviderRequestLimit;
+use Metribay\Core\Connectors\SocialAccount;
 use Metribay\Core\Contracts\PageSpeedCredentials;
 
 class ProviderCatalog
@@ -34,6 +35,8 @@ class ProviderCatalog
             'uptimerobot' => ['UptimeRobot', ['api_key'], ['api_key'], ['monitor_id'], 'UTC'],
             'paddle' => ['Paddle Billing', ['api_key'], ['api_key'], ['paddle_account', 'days'], 'UTC'],
             'azure_devops' => ['Azure DevOps', ['organization', 'token'], ['token'], ['repository', 'days', 'environments'], 'UTC'],
+            'bluesky' => ['Bluesky', [], [], ['account'], 'UTC'],
+            'mastodon' => ['Mastodon', [], [], ['account'], 'UTC'],
         ];
         $out = [];
         foreach ($data as $kind => [$label,$fields,$secrets,$config,$timezone]) {
@@ -56,7 +59,7 @@ class ProviderCatalog
             throw ValidationException::withMessages(['config' => __('Unsupported data source setting.')]);
         }
         Validator::make(['timezone' => $timezone], ['timezone' => ['required', 'timezone']])->validate();
-        if (in_array($kind, ['umami', 'bing', 'github', 'github_releases', 'feed', 'sitemap', 'uptimerobot', 'pagespeed', 'azure_devops', 'paddle'], true) && ! in_array($timezone, ['UTC', 'Etc/UTC', 'Etc/GMT', 'GMT'], true)) {
+        if (in_array($kind, ['umami', 'bing', 'github', 'github_releases', 'feed', 'sitemap', 'uptimerobot', 'pagespeed', 'azure_devops', 'paddle', 'bluesky', 'mastodon'], true) && ! in_array($timezone, ['UTC', 'Etc/UTC', 'Etc/GMT', 'GMT'], true)) {
             throw ValidationException::withMessages(['reporting_timezone' => __('This provider reports calendar dates in UTC.')]);
         }
         if ($kind === 'gsc' && $timezone !== 'America/Los_Angeles') {
@@ -80,6 +83,7 @@ class ProviderCatalog
                 'environments' => ['sometimes', 'array', 'list', 'max:'.self::MAX_ENVIRONMENTS], 'environments.*' => ['required', 'string', 'max:255', 'regex:/^[^\x00-\x1F\x7F,]+$/u']],
             'paddle' => ['paddle_account' => ['required', 'regex:'.PaddleConnector::ACCOUNT_PATTERN]],
             'pagespeed' => ['url' => ['required', 'string', 'max:500'], 'strategy' => ['required', 'in:mobile,desktop']],
+            'bluesky', 'mastodon' => ['account' => ['required', 'string', 'max:320']],
             default => throw ValidationException::withMessages(['kind' => __('Choose a supported provider.')]),
         };
         if ($kind === 'pagespeed') {
@@ -141,6 +145,9 @@ class ProviderCatalog
             } catch (ConnectorException $exception) {
                 throw ValidationException::withMessages(['config.url' => __($exception->getMessage())]);
             }
+        }
+        if ($kind === 'bluesky' || $kind === 'mastodon') {
+            $clean['account'] = self::socialAccount($kind, $clean['account']);
         }
 
         return $clean;
@@ -226,6 +233,23 @@ class ProviderCatalog
 
         return $values;
     }
+
+    /**
+     * The normalized Bluesky or Mastodon account, or a validation error that says which form to use.
+     *
+     * @throws ValidationException
+     */
+    public static function socialAccount(string $kind, string $input, string $field = 'config.account'): string
+    {
+        try {
+            return $kind === 'bluesky' ? SocialAccount::bluesky($input) : SocialAccount::mastodon($input);
+        } catch (ConnectorException $exception) {
+            throw ValidationException::withMessages([$field => __($exception->getMessage())]);
+        }
+    }
+
+    /** Providers that record a public follower count once a day. */
+    public const FOLLOWER_PROVIDERS = ['bluesky', 'mastodon'];
 
     /** Upper bound on GitHub deployment environments per data source. */
     public const MAX_ENVIRONMENTS = 10;
@@ -364,7 +388,7 @@ class ProviderCatalog
 
     public static function requiresConnection(string $kind): bool
     {
-        return ! in_array($kind, ['wporg', 'github_releases', 'feed', 'sitemap'], true) && ! ($kind === 'pagespeed' && app(PageSpeedCredentials::class)->managed());
+        return ! in_array($kind, ['wporg', 'github_releases', 'feed', 'sitemap', 'bluesky', 'mastodon'], true) && ! ($kind === 'pagespeed' && app(PageSpeedCredentials::class)->managed());
     }
 
     /** A token can be saved, and a public repository also works without one. */
@@ -378,7 +402,7 @@ class ProviderCatalog
     {
         return match ($kind) {
             'paddle' => ['paddle_revenue', 'paddle_mrr', 'paddle_active_subscribers'],
-            'umami','plausible','matomo','ga4' => ['visitors', 'visits', 'pageviews'],'gsc' => ['impressions', 'clicks'],'bing' => ['impressions', 'clicks', 'indexed_pages'],'wporg' => ['downloads'],'feed' => ['published_items'],'sitemap' => ['new_urls', 'published_urls'],'github' => ['commits', 'prs_merged', 'loc_changed', 'open_issues'],'github_releases' => ['release_downloads'],'uptimerobot' => ['monitor_status', 'uptime_24h', 'response_time_24h'],'azure_devops' => ['commits', 'prs_merged', 'pipeline_runs_succeeded', 'pipeline_runs_failed', 'open_issues'],'pagespeed' => ['lab_score', 'lab_lcp', 'lab_cls', 'lab_tbt', 'crux_lcp', 'crux_inp', 'crux_cls', 'crux_origin_lcp', 'crux_origin_inp', 'crux_origin_cls'],default => []
+            'umami','plausible','matomo','ga4' => ['visitors', 'visits', 'pageviews'],'gsc' => ['impressions', 'clicks'],'bing' => ['impressions', 'clicks', 'indexed_pages'],'wporg' => ['downloads'],'feed' => ['published_items'],'sitemap' => ['new_urls', 'published_urls'],'github' => ['commits', 'prs_merged', 'loc_changed', 'open_issues'],'github_releases' => ['release_downloads'],'bluesky','mastodon' => ['followers'],'uptimerobot' => ['monitor_status', 'uptime_24h', 'response_time_24h'],'azure_devops' => ['commits', 'prs_merged', 'pipeline_runs_succeeded', 'pipeline_runs_failed', 'open_issues'],'pagespeed' => ['lab_score', 'lab_lcp', 'lab_cls', 'lab_tbt', 'crux_lcp', 'crux_inp', 'crux_cls', 'crux_origin_lcp', 'crux_origin_inp', 'crux_origin_cls'],default => []
         };
     }
 }

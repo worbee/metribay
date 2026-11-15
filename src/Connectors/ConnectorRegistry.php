@@ -11,7 +11,7 @@ final readonly class ConnectorRegistry
     /** @return list<string> */
     public function kinds(): array
     {
-        return ['umami', 'plausible', 'matomo', 'ga4', 'gsc', 'bing', 'wporg', 'github', 'github_releases', 'feed', 'sitemap', 'uptimerobot', 'pagespeed', 'azure_devops', 'paddle'];
+        return ['umami', 'plausible', 'matomo', 'ga4', 'gsc', 'bing', 'wporg', 'github', 'github_releases', 'feed', 'sitemap', 'uptimerobot', 'pagespeed', 'azure_devops', 'paddle', 'bluesky', 'mastodon'];
     }
 
     /** The GitHub connector, which also lists deployment environments. */
@@ -48,6 +48,8 @@ final readonly class ConnectorRegistry
             'pagespeed' => new PageSpeedConnector($this->http),
             'paddle' => new PaddleConnector($this->http),
             'azure_devops' => new AzureDevOpsConnector($this->http),
+            'bluesky' => new BlueskyConnector($this->http),
+            'mastodon' => new MastodonConnector($this->http),
             default => throw new ConnectorException('Unsupported source provider.'),
         };
     }

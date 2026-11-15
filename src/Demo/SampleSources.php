@@ -228,6 +228,29 @@ final class SampleSources
     }
 
     /**
+     * Bluesky or Mastodon followers: the current count observed once a day since the source was connected.
+     * Daily gains follow the expected shape, a few people unfollow, and earlier days stay absent.
+     *
+     * @param  Closure(int): float  $gains  Expected new followers on the day that many days ago.
+     */
+    public function followers(string $kind, string $account, int $connected, int $start, Closure $gains): SampleSource
+    {
+        $today = $this->today('UTC');
+        $noise = $this->noise->fork('followers:'.$kind.':'.$account);
+        $connected = min($connected, $this->days - 1);
+        $total = $start;
+        $daily = [];
+        for ($ago = $connected; $ago >= 0; $ago--) {
+            $share = $ago === 0 ? $this->elapsed('UTC') : 1.0;
+            $expected = max(0.0, $gains($ago)) * $share;
+            $total = max(0, $total + $noise->poisson($expected) - $noise->poisson(0.18 * $expected + 0.4 * $share));
+            $daily[] = $this->row('followers', $today->subDays($ago), $total, false);
+        }
+
+        return $this->source($kind, $account, ['account' => $account], 'UTC', [new CollectionResult(daily: $daily, replaceDailyDates: [$today->toDateString() => ['followers']])], 43);
+    }
+
+    /**
      * A GitHub repository: bursty commits (quiet, normal and busy stretches; pushes before releases), merged pull requests,
      * lines changed, open issues since the source was connected, releases and optional deployments.
      *

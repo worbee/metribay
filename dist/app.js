@@ -7440,6 +7440,7 @@ function ku() {
 var Q = [
 	"revenue",
 	"audience",
+	"social",
 	"search",
 	"development",
 	"distribution",

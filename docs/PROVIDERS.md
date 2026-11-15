@@ -15,6 +15,8 @@
 | GitHub releases | owner/repository; UTC snapshots | none for a public repository; optional personal access token for a private repository or a higher rate limit |
 | Page speed | public HTTPS URL; mobile/desktop; UTC snapshots | own Google API key, with PageSpeed Insights and Chrome UX Report APIs enabled |
 | UptimeRobot | monitor_id; UTC observations | read-only api_key |
+| Bluesky | account (handle or DID); UTC snapshots | none |
+| Mastodon | account (username@server); UTC snapshots | none |
 | Azure DevOps | project/repository,days, optional deployment environments; UTC | organization, organization-scoped personal access token |
 
 Search Console and Bing also report top search queries (see docs/PROJECT_PAGE.md, Top queries). Search Console reads `dimensions: [query]` for the 7, 30 and 90 days ending on its latest reported date (top 500 by clicks, `dataState: all`, partial while not final) and the same queries in the window before (from the top 2,000); that is six extra requests per collection. Bing reads `GetQueryStats` once: weekly rows summed into the latest 1, 4 and 13 weeks and the weeks before, positions weighted by impressions, `-1` positions unknown. Rows replace the source's stored queries as one snapshot. Duplicate, empty or over-long queries reject the collection.
@@ -41,6 +43,16 @@ Resource lists gray out and disable items already added to the current project, 
 
 Fixture tests exercise all providers offline. A real public WordPress.org smoke passed at initial setup; that does not establish authenticated permissions for the other providers.
 
+
+## Followers
+
+**Bluesky** (`bluesky`) and **Mastodon** (`mastodon`) record **Followers**, the current follower count of one public account: each sync replaces today's UTC value, so one count per day is kept. Neither network publishes earlier counts, so dates before the source was added stay empty and each collection replaces only today's snapshot. Neither needs a connected account or a key.
+
+Bluesky reads `app.bsky.actor.getProfile` from the public AppView (`https://public.api.bsky.app`). The account is a handle such as `name.bsky.social` or a custom-domain handle, or a `did:plc:`/`did:web:` identifier; a `https://bsky.app/profile/…` link and a leading `@` are accepted and reduced to it. The response must name the same handle or DID, so a handle that now belongs to another account fails instead of recording a stranger's count. Handles are case-insensitive and stored in lowercase. A handle tracks whichever account holds it; a DID survives handle changes.
+
+Mastodon reads `GET /api/v1/accounts/lookup?acct=username` on the account's own server (Mastodon 3.4 or later, or a compatible server). The account is `username@server`; `@username@server` and `https://server/@username` are accepted. The server must be a public HTTPS host, checked by the same request policy as every provider. The response must be the local account with that username: a remote copy cached on another server is rejected, so enter the account with the server it lives on. When the web address differs from the address in the handle (for example `name@example.com` served from `social.example.com`), enter the profile link from the web address. A server that disables unauthenticated API access (`DISALLOW_UNAUTHENTICATED_API_ACCESS`) fails with a clear message.
+
+Both fail without writing anything when the account is missing, the count is absent, negative or not a whole number, or the provider rate-limits the request (HTTP 429 is retried on the next schedule). An explicit zero is stored.
 
 ## App ownership and authentication
 

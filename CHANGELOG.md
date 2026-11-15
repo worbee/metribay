@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 1.3.0 — 2026-11-15
+
+- Track **Followers** of public Bluesky and Mastodon accounts. Add a data source, choose **Bluesky** or **Mastodon** and paste the handle, `name@server` or the profile link. No login, API key or connected account is needed: Metribay reads the public count from Bluesky's public API and from the account's own Mastodon server. Neither network publishes a follower history, so Metribay keeps one count per day (UTC), updated at each sync, from the day you add the source. Projects with these sources get a **Social** chart group and the overview a **Followers** column, which adds a project's accounts together.
+- The demo's Driftwood project shows Bluesky and Mastodon followers.
+- New strings in all twelve languages. No database migration or configuration change.
+
 ## 1.2.0 — 2026-11-14
 
 - Remove a connected account even while data sources use it. **Remove connected account** in **Settings → Connected accounts** now shows how many data sources will pause and asks you to confirm. Removing the account deletes its saved credentials. Data sources that need an account pause, keep their history and show **Paused** with a link to choose another account. Choosing one under **Manage data source** and turning on **Collect automatically** resumes collection. A GitHub releases source keeps reading its public repository without the token. Previously an account in use could only be removed after switching all its data sources to another account.

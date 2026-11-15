@@ -16,6 +16,7 @@ final class ProjectLayout
     public const GROUPS = [
         'revenue' => ['paddle_revenue', 'paddle_mrr', 'paddle_active_subscribers'],
         'audience' => ['visits', 'visitors', 'pageviews'],
+        'social' => ['followers'],
         'search' => ['clicks', 'impressions', 'indexed_pages'],
         'development' => ['commits', 'prs_merged', 'loc_changed', 'pipeline_runs_succeeded', 'pipeline_runs_failed', 'open_issues'],
         'distribution' => ['downloads', 'release_downloads'],
@@ -24,10 +25,10 @@ final class ProjectLayout
         'page_speed' => ['lab_score', 'lab_lcp', 'lab_cls', 'lab_tbt', 'crux_lcp', 'crux_inp', 'crux_cls', 'crux_origin_lcp', 'crux_origin_inp', 'crux_origin_cls'],
     ];
 
-    public const TITLES = ['revenue' => 'Revenue', 'audience' => 'Audience', 'search' => 'Search', 'development' => 'Development', 'distribution' => 'Distribution', 'content' => 'Content', 'reliability' => 'Reliability', 'page_speed' => 'Page speed'];
+    public const TITLES = ['revenue' => 'Revenue', 'audience' => 'Audience', 'social' => 'Social', 'search' => 'Search', 'development' => 'Development', 'distribution' => 'Distribution', 'content' => 'Content', 'reliability' => 'Reliability', 'page_speed' => 'Page speed'];
 
     /** Overview columns and the group each one summarises. */
-    public const SUMMARY = ['traffic' => 'audience', 'search' => 'search', 'development' => 'development', 'issues' => 'development', 'downloads' => 'distribution', 'release_downloads' => 'distribution', 'content' => 'content', 'new_urls' => 'content', 'published_urls' => 'content', 'uptime' => 'reliability', 'speed' => 'page_speed'];
+    public const SUMMARY = ['traffic' => 'audience', 'followers' => 'social', 'search' => 'search', 'development' => 'development', 'issues' => 'development', 'downloads' => 'distribution', 'release_downloads' => 'distribution', 'content' => 'content', 'new_urls' => 'content', 'published_urls' => 'content', 'uptime' => 'reliability', 'speed' => 'page_speed'];
 
     /** A rise of these is bad. */
     public const LOWER_IS_BETTER = ['open_issues', 'pipeline_runs_failed', 'response_time_24h', 'lab_lcp', 'lab_cls', 'lab_tbt', 'crux_lcp', 'crux_inp', 'crux_cls', 'crux_origin_lcp', 'crux_origin_inp', 'crux_origin_cls'];

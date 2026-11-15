@@ -225,6 +225,34 @@ class SourceSetupTest extends TestCase
         Queue::assertPushed(CollectSource::class);
     }
 
+    public function test_follower_counts_are_added_from_a_public_account_without_a_connected_account(): void
+    {
+        Queue::fake();
+        $owner = User::factory()->create();
+        $workspace = Workspace::create(['owner_id' => $owner->id, 'name' => 'Setup', 'slug' => 'setup']);
+        $project = $this->projectIn($workspace);
+        foreach (['bluesky' => ['https://bsky.app/profile/Example.bsky.social', 'example.bsky.social', 'Bluesky handle'], 'mastodon' => ['@Example@Social.example', 'example@social.example', 'Mastodon account']] as $kind => [$input, $stored, $label]) {
+            $this->actingAs($owner)->get('/w/setup/sources/new?project='.$project->id);
+            $this->post('/w/setup/sources/setup', ['action' => 'provider', 'kind' => $kind])->assertRedirect();
+            $this->get('/w/setup/sources/new')->assertOk()->assertSee($label)->assertDontSee('Connected account')->assertDontSee('Find available items');
+            $this->post('/w/setup/sources/setup', ['action' => 'manual', 'resource_id' => 'not an account', 'timezone' => 'UTC'])->assertSessionHasErrors('resource_id');
+            $this->post('/w/setup/sources/setup', ['action' => 'manual', 'resource_id' => $input, 'timezone' => 'UTC'])->assertSessionHasNoErrors();
+            $this->get('/w/setup/sources/new')->assertOk()->assertSee($stored)->assertSee('reports only the current follower count')->assertDontSee('History window (days)');
+            $this->post('/w/setup/sources/setup', ['action' => 'finish', 'days' => 180])->assertSessionHasNoErrors();
+            app(WorkspaceContext::class)->run($workspace, function () use ($kind, $stored): void {
+                $source = Source::query()->where('kind', $kind)->firstOrFail();
+                $this->assertSame(['account' => $stored], $source->config);
+                $this->assertNull($source->connection_id);
+                $this->assertSame('UTC', $source->reporting_timezone);
+            });
+            $this->get('/w/setup/sources/new?project='.$project->id);
+            $this->post('/w/setup/sources/setup', ['action' => 'provider', 'kind' => $kind]);
+            $this->post('/w/setup/sources/setup', ['action' => 'manual', 'resource_id' => strtoupper($stored), 'timezone' => 'UTC'])->assertSessionHasErrors('resource');
+        }
+        $this->assertDatabaseCount('connections', 0);
+        Queue::assertPushed(CollectSource::class, 2);
+    }
+
     public function test_github_release_downloads_keep_an_optional_token(): void
     {
         Queue::fake();

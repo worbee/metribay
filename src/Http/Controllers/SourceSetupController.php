@@ -360,6 +360,9 @@ class SourceSetupController
                         throw ValidationException::withMessages(['resource_id' => __($exception->getMessage())]);
                     }
                 }
+                if (in_array($kind, ProviderCatalog::FOLLOWER_PROVIDERS, true)) {
+                    $values['resource_id'] = ProviderCatalog::socialAccount($kind, $values['resource_id'], 'resource_id');
+                }
                 $draft['resource'] = ['id' => $values['resource_id'], 'name' => $values['resource_id'], 'domain' => '', 'timezone' => ProviderCatalog::usesSiteTimezone($kind) ? $values['timezone'] : ProviderCatalog::all()[$kind]['default_timezone']];
                 $this->rejectAddedResource($draft);
                 $draft = $this->deploymentEnvironments($request, $draft);
@@ -375,7 +378,7 @@ class SourceSetupController
                 $field = ProjectResources::field($kind);
                 $environments = ProviderCatalog::hasDeploymentEnvironments($kind) ? ProviderCatalog::environments((string) ($values['environments'] ?? '')) : [];
                 $preference = $request->exists('convert_to_events') && ProviderCatalog::convertsValuesToEvents($kind) ? ['convert_to_events' => $request->boolean('convert_to_events')] : [];
-                $config = ProviderCatalog::source($kind, [$field => $draft['resource']['id']] + ($kind === 'pagespeed' ? ['strategy' => $draft['resource']['strategy']] : []) + (in_array($kind, ['uptimerobot', 'pagespeed', 'github_releases'], true) ? [] : [($kind === 'wporg' ? 'limit' : 'days') => $values['days']]) + ($environments !== [] ? ['environments' => $environments] : []) + $preference, $draft['resource']['timezone']);
+                $config = ProviderCatalog::source($kind, [$field => $draft['resource']['id']] + ($kind === 'pagespeed' ? ['strategy' => $draft['resource']['strategy']] : []) + (in_array($kind, ['uptimerobot', 'pagespeed', 'github_releases', 'bluesky', 'mastodon'], true) ? [] : [($kind === 'wporg' ? 'limit' : 'days') => $values['days']]) + ($environments !== [] ? ['environments' => $environments] : []) + $preference, $draft['resource']['timezone']);
                 if (! ProviderCatalog::requiresConnection($kind) && ! ProviderCatalog::connectionOptional($kind)) {
                     if ($kind === 'pagespeed' && ! app(PageSpeedCredentials::class)->available()) {
                         throw ValidationException::withMessages(['resource' => __('Page speed is temporarily unavailable. Please try again later.')]);

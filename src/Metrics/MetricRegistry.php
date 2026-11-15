@@ -13,6 +13,7 @@ final class MetricRegistry
             ['visitors', 'Visitors', 'count', 'period'], ['visits', 'Visits', 'count', 'sum'], ['pageviews', 'Page views', 'count', 'sum'],
             ['impressions', 'Impressions', 'count', 'sum'], ['clicks', 'Clicks', 'count', 'sum'], ['downloads', 'Downloads', 'count', 'sum'],
             ['release_downloads', 'Release downloads', 'count', 'latest', true],
+            ['followers', 'Followers', 'count', 'latest', true],
             ['published_items', 'Items published', 'count', 'sum'], ['published_urls', 'Published URLs', 'count', 'latest', true],
             ['new_urls', 'New URLs detected', 'count', 'sum'],
             ['indexed_pages', 'Indexed pages', 'count', 'latest'], ['commits', 'Commits', 'count', 'sum'], ['prs_merged', 'PRs merged', 'count', 'sum'],

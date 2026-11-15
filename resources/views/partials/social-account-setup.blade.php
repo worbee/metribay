@@ -1,0 +1,4 @@
+<form class="form-stack" method="POST" action="{{ route('metribay.sources.setup', $workspace->slug) }}">@csrf<input type="hidden" name="action" value="manual"><input type="hidden" name="timezone" value="UTC">
+<div class="field"><label for="social-account">{{ $draft['kind'] === 'bluesky' ? __('Bluesky handle') : __('Mastodon account') }}</label><input id="social-account" name="resource_id" maxlength="320" autocomplete="off" autocapitalize="none" spellcheck="false" required value="{{ old('resource_id') }}" placeholder="{{ $draft['kind'] === 'bluesky' ? 'name.bsky.social' : 'name@mastodon.social' }}">
+<p class="field-hint">{{ $draft['kind'] === 'bluesky' ? __('A public account. Paste the handle or the bsky.app profile link. No login or key is needed.') : __('A public account as name@server, or its profile link. No login or key is needed.') }}</p></div>
+<div><button class="button button-primary">{{ __('Continue') }} →</button></div></form>

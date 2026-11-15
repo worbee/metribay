@@ -23,7 +23,13 @@ class SamplePortfolioTest extends TestCase
 
     private function fingerprint(int $seed, CarbonImmutable $now): string
     {
-        return hash('sha256', serialize((new SamplePortfolio($seed, $now, self::DAYS))->projects()));
+        // Hash project by project: one serialized string of the whole portfolio needs a large share of the test memory limit.
+        $hash = hash_init('sha256');
+        foreach ((new SamplePortfolio($seed, $now, self::DAYS))->projects() as $project) {
+            hash_update($hash, serialize($project));
+        }
+
+        return hash_final($hash);
     }
 
     public function test_the_portfolio_covers_every_provider_metric_and_event_origin(): void

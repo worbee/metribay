@@ -10,7 +10,7 @@ This is the self-hosted edition. It's free and open source under Apache-2.0. One
 
 ## What it does
 
-**The overview is one row per project.** Visits, search clicks, commits and pull requests, open issues, downloads, release downloads and uptime, with a trend line and the change against the previous period. Projects that need attention come first.
+**The overview is one row per project.** Visits, followers, search clicks, commits and pull requests, open issues, downloads, release downloads and uptime, with a trend line and the change against the previous period. Projects that need attention come first.
 
 **Each project gets its own page.** Open **Overview** for recent uptime incidents and drops in Google Search Console clicks. **All metrics** is the default: fold chart groups and inspect daily values. **Search**, **Development and Issues** and **Revenue** open those groups when the project has them, and a **Custom view** can save a mix of groups in this browser. Top search queries show what people clicked, where you rank and where you're close. [Project page details](docs/PROJECT_PAGE.md)
 
@@ -38,6 +38,8 @@ The app speaks twelve languages: English, German, Bulgarian, Czech, Spanish, Fre
 | GitHub releases | Total release asset downloads | Nothing for a public repository; an optional token for a private one |
 | Azure DevOps | Commits, completed pull requests, pipeline runs, open bugs, deployments | A personal access token for one organization |
 | WordPress.org | Plugin downloads | Nothing |
+| Bluesky | Followers of a public account, one count per day | Nothing; the handle or profile link |
+| Mastodon | Followers of a public account, one count per day | Nothing; name@server or the profile link |
 | RSS / Atom | Items published, each entry as an event on the charts | Nothing; a public HTTPS feed |
 | Sitemap | Published URLs, new URLs detected, each page as an event | Nothing; a public HTTPS sitemap |
 | PageSpeed Insights | Lighthouse scores and real-user Core Web Vitals | Your own Google API key |

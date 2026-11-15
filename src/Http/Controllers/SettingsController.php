@@ -183,7 +183,7 @@ class SettingsController
                 throw ValidationException::withMessages(['connection_id' => __('Choose a connected account before enabling collection.')]);
             }
             $config = $source->config;
-            if (isset($values['days']) && ! in_array($source->kind, ['uptimerobot', 'pagespeed', 'github_releases'], true)) {
+            if (isset($values['days']) && ! in_array($source->kind, ['uptimerobot', 'pagespeed', 'github_releases', 'bluesky', 'mastodon'], true)) {
                 $config[$source->kind === 'wporg' ? 'limit' : 'days'] = (int) $values['days'];
             }
             $eventsChanged = null;

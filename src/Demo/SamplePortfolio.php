@@ -159,6 +159,10 @@ final class SamplePortfolio
             $sources->search('bing', 'https://driftwood.example/', ['site_url' => 'https://driftwood.example/', 'days' => 180],
                 fn (int $ago, CarbonImmutable $date): float => 520 * $shape($ago, $date), $queries,
                 ['coverage' => 0.55, 'indexed' => fn (int $ago): float => 140 + 4 * intdiv(18 * ($this->days - $ago), $this->days)]),
+            $sources->followers('bluesky', 'driftwood.example', 150, 2140,
+                fn (int $ago): float => 7.5 * Shape::spike($ago, 120, 4.0, 2) * Shape::spike($ago, 39, 6.0, 2) * Shape::spike($ago, 12, 1.5, 2)),
+            $sources->followers('mastodon', 'driftwood@fosstodon.example', 150, 860,
+                fn (int $ago): float => 2.6 * Shape::spike($ago, 120, 3.0, 2) * Shape::spike($ago, 39, 2.5, 2) * Shape::spike($ago, 12, 1.2, 2)),
         ], [
             $this->event(206, 'Driftwood 4.0', 'green', 'Launch post, a conference lightning talk and a new documentation site.'),
             $this->event(120, 'Conference talk: state machines in the wild', 'violet'),
