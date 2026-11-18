@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 1.4.2 — 2026-11-18
+
+- Check access before adding a GitHub repository. When access is lost, project settings explain the issue and let you retry collection on the same data source.
+
 ## 1.4.1 — 2026-11-18
 
 - Adding a data source no longer fails with an error page (“409 Conflict”) when another Metribay page was opened during setup, for example in another tab while you create an API key. The step you submit now continues: choosing a provider, or saving a connected account with the server address and key you typed. A later step that can't continue starts the setup again for the same project with a short explanation. Browser prefetches and background requests no longer end a setup at all.

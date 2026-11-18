@@ -16,6 +16,7 @@ use Metribay\Core\Connectors\ConnectorRegistry;
 use Metribay\Core\Connectors\ContentUrl;
 use Metribay\Core\Connectors\DeploymentAccess;
 use Metribay\Core\Connectors\DiscoveryException;
+use Metribay\Core\Connectors\GitHubRepositoryUnavailable;
 use Metribay\Core\Connectors\PostHogClient;
 use Metribay\Core\Connectors\ProviderRequestLimit;
 use Metribay\Core\Connectors\ResourceDiscovery;
@@ -31,6 +32,7 @@ use Metribay\Core\Models\Source;
 use Metribay\Core\Models\Workspace;
 use Metribay\Core\Services\ProjectResources;
 use Metribay\Core\Services\ProviderCatalog;
+use Metribay\Core\Services\SourceSetupPersistence;
 use Metribay\Core\Services\WorkspaceContext;
 
 class SourceSetupController
@@ -416,9 +418,23 @@ class SourceSetupController
                     unset($draft['connection_id']);
                 }
                 if (ProviderCatalog::requiresConnection($kind) || (ProviderCatalog::connectionOptional($kind) && isset($draft['connection_id']))) {
-                    Connection::query()->where('kind', $kind)->findOrFail($draft['connection_id'] ?? null);
+                    $connection = Connection::query()->where('kind', $kind)->findOrFail($draft['connection_id'] ?? null);
+                    if ($kind === 'github') {
+                        try {
+                            app(ConnectorRegistry::class)->github()->checkRepository($draft['resource']['id'], app(ConnectionCredentials::class)->resolve($connection), CarbonImmutable::now('UTC'));
+                        } catch (GitHubRepositoryUnavailable) {
+                            $draft['github_repository_unavailable'] = true;
+                            $request->session()->put($key, $draft);
+
+                            return redirect()->route('metribay.sources.create', app(WorkspaceContext::class)->current()->slug)->withInput($values);
+                        } catch (ProviderRequestLimit $exception) {
+                            throw ValidationException::withMessages(['connection_id' => $exception->getMessage()]);
+                        } catch (\Throwable) {
+                            throw ValidationException::withMessages(['connection_id' => __('The provider could not confirm access. Check the resource, the connected account and provider permissions.')]);
+                        }
+                    }
                 }
-                $source = DB::transaction(function () use ($values, $draft, $kind, $config) {
+                $source = app(SourceSetupPersistence::class)->persist(fn (): Source => DB::transaction(function () use ($values, $draft, $kind, $config): Source {
                     $project = Project::query()->where('archived', false)->lockForUpdate()->findOrFail($draft['project_id']);
                     $hash = ProviderCatalog::identityHash($kind, $config, $draft['resource']['timezone']);
                     if (($kind !== 'pagespeed' && ProjectResources::contains($project->id, $kind, ProjectResources::resource($kind, $config)))
@@ -427,7 +443,7 @@ class SourceSetupController
                     }
 
                     return Source::create(['project_id' => $project->id, 'kind' => $kind, 'label' => ($values['label'] ?? '') ?: mb_substr(ProviderCatalog::all()[$kind]['label'].' · '.$draft['resource']['name'].(isset($config['event']) ? ' · '.$config['event'] : ''), 0, 120), 'connection_id' => $draft['connection_id'] ?? null, 'reporting_timezone' => $draft['resource']['timezone'], 'config' => $config, 'identity_hash' => $hash]);
-                });
+                }));
                 CollectSource::dispatch(app(WorkspaceContext::class)->id(), $source->id, true)->afterCommit();
                 $request->session()->forget($key);
 
@@ -435,6 +451,9 @@ class SourceSetupController
             } else {
                 abort(422);
             }
+        }
+        if (in_array($action, ['account', 'resource', 'manual', 'back'], true)) {
+            unset($draft['github_repository_unavailable']);
         }
         $draft['expires'] = time() + 3600;
         $request->session()->put($key, $draft);

@@ -3,6 +3,7 @@
 @php($googleExpired = $errorCode === 'GoogleAuthorizationExpired')
 <div id="source-attention-{{ $source['id'] }}" class="notice notice-warning group-notice">@include('metribay::partials/icon',['name'=>'alert'])<div><strong>{{ $providerName }}</strong> · {{ match(true) {
     $errorCode === 'ProviderRequestLimit' => __('The Cloud provider request limit was reached. Scheduled imports will retry automatically.'),
+    $errorCode === 'GitHubRepositoryUnavailable' => __('GitHub repository unavailable. Check the repository name and give the connected account access.'),
     $errorCode === 'GitHubDeploymentAccess' => __('GitHub did not allow reading deployments. Allow read access to deployments for this connected account, or clear the deployment environments.'),
     $errorCode === 'AzureDevOpsDeploymentAccess' => __('Azure DevOps did not allow reading environments. Give the access token the Environment (Read & manage) scope, or clear the deployment environments.'),
     $googleExpired => __('Google access for this data source’s connected account expired or was revoked. Reconnect the account to resume collection.'),

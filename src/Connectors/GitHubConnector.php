@@ -109,8 +109,8 @@ GRAPHQL;
         $variables = ['owner' => $owner, 'name' => $name];
         $graphql = $this->client($repository, $credentials, $now, $environments !== []);
         $info = $graphql(self::REPOSITORY, $variables);
-        if (strtolower($this->text($info['nameWithOwner'] ?? null, 'GitHub repository identity')) !== strtolower($repository)
-            || ! is_bool($info['isEmpty'] ?? null) || ! is_bool($info['hasIssuesEnabled'] ?? null)) {
+        $this->validateRepositoryIdentity($info, $repository);
+        if (! is_bool($info['isEmpty'] ?? null) || ! is_bool($info['hasIssuesEnabled'] ?? null)) {
             throw new ConnectorException('GitHub returned inconsistent repository metadata.');
         }
         $created = $this->timestamp($info['createdAt'] ?? null, 'GitHub');
@@ -210,6 +210,27 @@ GRAPHQL;
         return array_values($names);
     }
 
+    /**
+     * Verify the repository through the same GitHub operation that starts collection.
+     *
+     * @param  array<string, mixed>  $credentials
+     */
+    public function checkRepository(string $repository, array $credentials, CarbonImmutable $now): void
+    {
+        $repository = $this->repository($repository);
+        [$owner, $name] = explode('/', $repository);
+        $graphql = $this->client($repository, $credentials, $now->utc(), false);
+        $this->validateRepositoryIdentity($graphql(self::REPOSITORY, ['owner' => $owner, 'name' => $name]), $repository);
+    }
+
+    /** @param array<string, mixed> $info */
+    private function validateRepositoryIdentity(array $info, string $repository): void
+    {
+        if (strcasecmp($this->text($info['nameWithOwner'] ?? null, 'GitHub repository identity'), $repository) !== 0) {
+            throw new GitHubRepositoryUnavailable;
+        }
+    }
+
     private function repository(mixed $value): string
     {
         $repository = $this->text($value, 'GitHub repository');
@@ -285,6 +306,11 @@ GRAPHQL;
             }
             $data = $this->json($response, 'GitHub');
             if (! empty($data['errors'])) {
+                if ($query === self::REPOSITORY && is_array($data['errors'])
+                    && array_all($data['errors'], fn ($error): bool => is_array($error) && ($error['type'] ?? null) === 'NOT_FOUND'
+                        && ($error['path'] ?? ['repository']) === ['repository'])) {
+                    throw new GitHubRepositoryUnavailable;
+                }
                 if (in_array($query, [self::DEPLOYMENTS, self::DEPLOYMENT_ENVIRONMENTS], true) && $this->forbidden($data['errors'])) {
                     throw new GitHubDeploymentAccess;
                 }

@@ -80,6 +80,9 @@ class GitHubDeploymentEventsTest extends TestCase
             if (str_contains($request->url(), '/user/repos')) {
                 return Http::response([]);
             }
+            if (str_contains($request['query'], 'RepositoryMetrics')) {
+                return Http::response(['data' => ['repository' => ['nameWithOwner' => 'example/repo']]]);
+            }
             $this->assertStringContainsString('DeploymentEnvironments', $request['query']);
             $nodes = array_map(fn (string $name, int $index): array => ['id' => 'd'.$index, 'environment' => $name], $names, array_keys($names));
 
@@ -147,8 +150,11 @@ class GitHubDeploymentEventsTest extends TestCase
         Queue::fake();
         Http::preventStrayRequests();
         $this->app->instance(SafeHttpClient::class, new SafeHttpClient(fn () => ['93.184.216.34']));
-        Http::fake(fn (Request $request) => str_contains($request->url(), '/user/repos') ? Http::response([])
-            : Http::response(['errors' => [['type' => 'FORBIDDEN', 'message' => 'Resource not accessible by integration']], 'data' => ['repository' => ['deployments' => null]]]));
+        Http::fake(fn (Request $request) => match (true) {
+            str_contains($request->url(), '/user/repos') => Http::response([]),
+            str_contains($request['query'], 'RepositoryMetrics') => Http::response(['data' => ['repository' => ['nameWithOwner' => 'example/repo']]]),
+            default => Http::response(['errors' => [['type' => 'FORBIDDEN', 'message' => 'Resource not accessible by integration']], 'data' => ['repository' => ['deployments' => null]]]),
+        });
         $connection = $this->connection();
         $project = $this->scoped(fn () => Project::create(['name' => 'Example', 'slug' => 'example']));
         $this->actingAs($this->owner)->get('/w/deploys/sources/new?project='.$project->id);
@@ -158,6 +164,21 @@ class GitHubDeploymentEventsTest extends TestCase
         $this->get('/w/deploys/sources/new')->assertOk()->assertSee('GitHub did not allow reading deployments.');
         $this->post('/w/deploys/sources/setup', ['action' => 'finish', 'days' => 180])->assertSessionHasNoErrors();
         $this->assertArrayNotHasKey('environments', $this->scoped(fn () => Source::query()->sole())->config);
+    }
+
+    public function test_repository_access_failure_has_settings_guidance_and_retries_the_same_source(): void
+    {
+        Queue::fake();
+        $source = $this->source();
+        $this->scoped(fn () => $source->update(['error_code' => 'GitHubRepositoryUnavailable', 'last_error_at' => now(), 'consecutive_failures' => 1]));
+        $settings = '/w/deploys/projects/'.$source->project_id.'/settings';
+        $retry = '/w/deploys/sources/'.$source->id.'/github/retry';
+        $this->actingAs($this->owner)->get($settings)->assertOk()->assertSee('GitHub repository unavailable')->assertSee('Retry collection');
+        $this->post($retry)->assertRedirect($settings.'#source-'.$source->id);
+        Queue::assertPushed(CollectSource::class, fn (CollectSource $job): bool => $job->workspaceId === $this->workspace->id && $job->sourceId === $source->id);
+        $this->scoped(fn () => $source->update(['enabled' => false]));
+        $this->post($retry)->assertNotFound();
+        Queue::assertPushed(CollectSource::class, 1);
     }
 
     public function test_changing_environments_removes_old_deployment_events_and_queues_an_import(): void

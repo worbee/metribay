@@ -13,6 +13,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Metribay\Core\Connectors\ConnectorRegistry;
 use Metribay\Core\Connectors\DeploymentAccess;
+use Metribay\Core\Connectors\GitHubRepositoryUnavailable;
 use Metribay\Core\Connectors\GoogleRevocation;
 use Metribay\Core\Connectors\ProviderRequestLimit;
 use Metribay\Core\Connectors\SourceConfiguration;
@@ -257,13 +258,25 @@ class SettingsController
             $connectors->for($source->kind)->collect(new SourceConfiguration($source->kind, array_merge($source->config, ['days' => 1, 'limit' => 1, 'period_days' => []]), $source->reporting_timezone), $source->connection ? app(ConnectionCredentials::class)->resolve($source->connection) : ($source->kind === 'pagespeed' ? app(PageSpeedCredentials::class)->resolve() : []), CarbonImmutable::now('UTC'));
         } catch (ProviderRequestLimit $exception) {
             throw ValidationException::withMessages(['connection_id' => $exception->getMessage()]);
-        } catch (DeploymentAccess $exception) {
+        } catch (DeploymentAccess|GitHubRepositoryUnavailable $exception) {
             throw ValidationException::withMessages(['connection_id' => __($exception->getMessage())]);
         } catch (\Throwable) {
             throw ValidationException::withMessages(['connection_id' => __('The provider could not confirm access. Check the resource, the connected account and provider permissions.')]);
         }
 
         return back()->with('status', __('Provider access confirmed. This check did not save metrics.'));
+    }
+
+    public function retryGitHub(Request $request): RedirectResponse
+    {
+        $this->authorize($request, 'manage_connections');
+        $workspace = app(WorkspaceContext::class)->current();
+        $source = Source::query()->where('kind', 'github')->where('enabled', true)->whereNotNull('connection_id')
+            ->where('consecutive_failures', '>', 0)->whereRelation('project', 'archived', false)->findOrFail($request->route('source'));
+        CollectSource::dispatch((int) $workspace->id, $source->id);
+
+        return redirect()->route('metribay.projects.edit', ['workspace' => $workspace->slug, 'project' => $source->project_id])
+            ->with('status', __('Collection will retry.'))->withFragment('source-'.$source->id);
     }
 
     public function export(Request $request, ConfigurationTransfer $transfer): JsonResponse
