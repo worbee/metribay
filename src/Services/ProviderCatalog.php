@@ -10,6 +10,8 @@ use Metribay\Core\Connectors\ConnectorException;
 use Metribay\Core\Connectors\ContentUrl;
 use Metribay\Core\Connectors\PaddleConnector;
 use Metribay\Core\Connectors\PageSpeedUrl;
+use Metribay\Core\Connectors\PostHogClient;
+use Metribay\Core\Connectors\PostHogConnector;
 use Metribay\Core\Connectors\ProviderRequestLimit;
 use Metribay\Core\Connectors\SocialAccount;
 use Metribay\Core\Contracts\PageSpeedCredentials;
@@ -23,6 +25,7 @@ class ProviderCatalog
             'umami' => ['Umami', ['base_url', 'username', 'password'], ['password'], ['website_id', 'days'], 'UTC'],
             'plausible' => ['Plausible', ['base_url', 'api_key'], ['api_key'], ['site_id', 'days'], 'UTC'],
             'matomo' => ['Matomo', ['base_url', 'token_auth'], ['token_auth'], ['site_id', 'days'], 'UTC'],
+            'posthog' => ['PostHog', ['base_url', 'api_key'], ['api_key'], ['project_id', 'event', 'days'], 'UTC'],
             'ga4' => ['Google Analytics 4', ['service_account', 'client_id', 'client_secret', 'refresh_token'], ['service_account', 'client_secret', 'refresh_token'], ['property_id', 'days'], 'UTC'],
             'gsc' => ['Google Search Console', ['service_account', 'client_id', 'client_secret', 'refresh_token'], ['service_account', 'client_secret', 'refresh_token'], ['site_url', 'days'], 'America/Los_Angeles'],
             'bing' => ['Bing Webmaster Tools', ['api_key'], ['api_key'], ['site_url', 'days'], 'UTC'],
@@ -40,7 +43,7 @@ class ProviderCatalog
         ];
         $out = [];
         foreach ($data as $kind => [$label,$fields,$secrets,$config,$timezone]) {
-            $out[$kind] = ['label' => $label, 'fields' => $fields, 'secrets' => $secrets, 'config' => $config, 'default_timezone' => $timezone, 'field_labels' => ['website_id' => 'Website UUID', 'base_url' => 'Server URL', 'service_account' => 'Service account JSON', 'site_url' => 'Site URL or Search Console property', 'private_key' => 'GitHub App private key (PEM)', 'token' => 'Personal access token', 'organization' => 'Organization', 'api_key' => 'Api Key', 'token_auth' => 'Auth token', 'days' => 'History window (days)', 'limit' => 'History window (days)']];
+            $out[$kind] = ['label' => $label, 'fields' => $fields, 'secrets' => $secrets, 'config' => $config, 'default_timezone' => $timezone, 'field_labels' => ['website_id' => 'Website UUID', 'base_url' => 'Server URL', 'service_account' => 'Service account JSON', 'site_url' => 'Site URL or Search Console property', 'private_key' => 'GitHub App private key (PEM)', 'token' => 'Personal access token', 'organization' => 'Organization', 'api_key' => 'Api Key', 'token_auth' => 'Auth token', 'project_id' => 'Project ID', 'event' => 'Event name', 'days' => 'History window (days)', 'limit' => 'History window (days)']];
         }
 
         return $out;
@@ -69,6 +72,7 @@ class ProviderCatalog
             'umami' => ['website_id' => ['required', 'uuid']],
             'plausible' => ['site_id' => ['required', 'string', 'max:253', 'regex:/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/i']],
             'matomo' => ['site_id' => ['required', 'regex:/^[1-9][0-9]{0,9}$/']],
+            'posthog' => ['project_id' => ['required', 'regex:/^[1-9][0-9]{0,18}$/'], 'event' => ['sometimes', 'nullable', 'string', 'max:500']],
             'ga4' => ['property_id' => ['required', 'regex:/^[0-9]+$/']],
             'gsc' => ['site_url' => ['required', 'string', 'max:500']],
             'bing' => ['site_url' => ['required', 'url:http,https', 'max:500']],
@@ -139,6 +143,18 @@ class ProviderCatalog
         if ($kind === 'plausible') {
             $clean['site_id'] = strtolower($clean['site_id']);
         }
+        if ($kind === 'posthog') {
+            $clean['project_id'] = (string) $clean['project_id'];
+            if (($clean['event'] ?? null) === null || trim((string) $clean['event']) === '') {
+                unset($clean['event']);
+            } else {
+                try {
+                    $clean['event'] = PostHogConnector::event($clean['event']);
+                } catch (ConnectorException $exception) {
+                    throw ValidationException::withMessages(['config.event' => __($exception->getMessage())]);
+                }
+            }
+        }
         if ($kind === 'feed' || $kind === 'sitemap') {
             try {
                 $clean['url'] = ContentUrl::normalize($clean['url']);
@@ -174,7 +190,7 @@ class ProviderCatalog
             }
         }
         $required = match ($kind) {
-            'umami' => ['base_url', 'username', 'password'],'plausible' => ['base_url', 'api_key'],'matomo' => ['base_url', 'token_auth'],'azure_devops' => ['organization', 'token'],'bing','uptimerobot','pagespeed','paddle' => ['api_key'],'github' => isset($values['token']) ? ['token'] : ['client_id', 'installation_id', 'private_key'],'github_releases' => ['token'],'gsc','ga4' => isset($values['service_account']) ? ['service_account'] : ['client_id', 'client_secret', 'refresh_token'],default => throw ValidationException::withMessages(['kind' => __('Choose a supported provider.')])
+            'umami' => ['base_url', 'username', 'password'],'plausible','posthog' => ['base_url', 'api_key'],'matomo' => ['base_url', 'token_auth'],'azure_devops' => ['organization', 'token'],'bing','uptimerobot','pagespeed','paddle' => ['api_key'],'github' => isset($values['token']) ? ['token'] : ['client_id', 'installation_id', 'private_key'],'github_releases' => ['token'],'gsc','ga4' => isset($values['service_account']) ? ['service_account'] : ['client_id', 'client_secret', 'refresh_token'],default => throw ValidationException::withMessages(['kind' => __('Choose a supported provider.')])
         };
         foreach ($required as $key) {
             if (empty($values[$key])) {
@@ -221,6 +237,17 @@ class ProviderCatalog
             $secret = $kind === 'plausible' ? 'api_key' : 'token_auth';
             $values[$secret] = trim($values[$secret]);
             if (str_contains((string) (parse_url($values['base_url'], PHP_URL_PATH) ?? ''), '..')) {
+                throw ValidationException::withMessages(['values.base_url' => __('Use a public HTTPS server URL on port 443.')]);
+            }
+        }
+        if ($kind === 'posthog') {
+            $values['api_key'] = trim($values['api_key']);
+            if (str_starts_with($values['api_key'], 'phc_')) {
+                throw ValidationException::withMessages(['values.api_key' => __('This is a project API key, which can only send events. Create a personal API key in PostHog instead.')]);
+            }
+            try {
+                $values['base_url'] = PostHogClient::base($values['base_url']);
+            } catch (ConnectorException) {
                 throw ValidationException::withMessages(['values.base_url' => __('Use a public HTTPS server URL on port 443.')]);
             }
         }
@@ -383,7 +410,7 @@ class ProviderCatalog
     /** Providers whose dates follow the selected site or property, not a fixed offset. */
     public static function usesSiteTimezone(string $kind): bool
     {
-        return in_array($kind, ['ga4', 'plausible', 'matomo'], true);
+        return in_array($kind, ['ga4', 'plausible', 'matomo', 'posthog'], true);
     }
 
     public static function requiresConnection(string $kind): bool
@@ -397,9 +424,21 @@ class ProviderCatalog
         return $kind === 'github_releases';
     }
 
-    /** @return list<string> */
-    public static function metricKeys(string $kind): array
+    /**
+     * Metrics a source of this provider records. Without a configuration: every metric the provider can record.
+     * A PostHog source records website and product usage, or, when it names an event, only that event's key events.
+     *
+     * @param  array<string, mixed>|null  $config
+     * @return list<string>
+     */
+    public static function metricKeys(string $kind, ?array $config = null): array
     {
+        if ($kind === 'posthog') {
+            $usage = ['visitors', 'visits', 'pageviews', 'active_users'];
+
+            return $config === null ? [...$usage, 'key_events'] : (isset($config['event']) ? ['key_events'] : $usage);
+        }
+
         return match ($kind) {
             'paddle' => ['paddle_revenue', 'paddle_mrr', 'paddle_active_subscribers'],
             'umami','plausible','matomo','ga4' => ['visitors', 'visits', 'pageviews'],'gsc' => ['impressions', 'clicks'],'bing' => ['impressions', 'clicks', 'indexed_pages'],'wporg' => ['downloads'],'feed' => ['published_items'],'sitemap' => ['new_urls', 'published_urls'],'github' => ['commits', 'prs_merged', 'loc_changed', 'open_issues'],'github_releases' => ['release_downloads'],'bluesky','mastodon' => ['followers'],'uptimerobot' => ['monitor_status', 'uptime_24h', 'response_time_24h'],'azure_devops' => ['commits', 'prs_merged', 'pipeline_runs_succeeded', 'pipeline_runs_failed', 'open_issues'],'pagespeed' => ['lab_score', 'lab_lcp', 'lab_cls', 'lab_tbt', 'crux_lcp', 'crux_inp', 'crux_cls', 'crux_origin_lcp', 'crux_origin_inp', 'crux_origin_cls'],default => []

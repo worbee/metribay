@@ -16,6 +16,7 @@ final class ProjectLayout
     public const GROUPS = [
         'revenue' => ['paddle_revenue', 'paddle_mrr', 'paddle_active_subscribers'],
         'audience' => ['visits', 'visitors', 'pageviews'],
+        'product' => ['active_users', 'key_events'],
         'social' => ['followers'],
         'search' => ['clicks', 'impressions', 'indexed_pages'],
         'development' => ['commits', 'prs_merged', 'loc_changed', 'pipeline_runs_succeeded', 'pipeline_runs_failed', 'open_issues'],
@@ -25,7 +26,7 @@ final class ProjectLayout
         'page_speed' => ['lab_score', 'lab_lcp', 'lab_cls', 'lab_tbt', 'crux_lcp', 'crux_inp', 'crux_cls', 'crux_origin_lcp', 'crux_origin_inp', 'crux_origin_cls'],
     ];
 
-    public const TITLES = ['revenue' => 'Revenue', 'audience' => 'Audience', 'social' => 'Social', 'search' => 'Search', 'development' => 'Development', 'distribution' => 'Distribution', 'content' => 'Content', 'reliability' => 'Reliability', 'page_speed' => 'Page speed'];
+    public const TITLES = ['revenue' => 'Revenue', 'audience' => 'Audience', 'product' => 'Product', 'social' => 'Social', 'search' => 'Search', 'development' => 'Development', 'distribution' => 'Distribution', 'content' => 'Content', 'reliability' => 'Reliability', 'page_speed' => 'Page speed'];
 
     /** Overview columns and the group each one summarises. */
     public const SUMMARY = ['traffic' => 'audience', 'followers' => 'social', 'search' => 'search', 'development' => 'development', 'issues' => 'development', 'downloads' => 'distribution', 'release_downloads' => 'distribution', 'content' => 'content', 'new_urls' => 'content', 'published_urls' => 'content', 'uptime' => 'reliability', 'speed' => 'page_speed'];
@@ -61,7 +62,7 @@ final class ProjectLayout
             if ($onlyKeys !== null && ! isset($onlyKeys[$key])) {
                 continue;
             }
-            $members = array_values(array_filter($sources, fn (array $source): bool => array_intersect(ProviderCatalog::metricKeys($source['kind']), $keys) !== []));
+            $members = array_values(array_filter($sources, fn (array $source): bool => array_intersect($source['metric_keys'] ?? ProviderCatalog::metricKeys($source['kind']), $keys) !== []));
             if ($members === []) {
                 continue;
             }

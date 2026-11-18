@@ -101,7 +101,7 @@ class MetricStore
 
     public function persist(Source $source, CollectionResult $result, CarbonImmutable $now): int
     {
-        $allowed = ProviderCatalog::metricKeys($source->kind);
+        $allowed = ProviderCatalog::metricKeys($source->kind, $source->config ?? []);
         foreach ($result->daily as $row) {
             if (! in_array($row['metric'], $allowed, true)) {
                 throw new InvalidArgumentException('Metric does not belong to this provider.');

@@ -45,6 +45,17 @@ class ProjectLayoutTest extends TestCase
         $this->assertSame([['strip', 6], ['s', 3], ['s', 3]], array_map(fn ($card) => [$card['size'], $card['span']], $rows[2][1]['cards']));
     }
 
+    public function test_posthog_usage_joins_audience_and_product_while_key_event_sources_join_product_only(): void
+    {
+        $usage = $this->fake(1, 'posthog', ['visitors', 'visits', 'pageviews', 'active_users']) + ['metric_keys' => ['visitors', 'visits', 'pageviews', 'active_users']];
+        $event = $this->fake(2, 'posthog', ['key_events']) + ['metric_keys' => ['key_events']];
+        $groups = array_merge(...ProjectLayout::rows([$usage, $event]));
+        $this->assertSame(['audience', 'product'], array_column($groups, 'key'));
+        $this->assertSame([1], array_values(array_unique(array_map(fn ($card) => $card['source']['id'], $groups[0]['cards']))));
+        $this->assertSame(['active_users', 'key_events'], array_map(fn ($card) => $card['metric']['key'], $groups[1]['cards']));
+        $this->assertSame(['product'], array_column(array_merge(...ProjectLayout::rows([$event])), 'key'));
+    }
+
     public function test_missing_lead_promotes_the_next_metric_and_empty_charts_collapse(): void
     {
         [$group] = ProjectLayout::rows([$this->fake(1, 'umami', ['visitors', 'visits', 'pageviews'], ['visits'])])[0];

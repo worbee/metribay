@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 1.4.0 — Unreleased
+
+- Connect **PostHog**. Add a data source, choose **PostHog**, connect PostHog Cloud (US or EU) or a public self-hosted server with a personal API key that can read Project, Query and Event definition, and pick a project. A project API key (`phc_…`) only sends events and is rejected. Then choose **What to track**:
+  - **Website and product usage** records visitors, visits and page views in **Audience**, and **Active users** (people with any event) in a new **Product** group. Visitors and active users over 7, 30 and 90 days are counted once per period, never added up day by day.
+  - **One key event** records the daily count of one event you name, such as `user_signed_up`, as **Key events** in **Product**, labelled with the event name. Add the project again for each event you want to follow. A misspelt event name fails the sync instead of showing zeros.
+- Dates follow the PostHog project's timezone. Days after the project was created with no events are zero; earlier days stay empty. PostHog history is imported for the chosen window.
+- Projects with PostHog get a **Product** view next to **Search**, **Development and Issues** and **Revenue**. The overview gains no column: active users can't be added across sources, and different events shouldn't be.
+- The demo's Tallybird project shows its app in PostHog: usage, plus `user_signed_up` and `invoice_sent` key events.
+- New strings in all twelve languages. No database migration or configuration change.
+
 ## 1.3.1 — 2026-11-15
 
 - The demo's sample blog feed no longer shows **Delayed**. Its posts are now counted back from yesterday, so the newest post is always recent; a test checks that no sample data source looks delayed on any day.

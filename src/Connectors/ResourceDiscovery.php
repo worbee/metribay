@@ -28,6 +28,9 @@ class ResourceDiscovery extends AbstractConnector
         if ($kind === 'matomo') {
             return (new MatomoResourceDiscovery($this->http))->discover($credentials);
         }
+        if ($kind === 'posthog') {
+            return (new PostHogResourceDiscovery($this->http))->discover($credentials);
+        }
         if ($kind === 'azure_devops') {
             return $this->azureDevOps($credentials);
         }
@@ -160,6 +163,12 @@ class ResourceDiscovery extends AbstractConnector
         usort($out, fn (array $a, array $b): int => strnatcasecmp($a['id'], $b['id']));
 
         return $out;
+    }
+
+    /** @param array<string,mixed> $credentials */
+    public function postHogTimezone(array $credentials, string $project): string
+    {
+        return (new PostHogResourceDiscovery($this->http))->timezone($credentials, $project);
     }
 
     /** @param array<string,mixed> $credentials */

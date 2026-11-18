@@ -12,7 +12,7 @@ This is the self-hosted edition. It's free and open source under Apache-2.0. One
 
 **The overview is one row per project.** Visits, followers, search clicks, commits and pull requests, open issues, downloads, release downloads and uptime, with a trend line and the change against the previous period. Projects that need attention come first.
 
-**Each project gets its own page.** Open **Overview** for recent uptime incidents and drops in Google Search Console clicks. **All metrics** is the default: fold chart groups and inspect daily values. **Search**, **Development and Issues** and **Revenue** open those groups when the project has them, and a **Custom view** can save a mix of groups in this browser. Top search queries show what people clicked, where you rank and where you're close. [Project page details](docs/PROJECT_PAGE.md)
+**Each project gets its own page.** Open **Overview** for recent uptime incidents and drops in Google Search Console clicks. **All metrics** is the default: fold chart groups and inspect daily values. **Product**, **Search**, **Development and Issues** and **Revenue** open those groups when the project has them, and a **Custom view** can save a mix of groups in this browser. Top search queries show what people clicked, where you rank and where you're close. [Project page details](docs/PROJECT_PAGE.md)
 
 ![A project page with visits compared to the previous period and markers for events](docs/screenshots/project-tallybird.webp)
 
@@ -31,6 +31,7 @@ The app speaks twelve languages: English, German, Bulgarian, Czech, Spanish, Fre
 | Umami | Visits, visitors, page views | Your Umami URL and a login |
 | Plausible | Visits, visitors, page views | A Stats API key and the site domain. Plausible Cloud or a public self-hosted server |
 | Matomo | Visits, visitors, page views | An auth token, the Matomo URL and the numeric site ID. Period visitor totals stay unknown |
+| PostHog | Visits, visitors, page views, active users, and daily counts of key events you name | A personal API key with read access to Project, Query and Event definition. PostHog Cloud (US or EU) or a public self-hosted server |
 | Google Analytics 4 | Visits, visitors, page views | A service account, or your own Google OAuth app |
 | Google Search Console | Clicks, impressions, top queries | A service account, or your own Google OAuth app |
 | Bing Webmaster Tools | Clicks, impressions, indexed pages, top queries | An API key |
@@ -48,7 +49,7 @@ The app speaks twelve languages: English, German, Bulgarian, Czech, Spanish, Fre
 
 Everything uses your own credentials. Nothing goes through a Metribay server. Credentials are encrypted with your `APP_KEY` and bound to their provider. Details per provider: [docs/PROVIDERS.md](docs/PROVIDERS.md).
 
-One limit to know about: Metribay only connects to public HTTPS endpoints. An Umami, Plausible or Matomo instance on your private network won't work.
+One limit to know about: Metribay only connects to public HTTPS endpoints. An Umami, Plausible, Matomo or PostHog instance on your private network won't work.
 
 ## Try it in a minute
 

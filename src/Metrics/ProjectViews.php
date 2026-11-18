@@ -13,6 +13,7 @@ final class ProjectViews
 
     /** @var array<string, array{label: string, groups: list<string>}> */
     public const PRESETS = [
+        'product' => ['label' => 'Product', 'groups' => ['product']],
         'search' => ['label' => 'Search', 'groups' => ['search']],
         'development' => ['label' => 'Development and Issues', 'groups' => ['development']],
         'revenue' => ['label' => 'Revenue', 'groups' => ['revenue']],

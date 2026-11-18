@@ -38,6 +38,9 @@ final class SamplePortfolio
         $newsletter = 208;
         $traffic = fn (int $ago, CarbonImmutable $date): float => 760 * Shape::growth($ago, [[400, 0.32], [300, 0.46], [220, 0.55], [130, 0.56], [75, 0.66], [0, 1.0]])
             * Shape::spike($ago, 74, 7.5, 2.2) * Calendar::weekday($date, 0.62) * Calendar::holiday($date, 0.5) * $this->monthly($ago, $newsletter, 1.25);
+        // The app's users: paying customers and trials, mostly on weekdays. The launch brought a wave of trials that partly stayed.
+        $growth = fn (int $ago): float => Shape::growth($ago, [[400, 0.42], [250, 0.58], [130, 0.66], [75, 0.74], [0, 1.0]]);
+        $app = fn (int $ago, CarbonImmutable $date): float => 135 * $growth($ago) * Shape::spike($ago, 74, 1.6, 6) * Calendar::weekday($date, 0.35) * Calendar::holiday($date, 0.45);
         $releases = $this->releases([372 => 'v1.6.0', 351 => 'v1.6.1', 330 => 'v1.7.0', 305 => 'v1.8.0', 288 => 'v1.8.1', 262 => 'v1.9.0', 240 => 'v1.10.0', 214 => 'v1.10.1',
             193 => 'v1.11.0', 171 => 'v1.12.0', 150 => 'v1.12.1', 128 => 'v1.13.0', 109 => 'v1.14.0', 90 => 'v2.0.0-beta.1', 76 => 'v2.0.0', 72 => 'v2.0.1', 61 => 'v2.1.0',
             44 => 'v2.2.0', 30 => 'v2.3.0', 16 => 'v2.3.1', 5 => 'v2.4.0'], ['v2.0.0' => 'Recurring invoices, client portal and a new editor.', 'v2.0.1' => 'Fixes PDF totals for invoices with discounts.',
@@ -64,6 +67,11 @@ final class SamplePortfolio
                 ['repository' => 'tallybird/app', 'prs' => 0.12, 'loc' => 38, 'issues' => ['start' => 12, 'opened' => 0.42, 'closed' => 0.42], 'connected' => 160,
                     'releases' => $releases, 'deployments' => ['environment' => 'production', 'chance' => 0.55]]),
             $sources->paddle(),
+            $sources->postHog('Tallybird app', ['project_id' => '48213', 'days' => 180], $app, ['viewers' => 0.93, 'returning' => 1.35, 'pages' => 6.4, 'loyalty' => 1.15, 'timezone' => 'Europe/Berlin']),
+            $sources->postHogEvent('Tallybird app · sign-ups', ['project_id' => '48213', 'event' => 'user_signed_up', 'days' => 180],
+                fn (int $ago, CarbonImmutable $date): float => 8.5 * $growth($ago) * Shape::spike($ago, 74, 9.0, 2.5) * Calendar::weekday($date, 0.7) * Calendar::holiday($date, 0.5) * $this->monthly($ago, $newsletter, 1.6), 'Europe/Berlin'),
+            $sources->postHogEvent('Tallybird app · invoices sent', ['project_id' => '48213', 'event' => 'invoice_sent', 'days' => 180],
+                fn (int $ago, CarbonImmutable $date): float => 150 * $growth($ago) * Calendar::weekday($date, 0.2) * Calendar::holiday($date, 0.3) * ($date->day >= 28 || $date->day <= 2 ? 1.9 : 1.0), 'Europe/Berlin'),
             $sources->uptime('https://tallybird.example', ['monitor' => '793104528', 'connected' => 210, 'response' => 280, 'incidents' => [23 => 34]]),
             $sources->pageSpeed(fn (int $ago): array => match (true) {
                 $ago <= 12 => ['lcp' => 3100, 'tbt' => 210, 'cls' => 0.03],

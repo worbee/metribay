@@ -149,7 +149,7 @@ class ProjectCharts extends Component
             $membership = [];
             foreach (ProjectLayout::GROUPS as $key => $metricKeys) {
                 foreach ($sources as $source) {
-                    if (array_intersect(ProviderCatalog::metricKeys($source['kind']), $metricKeys) !== []) {
+                    if (array_intersect($source['metric_keys'] ?? ProviderCatalog::metricKeys($source['kind']), $metricKeys) !== []) {
                         $membership[(int) $source['id']][] = $key;
                     }
                 }

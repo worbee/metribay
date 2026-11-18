@@ -253,6 +253,49 @@ class SourceSetupTest extends TestCase
         Queue::assertPushed(CollectSource::class, 2);
     }
 
+    public function test_posthog_adds_usage_and_key_event_sources_for_the_same_project(): void
+    {
+        Queue::fake();
+        Http::preventStrayRequests();
+        Http::fake([
+            'us.posthog.com/api/projects/48213/' => Http::response(['id' => 48213, 'name' => 'Synthetic app', 'timezone' => 'Europe/Berlin']),
+            'us.posthog.com/api/projects/*' => Http::response(['results' => [['id' => 48213, 'name' => 'Synthetic app']], 'next' => null]),
+        ]);
+        $this->app->instance(SafeHttpClient::class, new SafeHttpClient(fn () => ['93.184.216.34']));
+        $owner = User::factory()->create();
+        $workspace = Workspace::create(['owner_id' => $owner->id, 'name' => 'Setup', 'slug' => 'setup']);
+        $project = $this->projectIn($workspace);
+        $this->actingAs($owner)->get('/w/setup/sources/new?project='.$project->id);
+        $this->post('/w/setup/sources/setup', ['action' => 'provider', 'kind' => 'posthog']);
+        $this->get('/w/setup/sources/new')->assertOk()->assertSee('not the project key that starts with phc_');
+        $this->post('/w/setup/sources/setup', ['action' => 'account', 'values' => ['base_url' => 'https://us.posthog.com', 'api_key' => 'phc_ingestion_only']])->assertSessionHasErrors('values.api_key');
+        $this->post('/w/setup/sources/setup', ['action' => 'account', 'values' => ['base_url' => 'https://us.i.posthog.com', 'api_key' => 'phx_synthetic']])->assertSessionHasNoErrors();
+        $this->get('/w/setup/sources/new')->assertOk()->assertSee('Synthetic app')->assertDontSee('phx_synthetic');
+        $added = [];
+        foreach ([['track' => 'usage'], ['track' => 'event', 'event' => 'user_signed_up'], ['track' => 'event', 'event' => 'invoice_sent']] as $choice) {
+            $this->post('/w/setup/sources/setup', ['action' => 'resource', 'resource' => 0])->assertSessionHasNoErrors();
+            $this->get('/w/setup/sources/new')->assertOk()->assertSee('What to track')->assertSee('Reporting timezone: Europe/Berlin');
+            $this->post('/w/setup/sources/setup', ['action' => 'finish', 'days' => 180] + $choice)->assertSessionHasNoErrors();
+            $added[] = $choice;
+            $this->get('/w/setup/sources/new?project='.$project->id);
+            $this->post('/w/setup/sources/setup', ['action' => 'provider', 'kind' => 'posthog']);
+            $connection = app(WorkspaceContext::class)->run($workspace, fn () => Connection::query()->firstOrFail());
+            $this->post('/w/setup/sources/setup', ['action' => 'account', 'connection_id' => $connection->id]);
+        }
+        $this->post('/w/setup/sources/setup', ['action' => 'resource', 'resource' => 0])->assertSessionHasNoErrors();
+        $this->post('/w/setup/sources/setup', ['action' => 'finish', 'days' => 180, 'track' => 'event'])->assertSessionHasErrors('event');
+        $this->post('/w/setup/sources/setup', ['action' => 'finish', 'days' => 180, 'track' => 'event', 'event' => 'user_signed_up'])->assertSessionHasErrors('resource');
+        $this->post('/w/setup/sources/setup', ['action' => 'finish', 'days' => 180, 'track' => 'usage'])->assertSessionHasErrors('resource');
+        app(WorkspaceContext::class)->run($workspace, function (): void {
+            $sources = Source::query()->where('kind', 'posthog')->orderBy('id')->get();
+            $this->assertSame([['project_id' => '48213', 'days' => 180], ['project_id' => '48213', 'event' => 'user_signed_up', 'days' => 180], ['project_id' => '48213', 'event' => 'invoice_sent', 'days' => 180]], $sources->pluck('config')->all());
+            $this->assertSame(['PostHog · Synthetic app', 'PostHog · Synthetic app · user_signed_up', 'PostHog · Synthetic app · invoice_sent'], $sources->pluck('label')->all());
+            $this->assertSame(['Europe/Berlin'], $sources->pluck('reporting_timezone')->unique()->values()->all());
+            $this->assertSame(['base_url' => 'https://us.posthog.com', 'api_key' => 'phx_synthetic'], Connection::query()->firstOrFail()->reveal());
+        });
+        Queue::assertPushed(CollectSource::class, 3);
+    }
+
     public function test_github_release_downloads_keep_an_optional_token(): void
     {
         Queue::fake();

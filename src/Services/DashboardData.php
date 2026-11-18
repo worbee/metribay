@@ -43,7 +43,8 @@ class DashboardData
                 $rows = $daily->get($source->id, collect())->groupBy('metric');
                 $periodRows = $periods->get($source->id, collect());
                 $metrics = [];
-                foreach (ProviderCatalog::metricKeys($source->kind) as $key) {
+                $metricKeys = ProviderCatalog::metricKeys($source->kind, $source->config ?? []);
+                foreach ($metricKeys as $key) {
                     $definition = MetricRegistry::get($key);
                     $byDate = $rows->get($key, collect())->keyBy(fn (DailyMetric $row): string => $row->date->toDateString());
                     $series = [];
@@ -81,7 +82,7 @@ class DashboardData
                     }
                     // Snapshots compare their latest value with the last one of the previous period, as a difference.
                     $delta = $definition->snapshot && $definition->unit !== 'status' && $prior !== null && $value !== null ? $value - $prior : null;
-                    $metrics[] = ['key' => $key, 'label' => __($definition->label), 'unit' => $definition->unit, 'value' => $value, 'display_value' => $this->format($key, $value), 'previous' => $prior, 'change' => ! $definition->snapshot && $prior !== null && $prior > 0 && $value !== null ? 100 * ($value - $prior) / $prior : null, 'delta' => $delta, 'partial' => $partial, 'series' => $series, 'previous_series' => $previous, 'coverage' => ['known' => $known, 'total' => $days], 'observed_date' => $observedDate, 'start_date' => $start->toDateString(), 'end_date' => $end->toDateString(), 'timezone' => $source->reporting_timezone, 'snapshot' => $definition->snapshot, 'context' => $observedDate ? ($byDate->get($observedDate)->context ?? []) : []];
+                    $metrics[] = ['key' => $key, 'label' => $key === 'key_events' && isset($source->config['event']) ? __($definition->label).' · '.$source->config['event'] : __($definition->label), 'unit' => $definition->unit, 'value' => $value, 'display_value' => $this->format($key, $value), 'previous' => $prior, 'change' => ! $definition->snapshot && $prior !== null && $prior > 0 && $value !== null ? 100 * ($value - $prior) / $prior : null, 'delta' => $delta, 'partial' => $partial, 'series' => $series, 'previous_series' => $previous, 'coverage' => ['known' => $known, 'total' => $days], 'observed_date' => $observedDate, 'start_date' => $start->toDateString(), 'end_date' => $end->toDateString(), 'timezone' => $source->reporting_timezone, 'snapshot' => $definition->snapshot, 'context' => $observedDate ? ($byDate->get($observedDate)->context ?? []) : []];
                 }
                 // Health always looks at today, whatever period is shown.
                 $today = $now->setTimezone($source->reporting_timezone)->startOfDay();
@@ -94,7 +95,7 @@ class DashboardData
                 }
                 $currentMonitor = $this->currentMonitor($source, $monitorRows->last(), $now, $recentMonitorSince);
 
-                return ['id' => $source->id, 'label' => $source->label, 'kind' => $source->kind, 'reporting_timezone' => $source->reporting_timezone, 'enabled' => $source->enabled, 'status' => $status, 'last_success_at' => $source->last_success_at ? $source->last_success_at->utc()->translatedFormat('j M Y, H:i').' UTC' : null, 'last_success_timestamp' => $source->last_success_at?->getTimestamp(), 'latest_date' => $source->latest_data_date, 'error_code' => $source->error_code, 'connection_id' => $source->connection_id, 'metrics' => $metrics, 'current_monitor' => $currentMonitor, 'page_speed' => $source->kind === 'pagespeed' ? $source->config : null];
+                return ['id' => $source->id, 'label' => $source->label, 'kind' => $source->kind, 'reporting_timezone' => $source->reporting_timezone, 'enabled' => $source->enabled, 'status' => $status, 'last_success_at' => $source->last_success_at ? $source->last_success_at->utc()->translatedFormat('j M Y, H:i').' UTC' : null, 'last_success_timestamp' => $source->last_success_at?->getTimestamp(), 'latest_date' => $source->latest_data_date, 'error_code' => $source->error_code, 'connection_id' => $source->connection_id, 'metrics' => $metrics, 'metric_keys' => $metricKeys, 'current_monitor' => $currentMonitor, 'page_speed' => $source->kind === 'pagespeed' ? $source->config : null];
             })->all();
 
             return ['id' => $project->id, 'name' => $project->name, 'slug' => $project->slug, 'domain' => $project->domain, 'group' => $project->group?->name, 'archived' => $project->archived, 'sources' => $sources, 'status' => $this->projectStatus($sources), 'summary' => $this->summary($sources, $days)];

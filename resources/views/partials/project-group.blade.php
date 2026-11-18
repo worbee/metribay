@@ -1,5 +1,5 @@
 @php
-    $providerNames = $providerNames ?? ['ga4'=>'Google Analytics','gsc'=>'Google Search Console','bing'=>'Bing Webmaster','umami'=>'Umami Analytics','plausible'=>'Plausible','matomo'=>'Matomo','github'=>'GitHub','github_releases'=>'GitHub releases','feed'=>'RSS / Atom','sitemap'=>'Sitemap','azure_devops'=>'Azure DevOps','wporg'=>'WordPress.org','uptimerobot'=>'UptimeRobot','pagespeed'=>'PageSpeed Insights','paddle'=>'Paddle Billing','bluesky'=>'Bluesky','mastodon'=>'Mastodon'];
+    $providerNames = $providerNames ?? ['ga4'=>'Google Analytics','gsc'=>'Google Search Console','bing'=>'Bing Webmaster','umami'=>'Umami Analytics','plausible'=>'Plausible','matomo'=>'Matomo','github'=>'GitHub','github_releases'=>'GitHub releases','feed'=>'RSS / Atom','sitemap'=>'Sitemap','azure_devops'=>'Azure DevOps','wporg'=>'WordPress.org','uptimerobot'=>'UptimeRobot','pagespeed'=>'PageSpeed Insights','paddle'=>'Paddle Billing','bluesky'=>'Bluesky','mastodon'=>'Mastodon','posthog'=>'PostHog'];
     $groupId = 'group-'.$group['key'];
     $bodyId = $groupId.'-body';
     $multiple = count($group['sources']) > 1;

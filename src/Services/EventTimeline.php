@@ -212,7 +212,7 @@ class EventTimeline
             ->where('date', '>=', $from->toDateString())->where('date', '<=', $to->toDateString())->get(['source_id', 'metric', 'date', 'value']);
         foreach (self::LINE_METRICS as $metric) {
             foreach ($sources as $source) {
-                if (! in_array($metric, ProviderCatalog::metricKeys($source->kind), true)) {
+                if (! in_array($metric, ProviderCatalog::metricKeys($source->kind, $source->config ?? []), true)) {
                     continue;
                 }
                 $values = $rows->where('source_id', $source->id)->where('metric', $metric)->mapWithKeys(fn (DailyMetric $row): array => [$row->date->toDateString() => (float) $row->value]);

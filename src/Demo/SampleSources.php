@@ -106,6 +106,80 @@ final class SampleSources
     }
 
     /**
+     * PostHog website and product usage. Active users are the people with any event on a day; visitors are those who also viewed a page,
+     * visits are their sessions and page views follow per visit. People return across days, so active users and visitors over 7, 30 and 90 days
+     * are stored as periods and are never the sum of the daily counts.
+     *
+     * Options: viewers: share of active users with a page view; returning: sessions per visitor on a day; pages: page views per visit;
+     * loyalty: how strongly people return across days; timezone: the project timezone.
+     *
+     * @param  array<string, mixed>  $config
+     * @param  Closure(int, CarbonImmutable): float  $active  Expected active users on a day.
+     * @param  array{viewers: float, returning: float, pages: float, loyalty: float, timezone?: string}  $options
+     */
+    public function postHog(string $label, array $config, Closure $active, array $options): SampleSource
+    {
+        $timezone = $options['timezone'] ?? 'UTC';
+        $today = $this->today($timezone);
+        $first = $this->first(null);
+        $noise = $this->noise->fork('posthog:'.$label);
+        $level = $noise->fork('level')->wander($first + 1, 0.06);
+        $mix = $noise->fork('mix');
+        $counts = $noise->fork('counts');
+        $daily = [];
+        $people = ['active_users' => [], 'visitors' => []];
+        for ($ago = $first; $ago >= 0; $ago--) {
+            $date = $today->subDays($ago);
+            $share = $ago === 0 ? $this->elapsed($timezone) : 1.0;
+            $users = $counts->poisson($active($ago, $date) * $level[$first - $ago] * $share);
+            $viewers = (int) round($users * min(1.0, $options['viewers'] * (1 + 0.03 * $mix->normal())));
+            $visits = $viewers === 0 ? 0 : max($viewers, (int) round($viewers * max(1.02, $options['returning'] * (1 + 0.05 * $mix->normal()))));
+            $views = (int) round($visits * max(1.5, $options['pages'] * (1 + 0.06 * $mix->normal())));
+            $people['active_users'][$ago] = $users;
+            $people['visitors'][$ago] = $viewers;
+            foreach (['visitors' => $viewers, 'visits' => $visits, 'pageviews' => $views, 'active_users' => $users] as $metric => $value) {
+                $daily[] = $this->row($metric, $date, $value, $ago === 0);
+            }
+        }
+        $periods = [];
+        foreach ([7, 30, 90] as $length) {
+            foreach ([0, $length] as $offset) {
+                foreach ($people as $metric => $counted) {
+                    $window = array_filter($counted, fn (int $ago): bool => $ago >= $offset && $ago < $offset + $length, ARRAY_FILTER_USE_KEY);
+                    if ($window === []) {
+                        continue;
+                    }
+                    $unique = max(max($window), (int) round(array_sum($window) / (1 + $options['loyalty'] * log($length))));
+                    $periods[] = ['metric' => $metric, 'start_date' => $today->subDays($offset + $length - 1)->toDateString(), 'end_date' => $today->subDays($offset)->toDateString(),
+                        'value' => (float) $unique, 'is_partial' => $offset === 0];
+                }
+            }
+        }
+
+        return $this->source('posthog', $label, $config, $timezone, [new CollectionResult(daily: $daily, periods: $periods)], 14);
+    }
+
+    /**
+     * A PostHog key event: the daily count of one event, with quiet days recorded as zero.
+     *
+     * @param  array<string, mixed>  $config
+     * @param  Closure(int, CarbonImmutable): float  $count  Expected events on a day.
+     */
+    public function postHogEvent(string $label, array $config, Closure $count, string $timezone): SampleSource
+    {
+        $today = $this->today($timezone);
+        $noise = $this->noise->fork('posthog-event:'.($config['event'] ?? $label));
+        $daily = [];
+        for ($ago = $this->first(null); $ago >= 0; $ago--) {
+            $date = $today->subDays($ago);
+            $share = $ago === 0 ? $this->elapsed($timezone) : 1.0;
+            $daily[] = $this->row('key_events', $date, $noise->poisson(max(0.0, $count($ago, $date)) * $share), $ago === 0);
+        }
+
+        return $this->source('posthog', $label, $config, $timezone, [new CollectionResult(daily: $daily)], 14);
+    }
+
+    /**
      * Search Console or Bing. Daily totals are the sum of the top queries plus a long tail of rare queries, so clicks follow
      * from each query's position and the top queries never add up to more than the site.
      *

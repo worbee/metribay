@@ -1,6 +1,6 @@
 /** Collapsible project groups. The preference is per viewer, workspace and project, and makes no server write. */
 export const GROUP_STORAGE_VERSION = 'v1';
-export const KNOWN_GROUPS = ['revenue', 'audience', 'social', 'search', 'development', 'distribution', 'content', 'reliability', 'page_speed'];
+export const KNOWN_GROUPS = ['revenue', 'audience', 'product', 'social', 'search', 'development', 'distribution', 'content', 'reliability', 'page_speed'];
 
 export function storageKey(viewerId, workspaceId, projectId) {
     return `metribay.groups.${GROUP_STORAGE_VERSION}.${viewerId}.${workspaceId}.${projectId}`;

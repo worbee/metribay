@@ -14,6 +14,10 @@ Azure DevOps exposes the same `open_issues` key from its open work items, so it 
 
 **Followers** (`followers`) is the current follower count of a public Bluesky or Mastodon account. It is a snapshot like release downloads: one value per UTC day, replaced when that day is collected again, the latest recorded count in the window, a difference instead of a percentage change, and no backfill, because neither network publishes a follower history. Days without a successful collection stay empty, and an explicit zero is stored as zero. The overview **Followers** column adds the latest counts of a project's follower sources, so one person following two accounts counts twice. A total over days needs every source to report that day.
 
+**Active users** (`active_users`) are distinct people with any event in a PostHog project. Like visitors, they are a period metric: each day has its own count, and 7, 30 and 90-day totals are separate provider totals counted once per window, never a sum of days or of sources. There is no overview column for them, because the overview adds sources together.
+
+**Key events** (`key_events`) are the daily count of one named PostHog event, summed over days like page views. Each source counts one event; the chart label carries the event name. Different events are never added together.
+
 Overview columns match the metric keys exposed by each source. A future provider that exposes the registered `open_issues` metric joins the same overview column without a provider-specific dashboard change.
 
 All writes validate known metric keys, provider ownership, finite nonnegative numbers, valid dates and percent/status ranges before one atomic transaction. Canonical date-only setters prevent SQLite timestamp text from breaking metric identities. Daily first collected_at is preserved; changed numeric values advance revised_at, and observed_at records latest contact. Snapshot replacement removes omitted same-day readings while retaining present data. Uptime rows carry exact trailing24h window bounds.

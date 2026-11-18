@@ -16,6 +16,7 @@ use Metribay\Core\Connectors\ConnectorRegistry;
 use Metribay\Core\Connectors\ContentUrl;
 use Metribay\Core\Connectors\DeploymentAccess;
 use Metribay\Core\Connectors\DiscoveryException;
+use Metribay\Core\Connectors\PostHogClient;
 use Metribay\Core\Connectors\ProviderRequestLimit;
 use Metribay\Core\Connectors\ResourceDiscovery;
 use Metribay\Core\Connectors\SafeHttpClient;
@@ -234,7 +235,7 @@ class SourceSetupController
         $request->session()->put($this->key($request), $draft);
         $added = isset($draft['kind']) ? ProjectResources::added($project->id, $draft['kind']) : [];
         foreach ($draft['resources'] ?? [] as $index => $resource) {
-            $draft['resources'][$index]['added'] = in_array(ProjectResources::key($draft['kind'], (string) $resource['id']), $added, true);
+            $draft['resources'][$index]['added'] = ProjectResources::once($draft['kind']) && in_array(ProjectResources::key($draft['kind'], (string) $resource['id']), $added, true);
         }
 
         return view('metribay::source-setup', ['providerCounts' => $project->sources()->get(['kind'])->countBy('kind'), 'draft' => $draft, 'providers' => $providers, 'project' => $project, 'googleAuthorization' => app(GoogleAuthorization::class), 'connections' => Connection::query()->where('kind', $draft['kind'] ?? '')->orderBy('name')->get()]);
@@ -334,6 +335,17 @@ class SourceSetupController
                         throw ValidationException::withMessages(['resource' => __('Unable to read this property’s reporting timezone. Retry or use manual entry.')]);
                     }
                 }
+                if ($kind === 'posthog') {
+                    $this->authorize($request, 'manage_connections');
+                    $connection = Connection::query()->where('kind', $kind)->findOrFail($draft['connection_id'] ?? null);
+                    try {
+                        $draft['resource']['timezone'] = $discovery->postHogTimezone(app(ConnectionCredentials::class)->resolve($connection), $draft['resource']['id']);
+                    } catch (ProviderRequestLimit $exception) {
+                        throw ValidationException::withMessages(['resource' => $exception->getMessage()]);
+                    } catch (\Throwable) {
+                        throw ValidationException::withMessages(['resource' => __('Unable to read this project’s timezone. Retry or use manual entry.')]);
+                    }
+                }
                 $draft = $this->deploymentEnvironments($request, $draft);
                 $draft['step'] = 'confirm';
             } elseif ($action === 'page_speed') {
@@ -363,6 +375,13 @@ class SourceSetupController
                 if (in_array($kind, ProviderCatalog::FOLLOWER_PROVIDERS, true)) {
                     $values['resource_id'] = ProviderCatalog::socialAccount($kind, $values['resource_id'], 'resource_id');
                 }
+                if ($kind === 'posthog') {
+                    try {
+                        $values['resource_id'] = PostHogClient::projectId(trim($values['resource_id']));
+                    } catch (ConnectorException $exception) {
+                        throw ValidationException::withMessages(['resource_id' => __($exception->getMessage())]);
+                    }
+                }
                 $draft['resource'] = ['id' => $values['resource_id'], 'name' => $values['resource_id'], 'domain' => '', 'timezone' => ProviderCatalog::usesSiteTimezone($kind) ? $values['timezone'] : ProviderCatalog::all()[$kind]['default_timezone']];
                 $this->rejectAddedResource($draft);
                 $draft = $this->deploymentEnvironments($request, $draft);
@@ -374,11 +393,13 @@ class SourceSetupController
                 if ($kind === 'paddle') {
                     $request->validate(['share_revenue' => ['accepted']]);
                 }
-                $values = $request->validate(['label' => ['nullable', 'string', 'max:120'], 'days' => ['required', 'integer', 'min:1', 'max:366'], 'environments' => ['nullable', 'string', 'max:3000'], 'convert_to_events' => ['sometimes', 'boolean']]);
+                $values = $request->validate(['label' => ['nullable', 'string', 'max:120'], 'days' => ['required', 'integer', 'min:1', 'max:366'], 'environments' => ['nullable', 'string', 'max:3000'], 'convert_to_events' => ['sometimes', 'boolean'],
+                    'track' => [Rule::requiredIf($kind === 'posthog'), 'nullable', 'in:usage,event'], 'event' => ['nullable', 'required_if:track,event', 'string', 'max:500']]);
                 $field = ProjectResources::field($kind);
+                $event = $kind === 'posthog' && ($values['track'] ?? null) === 'event' ? ['event' => (string) $values['event']] : [];
                 $environments = ProviderCatalog::hasDeploymentEnvironments($kind) ? ProviderCatalog::environments((string) ($values['environments'] ?? '')) : [];
                 $preference = $request->exists('convert_to_events') && ProviderCatalog::convertsValuesToEvents($kind) ? ['convert_to_events' => $request->boolean('convert_to_events')] : [];
-                $config = ProviderCatalog::source($kind, [$field => $draft['resource']['id']] + ($kind === 'pagespeed' ? ['strategy' => $draft['resource']['strategy']] : []) + (in_array($kind, ['uptimerobot', 'pagespeed', 'github_releases', 'bluesky', 'mastodon'], true) ? [] : [($kind === 'wporg' ? 'limit' : 'days') => $values['days']]) + ($environments !== [] ? ['environments' => $environments] : []) + $preference, $draft['resource']['timezone']);
+                $config = ProviderCatalog::source($kind, [$field => $draft['resource']['id']] + ($kind === 'pagespeed' ? ['strategy' => $draft['resource']['strategy']] : []) + (in_array($kind, ['uptimerobot', 'pagespeed', 'github_releases', 'bluesky', 'mastodon'], true) ? [] : [($kind === 'wporg' ? 'limit' : 'days') => $values['days']]) + ($environments !== [] ? ['environments' => $environments] : []) + $preference + $event, $draft['resource']['timezone']);
                 if (! ProviderCatalog::requiresConnection($kind) && ! ProviderCatalog::connectionOptional($kind)) {
                     if ($kind === 'pagespeed' && ! app(PageSpeedCredentials::class)->available()) {
                         throw ValidationException::withMessages(['resource' => __('Page speed is temporarily unavailable. Please try again later.')]);
@@ -391,12 +412,12 @@ class SourceSetupController
                 $source = DB::transaction(function () use ($values, $draft, $kind, $config) {
                     $project = Project::query()->where('archived', false)->lockForUpdate()->findOrFail($draft['project_id']);
                     $hash = ProviderCatalog::identityHash($kind, $config, $draft['resource']['timezone']);
-                    if (($kind !== 'pagespeed' && ProjectResources::contains($project->id, $kind, (string) $config[ProjectResources::field($kind)]))
+                    if (($kind !== 'pagespeed' && ProjectResources::contains($project->id, $kind, ProjectResources::resource($kind, $config)))
                         || Source::query()->where('project_id', $project->id)->where('identity_hash', $hash)->exists()) {
                         throw ValidationException::withMessages(['resource' => __('This data source is already in this project.')]);
                     }
 
-                    return Source::create(['project_id' => $project->id, 'kind' => $kind, 'label' => ($values['label'] ?? '') ?: mb_substr(ProviderCatalog::all()[$kind]['label'].' · '.$draft['resource']['name'], 0, 120), 'connection_id' => $draft['connection_id'] ?? null, 'reporting_timezone' => $draft['resource']['timezone'], 'config' => $config, 'identity_hash' => $hash]);
+                    return Source::create(['project_id' => $project->id, 'kind' => $kind, 'label' => ($values['label'] ?? '') ?: mb_substr(ProviderCatalog::all()[$kind]['label'].' · '.$draft['resource']['name'].(isset($config['event']) ? ' · '.$config['event'] : ''), 0, 120), 'connection_id' => $draft['connection_id'] ?? null, 'reporting_timezone' => $draft['resource']['timezone'], 'config' => $config, 'identity_hash' => $hash]);
                 });
                 CollectSource::dispatch(app(WorkspaceContext::class)->id(), $source->id, true)->afterCommit();
                 $request->session()->forget($key);
@@ -415,6 +436,9 @@ class SourceSetupController
     /** @param array<string, mixed> $draft */
     private function rejectAddedResource(array $draft): void
     {
+        if (! ProjectResources::once($draft['kind'])) {
+            return;
+        }
         if (ProjectResources::contains((int) $draft['project_id'], $draft['kind'], (string) $draft['resource']['id'])) {
             throw ValidationException::withMessages(['resource' => __('This data source is already in this project.')]);
         }

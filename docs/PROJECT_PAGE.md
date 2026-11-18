@@ -34,7 +34,7 @@ Events are not listed on this page: their markers stay on the charts, and clicki
 
 ## Project views
 
-The header switches views without a server write. **Overview** and **All metrics** are unchanged, and a project still opens on All metrics. Three presets use the same group keys: **Search** (`?view=search`), **Development and Issues** (`?view=development`) and **Revenue** (`?view=revenue`). A preset is offered when that group exists on the project. Opening a preset the project does not have shows the view with an empty note, and the other charts stay one link away.
+The header switches views without a server write. **Overview** and **All metrics** are unchanged, and a project still opens on All metrics. Four presets use the same group keys: **Product** (`?view=product`), **Search** (`?view=search`), **Development and Issues** (`?view=development`) and **Revenue** (`?view=revenue`). A preset is offered when that group exists on the project. Opening a preset the project does not have shows the view with an empty note, and the other charts stay one link away.
 
 **Custom view** lists only the groups on the project. **Show** applies the checked groups (`?groups=audience,search`, known keys, in group order). An unknown or empty `groups` value stays on All metrics. A preset in `view` wins over `groups`. Period links, the date form and the query archive keep the current view. Summary cells and status links still open the chart: on the current page when its group is visible, otherwise on All metrics. A failed or delayed source whose group is outside the view keeps its warning on the page.
 
@@ -55,7 +55,8 @@ The overview (a menu) and the project page (the segmented control) share one per
 
 | Group | Metrics (lead first) | Providers |
 | --- | --- | --- |
-| Audience | **Visits**, Visitors, Page views | Umami, Plausible, Matomo, Google Analytics |
+| Audience | **Visits**, Visitors, Page views | Umami, Plausible, Matomo, Google Analytics, PostHog |
+| Product | **Active users**, Key events | PostHog |
 | Social | **Followers** | Bluesky, Mastodon |
 | Search | **Clicks**, Impressions, Indexed pages | Search Console, Bing Webmaster |
 | Development | **Commits**, PRs merged, Lines changed, Open issues, Pipeline runs succeeded / failed | GitHub, Azure DevOps |
@@ -111,7 +112,7 @@ Built by `Services\SearchQueries`; view `partials/search-queries`. Tests: `tests
 
 Matches the index (`partials/overview-change`): ↗ / ↘ / →, one decimal below 10 %, whole numbers from 10 %. Colour applies from 10 % and depends on the metric's polarity:
 
-- Higher is better: visits, visitors, page views, clicks, impressions, indexed pages, commits, PRs merged, pipeline runs succeeded, downloads, release downloads, followers, uptime, lab score.
+- Higher is better: visits, visitors, page views, active users, key events, clicks, impressions, indexed pages, commits, PRs merged, pipeline runs succeeded, downloads, release downloads, followers, uptime, lab score.
 - Lower is better (a rise is red): open issues, pipeline runs failed, response time, every LCP / INP / CLS / TBT value.
 - Neutral (never coloured): lines changed.
 
