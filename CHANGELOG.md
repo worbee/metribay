@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-## 1.4.0 — Unreleased
+## 1.4.0 — 2026-11-18
 
 - Connect **PostHog**. Add a data source, choose **PostHog**, connect PostHog Cloud (US or EU) or a public self-hosted server with a personal API key that can read Project, Query and Event definition, and pick a project. A project API key (`phc_…`) only sends events and is rejected. Then choose **What to track**:
   - **Website and product usage** records visitors, visits and page views in **Audience**, and **Active users** (people with any event) in a new **Product** group. Visitors and active users over 7, 30 and 90 days are counted once per period, never added up day by day.
