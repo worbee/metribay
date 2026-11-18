@@ -45,6 +45,41 @@
     </div>
 </section>
 @endif
+@if (\Illuminate\Support\Facades\Route::has('passkey.store'))
+@php($passkeys = $user->passkeys()->orderBy('created_at')->get())
+@php($passwordConfirmed = (int) session('auth.password_confirmed_at', 0) >= time() - (int) config('auth.password_timeout', 10800))
+<section class="settings-section" aria-labelledby="passkeys-heading">
+    <div class="section-intro"><h2 id="passkeys-heading">{{ __('Passkeys') }}</h2><p>{{ __('Sign in with Touch ID, Face ID, Windows Hello or a security key instead of your password and code.') }}</p></div>
+    <div class="form-stack form-width">
+    @if ($passkeys->isEmpty())
+        <p class="muted">{{ __('No passkeys yet. Your password keeps working after you add one.') }}</p>
+    @else
+        <ul class="passkey-list">
+        @foreach ($passkeys as $passkey)
+            <li class="passkey-item">
+                @include('metribay::partials/icon', ['name'=>'key'])
+                <div class="passkey-details"><strong>{{ $passkey->name }}</strong><span>{{ $passkey->authenticator ? $passkey->authenticator.' · ' : '' }}{{ __('Added :date', ['date' => $passkey->created_at?->translatedFormat('j M Y')]) }} · {{ $passkey->last_used_at ? __('Last used :date', ['date' => $passkey->last_used_at->translatedFormat('j M Y')]) : __('Not used yet') }}</span></div>
+                @if ($passwordConfirmed)
+                <form method="POST" action="{{ route('passkey.destroy', $passkey) }}" data-confirm="{{ __('Remove the passkey “:name”? You can still sign in with your password.', ['name' => $passkey->name]) }}">@csrf @method('DELETE')<button class="button button-danger-quiet" type="submit">{{ __('Remove') }}</button></form>
+                @endif
+            </li>
+        @endforeach
+        </ul>
+    @endif
+    @if (! $passwordConfirmed)
+        <p class="muted">{{ __('Confirm your password to add or remove passkeys.') }}</p>
+        <a class="button button-secondary" href="{{ route('password.confirm') }}">{{ __('Confirm password') }}</a>
+    @else
+        <form class="form-stack" data-passkey data-options-url="{{ route('passkey.registration-options') }}" data-submit-url="{{ route('passkey.store') }}" data-confirm-url="{{ route('password.confirm') }}" hidden>
+            <div class="field"><label for="passkey-name">{{ __('Passkey name') }}</label><input id="passkey-name" name="name" maxlength="80" required placeholder="{{ __('For example, MacBook Touch ID') }}" autocomplete="off"><p class="field-hint">{{ __('Your browser or device asks you to confirm with your fingerprint, face, PIN or security key.') }}</p></div>
+            <div><button class="button button-primary" type="submit">{{ __('Add a passkey') }}</button></div>
+            <p class="passkey-error" role="alert" data-passkey-error hidden></p>
+        </form>
+        <p class="muted" data-passkey-unsupported hidden>{{ __('This browser can’t create passkeys. Try a current version of Safari, Chrome, Edge or Firefox.') }}</p>
+    @endif
+    </div>
+</section>
+@endif
 <section class="settings-section" aria-labelledby="language-heading">
     <div class="section-intro"><h2 id="language-heading">{{ __('Language') }}</h2><p>{{ __('Used for the interface and the emails Metribay sends you.') }}</p></div>
     <div class="form-stack form-width">@include('metribay::partials/language-select')<p class="field-hint">{{ __('Names and content from your providers are shown as they are.') }}</p></div>

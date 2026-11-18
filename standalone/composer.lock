@@ -2550,7 +2550,7 @@
             "dist": {
                 "type": "path",
                 "url": "..",
-                "reference": "0bc0659afe734a438dc831931e9fa006b94a35da"
+                "reference": "6a170af284a878fdff548195f75f311137fde6e7"
             },
             "require": {
                 "ext-curl": "*",
@@ -2559,8 +2559,9 @@
                 "ext-libxml": "*",
                 "firebase/php-jwt": "^7.0",
                 "google/auth": "^1.0",
-                "laravel/fortify": "^1.0",
+                "laravel/fortify": "^1.41",
                 "laravel/framework": "^13.17",
+                "laravel/passkeys": "^0.2.1",
                 "livewire/livewire": "^4.0",
                 "php": "^8.5",
                 "simplepie/simplepie": "^1.9"

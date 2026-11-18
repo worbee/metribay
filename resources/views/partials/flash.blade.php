@@ -9,6 +9,8 @@
             'two-factor-authentication-confirmed' => __('Two-factor authentication is enabled.'),
             'recovery-codes-generated' => __('New recovery codes generated. Store them somewhere private.'),
             'two-factor-authentication-disabled' => __('Two-factor authentication is disabled.'),
+            'passkey-registered' => __('Passkey added.'),
+            'passkey-deleted' => __('Passkey removed.'),
             default => session('status'),
         } }}</div>
     </div>

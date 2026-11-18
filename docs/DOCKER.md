@@ -29,6 +29,8 @@ The install command asks for a password privately and creates the only account. 
 
 Set `APP_URL` to the exact address you use. In production, the standalone host rejects other hostnames, including subdomains, to protect password-reset and verification links. Local health probes must send that hostname in the `Host` header; the image healthcheck does this automatically. For example, with `APP_URL=https://metrics.example.com`, use `curl -H "Host: metrics.example.com" http://127.0.0.1:8080/up`.
 
+Passkeys (Profile → Passkeys) use the host name in `APP_URL` as their site ID, so they only work at that exact address. Browsers allow them over HTTPS, or on `localhost` while testing, and never on an IP address such as `127.0.0.1`. Passkeys made for one address don't work at another; users add new ones after a move. Passwords and two-factor codes keep working either way.
+
 `web` runs pending migrations before it starts serving, and `worker` and `scheduler` wait until `web` is healthy. The scheduler starts collection every four hours, uptime hourly and a full history refresh weekly ([OPERATIONS.md](OPERATIONS.md)). The port is bound to `127.0.0.1:8080`; set `METRIBAY_PORT` in `docker/.env` to change it.
 
 ### PostgreSQL

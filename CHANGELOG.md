@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 1.5.0 — 2026-11-18
+
+- Sign in with a **passkey**: Touch ID, Face ID, Windows Hello, a phone or a security key. Add one under **Profile → Passkeys** after confirming your password, then choose **Sign in with a passkey** on the sign-in page. A passkey replaces both the password and the two-factor code, and requires the device's fingerprint, face or PIN. Your password and two-factor authentication keep working.
+- **Confirm password** pages offer **Use a passkey** when you have one. Profile lists each passkey with when it was added and last used, and removes it after a fresh confirmation.
+- Passkeys are opt-in, like two-factor authentication. Hosts enable them with Fortify's `Features::passkeys(['confirmPassword' => true])`; the standalone host and Docker image do. Passkeys need `APP_URL` to be the exact address people open, with a host name rather than an IP address, served over HTTPS (or `localhost` while testing).
+- A failed passkey check (wrong site, replayed or invalid signature) is refused with a message instead of a server error. Passkey sign-in and confirmation are rate limited per session and per IP address.
+- New migration: `passkeys` (skipped when a host already has that table). New strings in all twelve languages. Standalone test runs set a 512M memory limit. Core now requires `laravel/fortify` ^1.41 and `laravel/passkeys` ^0.2.1.
+
 ## 1.4.2 — 2026-11-18
 
 - Check access before adding a GitHub repository. When access is lost, project settings explain the issue and let you retry collection on the same data source.

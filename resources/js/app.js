@@ -4,6 +4,7 @@ import { Chart, LineController, LineElement, PointElement, CategoryScale, Linear
 import { setupHourlyRefresh } from './hourly-refresh.js';
 import { applyGroupCollapse, fragmentTarget, openCollapsedGroup, setupGroupCollapse } from './group-collapse.js';
 import { renderProjectViews, setupProjectViews } from './project-views.js';
+import { setupPasskeys } from './passkeys.js';
 
 Chart.register(LineController, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Filler);
 
@@ -628,3 +629,4 @@ document.addEventListener('DOMContentLoaded', setupSourceForms);
 document.addEventListener('livewire:navigated', setupSourceForms);
 
 setupHourlyRefresh();
+setupPasskeys(t);

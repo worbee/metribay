@@ -1647,7 +1647,7 @@ function kr(e, t) {
 	let n = e._chartjs;
 	if (!n) return;
 	let r = n.listeners, i = r.indexOf(t);
-	i !== -1 && r.splice(i, 1), r.length > 0 || (Dr.forEach((t) => {
+	i !== -1 && r.splice(i, 1), !(r.length > 0) && (Dr.forEach((t) => {
 		delete e[t];
 	}), delete e._chartjs);
 }
@@ -2389,7 +2389,7 @@ function ta(e, t, n, r) {
 }
 function na(e, t, n) {
 	let r = e.length, i, a, o, s, c, l = $i(e, 0);
-	for (let u = 0; u < r - 1; ++u) c = l, l = $i(e, u + 1), c && l && (sr(t[u], 0, Qi) ? n[u] = n[u + 1] = 0 : (i = n[u] / t[u], a = n[u + 1] / t[u], s = i ** 2 + a ** 2, s <= 9 || (o = 3 / Math.sqrt(s), n[u] = i * o * t[u], n[u + 1] = a * o * t[u])));
+	for (let u = 0; u < r - 1; ++u) c = l, l = $i(e, u + 1), c && l && (sr(t[u], 0, Qi) ? n[u] = n[u + 1] = 0 : (i = n[u] / t[u], a = n[u + 1] / t[u], s = i ** 2 + a ** 2, !(s <= 9) && (o = 3 / Math.sqrt(s), n[u] = i * o * t[u], n[u + 1] = a * o * t[u])));
 }
 function ra(e, t, n = "x") {
 	let r = ea(n), i = e.length, a, o, s, c = $i(e, 0);
@@ -2631,7 +2631,7 @@ function Pa(e, t, n) {
 function Fa(e, t, n) {
 	if (!n) return [e];
 	let { property: r, start: i, end: a } = n, o = t.length, { compare: s, between: c, normalize: l } = Ma(r), { start: u, end: d, loop: f, style: p } = Pa(e, t, n), m = [], h = !1, g = null, _, v, y, b = () => c(i, y, _) && s(i, y) !== 0, x = () => s(a, _) === 0 || c(a, y, _), S = () => h || b(), C = () => !h || x();
-	for (let e = u, n = u; e <= d; ++e) v = t[e % o], v.skip || (_ = l(v[r]), _ !== y && (h = c(_, i, a), g === null && S() && (g = s(_, i) === 0 ? e : n), g !== null && C() && (m.push(Na({
+	for (let e = u, n = u; e <= d; ++e) v = t[e % o], !v.skip && (_ = l(v[r]), _ !== y && (h = c(_, i, a), g === null && S() && (g = s(_, i) === 0 ? e : n), g !== null && C() && (m.push(Na({
 		start: g,
 		end: e,
 		loop: f,
@@ -5565,7 +5565,7 @@ function Mc(e, t, n = {}) {
 }
 function Nc(e, t, n, r) {
 	let { points: i, options: a } = t, { count: o, start: s, loop: c, ilen: l } = Mc(i, n, r), u = jc(a), { move: d = !0, reverse: f } = r || {}, p, m, h;
-	for (p = 0; p <= l; ++p) m = i[(s + (f ? l - p : p)) % o], m.skip || (d ? (e.moveTo(m.x, m.y), d = !1) : u(e, h, m, f, a.stepped), h = m);
+	for (p = 0; p <= l; ++p) m = i[(s + (f ? l - p : p)) % o], !m.skip && (d ? (e.moveTo(m.x, m.y), d = !1) : u(e, h, m, f, a.stepped), h = m);
 	return c && (m = i[(s + (f ? l : 0)) % o], u(e, h, m, f, a.stepped)), !!c;
 }
 function Pc(e, t, n, r) {
@@ -7582,7 +7582,7 @@ function Zu(e) {
 	a && (i.hash === window.location.hash ? (e.preventDefault(), window.dispatchEvent(new HashChangeEvent("hashchange"))) : Yu(a));
 }
 function Qu(e = () => {}) {
-	Lu = e, Ru || typeof document > "u" || (Ru = !0, document.addEventListener("click", Zu));
+	Lu = e, !(Ru || typeof document > "u") && (Ru = !0, document.addEventListener("click", Zu));
 }
 function $u(e, t, n) {
 	return `metribay.views.v1.${e}.${t}.${n}`;
@@ -7841,11 +7841,139 @@ function Ed(e) {
 	e.preventDefault(), e.key === "Escape" ? (t.value = n.querySelector("[data-saved-link]").textContent, t.hidden = !0, n.querySelector("[data-saved-link]").hidden = !1, n.querySelector("[data-saved-rename]").hidden = !1, n.querySelector("[data-saved-rename-save]").hidden = !0, n.querySelector("[data-saved-rename]").focus()) : n.querySelector("[data-saved-rename-save]").click();
 }
 function Dd() {
-	Cd(), fd || typeof document > "u" || (fd = !0, document.addEventListener("click", wd), document.addEventListener("submit", Td), document.addEventListener("keydown", Ed, !0));
+	Cd(), !(fd || typeof document > "u") && (fd = !0, document.addEventListener("click", wd), document.addEventListener("submit", Td), document.addEventListener("keydown", Ed, !0));
+}
+// resources/js/passkeys.js
+function Od(e) {
+	let t = new Uint8Array(e), n = "";
+	for (let e of t) n += String.fromCharCode(e);
+	return btoa(n).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+function kd(e) {
+	let t = e.replace(/-/g, "+").replace(/_/g, "/"), n = atob(t + "=".repeat((4 - t.length % 4) % 4)), r = new Uint8Array(n.length);
+	for (let e = 0; e < n.length; e += 1) r[e] = n.charCodeAt(e);
+	return r.buffer;
+}
+var Ad = (e) => (e || []).map((e) => ({
+	...e,
+	id: kd(e.id)
+}));
+function jd(e) {
+	return {
+		...e,
+		challenge: kd(e.challenge),
+		user: {
+			...e.user,
+			id: kd(e.user.id)
+		},
+		excludeCredentials: Ad(e.excludeCredentials)
+	};
+}
+function Md(e) {
+	return {
+		...e,
+		challenge: kd(e.challenge),
+		allowCredentials: Ad(e.allowCredentials)
+	};
+}
+function Nd(e) {
+	let { response: t } = e, n = { clientDataJSON: Od(t.clientDataJSON) };
+	return t.attestationObject ? (n.attestationObject = Od(t.attestationObject), typeof t.getTransports == "function" && (n.transports = t.getTransports())) : (n.authenticatorData = Od(t.authenticatorData), n.signature = Od(t.signature), t.userHandle && (n.userHandle = Od(t.userHandle))), {
+		id: e.id,
+		rawId: Od(e.rawId),
+		type: e.type,
+		response: n
+	};
+}
+function Pd(e = window) {
+	return !!(e.PublicKeyCredential && e.navigator?.credentials?.create && e.isSecureContext);
+}
+async function Fd(e, t = "GET", n = void 0) {
+	let r = document.querySelector("meta[name=\"csrf-token\"]")?.content || "", i = await fetch(e, {
+		method: t,
+		credentials: "same-origin",
+		headers: {
+			Accept: "application/json",
+			"X-Requested-With": "XMLHttpRequest",
+			...n ? {
+				"Content-Type": "application/json",
+				"X-CSRF-TOKEN": r
+			} : {}
+		},
+		body: n ? JSON.stringify(n) : void 0
+	}), a = {};
+	try {
+		a = await i.json();
+	} catch {}
+	return {
+		response: i,
+		data: a
+	};
+}
+function Id(e, t) {
+	return (e?.errors ? Object.values(e.errors).flat() : [])[0] || e?.message || t;
+}
+function Ld(e, t) {
+	let n = e.querySelector("[data-passkey-error]"), r = e.querySelectorAll("button"), i = (e) => {
+		n && (n.textContent = e, n.hidden = !e);
+	}, a = (e) => r.forEach((t) => {
+		t.disabled = e;
+	});
+	async function o(e) {
+		i(""), a(!0);
+		try {
+			await e();
+		} catch (e) {
+			i(e?.name === "NotAllowedError" ? t("The passkey prompt was cancelled or timed out.") : e?.userMessage || t("The passkey could not be used. Try again.")), a(!1);
+		}
+	}
+	let s = (e) => Object.assign(Error(e), { userMessage: e });
+	async function c() {
+		let n = await Fd(e.dataset.optionsUrl);
+		if (!n.response.ok) throw s(Id(n.data, t("The passkey could not be used. Try again.")));
+		let r = await navigator.credentials.get({ publicKey: Md(n.data.options) }), i = e.querySelector("[data-passkey-remember]") || document.querySelector("input[name=\"remember\"]"), a = await Fd(e.dataset.submitUrl, "POST", {
+			credential: Nd(r),
+			remember: !!i?.checked
+		});
+		if (!a.response.ok) throw s(Id(a.data, t("The passkey could not be used. Try again.")));
+		window.location.assign(e.dataset.redirect || a.data.redirect || "/");
+	}
+	async function l(n) {
+		let r = await Fd(e.dataset.optionsUrl);
+		if (r.response.status === 423) {
+			window.location.assign(e.dataset.confirmUrl);
+			return;
+		}
+		if (!r.response.ok) throw s(Id(r.data, t("The passkey could not be added. Try again.")));
+		let i = await navigator.credentials.create({ publicKey: jd(r.data.options) }), a = await Fd(e.dataset.submitUrl, "POST", {
+			name: n,
+			credential: Nd(i)
+		});
+		if (a.response.status === 423) window.location.assign(e.dataset.confirmUrl);
+		else {
+			if (!a.response.ok) throw s(Id(a.data, t("The passkey could not be added. Try again.")));
+			window.location.reload();
+		}
+	}
+	e.matches("form") ? e.addEventListener("submit", (t) => {
+		t.preventDefault();
+		let n = e.querySelector("input[name=\"name\"]")?.value.trim() || "";
+		o(() => l(n));
+	}) : e.querySelector("[data-passkey-start]")?.addEventListener("click", () => o(c));
+}
+function Rd(e) {
+	let t = document.querySelectorAll("[data-passkey]");
+	if (!t.length) return;
+	let n = Pd();
+	document.querySelectorAll("[data-passkey-unsupported]").forEach((e) => {
+		e.hidden = n;
+	}), n && t.forEach((t) => {
+		t.hidden = !1, Ld(t, e);
+	});
 }
 // resources/js/app.js
 Dc.register(xo, Vc, Uc, Gl, Yl, Bl, xl);
-var Od = document.documentElement, kd = /* @__PURE__ */ new Set(), Ad = {
+var zd = document.documentElement, Bd = /* @__PURE__ */ new Set(), Vd = {
 	get(e, t) {
 		try {
 			return localStorage.getItem(`metribay.${e}`) || t;
@@ -7858,32 +7986,32 @@ var Od = document.documentElement, kd = /* @__PURE__ */ new Set(), Ad = {
 			localStorage.setItem(`metribay.${e}`, t);
 		} catch {}
 	}
-}, jd = window.matchMedia("(prefers-color-scheme: dark)"), Md = !1, Nd = {};
+}, Hd = window.matchMedia("(prefers-color-scheme: dark)"), Ud = !1, Wd = {};
 try {
-	Nd = JSON.parse(document.getElementById("metribay-i18n")?.textContent || "{}");
+	Wd = JSON.parse(document.getElementById("metribay-i18n")?.textContent || "{}");
 } catch {}
 function $(e, t = {}) {
-	let n = Nd[e] ?? e;
+	let n = Wd[e] ?? e;
 	for (let [e, r] of Object.entries(t)) n = n.replaceAll(`:${e}`, r);
 	return n;
 }
-function Pd() {
-	let e = Ad.get("theme", "system");
+function Gd() {
+	let e = Vd.get("theme", "system");
 	return [
 		"light",
 		"dark",
 		"system"
 	].includes(e) ? e : "system";
 }
-function Fd(e = Pd(), t = !1) {
+function Kd(e = Gd(), t = !1) {
 	[
 		"light",
 		"dark",
 		"system"
-	].includes(e) && (t && Ad.set("theme", e), Od.dataset.theme = e === "system" ? jd.matches ? "dark" : "light" : e, document.querySelectorAll("[data-theme-input]").forEach((t) => {
+	].includes(e) && (t && Vd.set("theme", e), zd.dataset.theme = e === "system" ? Hd.matches ? "dark" : "light" : e, document.querySelectorAll("[data-theme-input]").forEach((t) => {
 		t.checked = t.value === e;
 	}), document.querySelectorAll("[data-theme-cycle]").forEach((t) => {
-		let n = e === "system" ? Od.dataset.theme === "light" ? "dark" : "light" : {
+		let n = e === "system" ? zd.dataset.theme === "light" ? "dark" : "light" : {
 			light: "dark",
 			dark: "system"
 		}[e], r = {
@@ -7895,15 +8023,15 @@ function Fd(e = Pd(), t = !1) {
 			next: r[n]
 		});
 		t.title = i, t.setAttribute("aria-label", i), t.dataset.currentTheme = e;
-	}), tf());
+	}), pf());
 }
-jd.addEventListener("change", () => {
-	Pd() === "system" && Fd();
+Hd.addEventListener("change", () => {
+	Gd() === "system" && Kd();
 });
-function Id(e) {
+function qd(e) {
 	return e != null && e !== "" && Number.isFinite(Number(e)) ? Number(e) : null;
 }
-function Ld(e, t = "count", n = !1, r = null) {
+function Jd(e, t = "count", n = !1, r = null) {
 	if (e === null) return $("Unavailable");
 	if (t === "status") return {
 		0: $("Paused"),
@@ -7927,7 +8055,7 @@ function Ld(e, t = "count", n = !1, r = null) {
 	let a = new Intl.NumberFormat(document.documentElement.lang || "en", i).format(e);
 	return t === "percent" ? `${a}%` : t === "ms" ? `${a} ms` : t === "score" ? `${a}/100` : a;
 }
-function Rd(e, t = !1) {
+function Yd(e, t = !1) {
 	let n = /* @__PURE__ */ new Date(`${e}T12:00:00Z`);
 	return Number.isNaN(n.getTime()) ? e : new Intl.DateTimeFormat(document.documentElement.lang || "en", {
 		day: "numeric",
@@ -7936,17 +8064,17 @@ function Rd(e, t = !1) {
 		timeZone: "UTC"
 	}).format(n);
 }
-function zd() {
-	let e = Ad.get("numbers", "full") === "compact";
+function Xd() {
+	let e = Vd.get("numbers", "full") === "compact";
 	document.querySelectorAll("[data-metric-number]").forEach((t) => {
-		let n = Id(t.dataset.metricNumber);
+		let n = qd(t.dataset.metricNumber);
 		if (n === null) return;
-		let r = Ld(n, t.dataset.unit, e);
-		t.textContent !== r && (t.textContent = r), t.title = Ld(n, t.dataset.unit, !1);
+		let r = Jd(n, t.dataset.unit, e);
+		t.textContent !== r && (t.textContent = r), t.title = Jd(n, t.dataset.unit, !1);
 	});
 }
-function Bd() {
-	let e = getComputedStyle(Od);
+function Zd() {
+	let e = getComputedStyle(zd);
 	return Object.fromEntries([
 		"chart-line",
 		"chart-previous",
@@ -7962,7 +8090,7 @@ function Bd() {
 		"event-automatic"
 	].map((t) => [t, e.getPropertyValue(`--${t}`).trim()]));
 }
-var Vd = {
+var Qd = {
 	id: "metribayEvents",
 	afterDatasetsDraw(e, t, n) {
 		let r = n.events ?? [];
@@ -7977,19 +8105,19 @@ var Vd = {
 		}
 		i.restore();
 	}
-}, Hd = null;
-function Ud(e, t) {
-	if (e !== Hd) {
-		Hd = e;
-		for (let n of kd) n.metribayCrossDate = e, n !== t && n.draw();
+}, $d = null;
+function ef(e, t) {
+	if (e !== $d) {
+		$d = e;
+		for (let n of Bd) n.metribayCrossDate = e, n !== t && n.draw();
 	}
 }
-var Wd = {
+var tf = {
 	id: "metribayCrosshair",
 	afterEvent(e, t) {
 		let { event: n } = t;
 		if (n.type === "mouseout" || !t.inChartArea) {
-			Hd !== null && (Ud(null, e), t.changed = !0);
+			$d !== null && (ef(null, e), t.changed = !0);
 			return;
 		}
 		if (![
@@ -7998,23 +8126,23 @@ var Wd = {
 			"touchmove"
 		].includes(n.type)) return;
 		let r = Math.round(e.scales.x.getValueForPixel(n.x)), i = e.data.labels[Math.max(0, Math.min(e.data.labels.length - 1, r))] ?? null;
-		i !== Hd && (Ud(i, e), t.changed = !0);
+		i !== $d && (ef(i, e), t.changed = !0);
 	},
 	afterDatasetsDraw(e) {
-		let t = Hd === null ? -1 : e.data.labels.indexOf(Hd);
+		let t = $d === null ? -1 : e.data.labels.indexOf($d);
 		if (t < 0) return;
 		let { ctx: n, chartArea: { top: r, bottom: i }, scales: { x: a, y: o } } = e, s = e.metribayColors, c = a.getPixelForValue(t);
 		n.save(), n.strokeStyle = s["text-muted"], n.globalAlpha = .55, n.lineWidth = 1, n.beginPath(), n.moveTo(c, r), n.lineTo(c, i), n.stroke();
-		let l = e.isDatasetVisible(0) ? Id(e.data.datasets[0].data[t]) : null;
+		let l = e.isDatasetVisible(0) ? qd(e.data.datasets[0].data[t]) : null;
 		l !== null && !e.tooltip?.getActiveElements().length && (n.globalAlpha = 1, n.fillStyle = s["chart-line"], n.strokeStyle = s.surface, n.lineWidth = 2, n.beginPath(), n.arc(c, o.getPixelForValue(l), 3.5, 0, Math.PI * 2), n.fill(), n.stroke()), n.restore();
 	}
 };
-function Gd(e, t, n) {
-	let r = Bd(), i = [
+function nf(e, t, n) {
+	let r = Zd(), i = [
 		"l",
 		"s",
 		"n"
-	].includes(t.size) ? t.size : "l", a = i === "l", o = i === "n", s = Array.isArray(t.series) ? t.series : [], c = !o && Array.isArray(t.previous) ? t.previous : [], l = s.map((e) => e.date), u = c.some((e) => Id(e.value) !== null), d = o || !Array.isArray(t.events) ? [] : t.events.filter((e) => l.includes(e.date)), f = (e) => d.filter((t) => t.date === e), p = (e, n) => {
+	].includes(t.size) ? t.size : "l", a = i === "l", o = i === "n", s = Array.isArray(t.series) ? t.series : [], c = !o && Array.isArray(t.previous) ? t.previous : [], l = s.map((e) => e.date), u = c.some((e) => qd(e.value) !== null), d = o || !Array.isArray(t.events) ? [] : t.events.filter((e) => l.includes(e.date)), f = (e) => d.filter((t) => t.date === e), p = (e, n) => {
 		if (!t.eventsUrl || !d.length) return null;
 		let r = null;
 		for (let t of new Set(d.map((e) => e.date))) {
@@ -8028,9 +8156,9 @@ function Gd(e, t, n) {
 	}, m = (e) => {
 		let n = f(e);
 		n.length && t.eventsUrl && window.location.assign(`${t.eventsUrl}${t.eventsUrl.includes("?") ? "&" : "?"}date=${e}#${n.length === 1 ? n[0].anchor : `day-${e}`}`);
-	}, h = (e) => Id(s[e]?.value) !== null, g = (e) => h(e) && !h(e - 1) && !h(e + 1), _ = s.length - 1, v = [{
+	}, h = (e) => qd(s[e]?.value) !== null, g = (e) => h(e) && !h(e - 1) && !h(e + 1), _ = s.length - 1, v = [{
 		label: $("Selected period"),
-		data: s.map((e) => Id(e.value)),
+		data: s.map((e) => qd(e.value)),
 		borderColor: r["chart-line"],
 		backgroundColor: `${r["chart-line"]}${o ? "14" : "0c"}`,
 		borderWidth: a ? 2 : 1.6,
@@ -8053,7 +8181,7 @@ function Gd(e, t, n) {
 	}];
 	u && v.push({
 		label: $("Previous period"),
-		data: l.map((e, t) => Id(c[t]?.value)),
+		data: l.map((e, t) => qd(c[t]?.value)),
 		borderColor: r["chart-previous"],
 		backgroundColor: "transparent",
 		borderDash: [3, 3],
@@ -8076,7 +8204,7 @@ function Gd(e, t, n) {
 			labels: l,
 			datasets: v
 		},
-		plugins: [Vd, Wd],
+		plugins: [Qd, tf],
 		options: {
 			responsive: !0,
 			maintainAspectRatio: !1,
@@ -8124,11 +8252,11 @@ function Gd(e, t, n) {
 					},
 					callbacks: {
 						title(e) {
-							return e.length ? Rd(s[e[0].dataIndex]?.date ?? "", !0) : "";
+							return e.length ? Yd(s[e[0].dataIndex]?.date ?? "", !0) : "";
 						},
 						label(e) {
-							let n = (e.datasetIndex === 0 ? s : c)[e.dataIndex], r = Ld(Id(e.raw), t.unit, !1, t.currency);
-							return `${e.datasetIndex === 0 ? t.label : $("Previous (:date)", { date: Rd(n?.date ?? "") })}: ${r}${n?.partial ? ` · ${$("partial")}` : ""}`;
+							let n = (e.datasetIndex === 0 ? s : c)[e.dataIndex], r = Jd(qd(e.raw), t.unit, !1, t.currency);
+							return `${e.datasetIndex === 0 ? t.label : $("Previous (:date)", { date: Yd(n?.date ?? "") })}: ${r}${n?.partial ? ` · ${$("partial")}` : ""}`;
 						},
 						afterBody(e) {
 							if (!e.length) return [];
@@ -8154,7 +8282,7 @@ function Gd(e, t, n) {
 						padding: 8,
 						font: b,
 						callback(e) {
-							return Rd(l[e] ?? "");
+							return Yd(l[e] ?? "");
 						}
 					} : {
 						color: r["text-muted"],
@@ -8164,7 +8292,7 @@ function Gd(e, t, n) {
 						padding: 5,
 						font: b,
 						callback(e, t) {
-							return t === 0 || t === _ ? Rd(l[e] ?? "") : "";
+							return t === 0 || t === _ ? Yd(l[e] ?? "") : "";
 						}
 					}
 				},
@@ -8184,7 +8312,7 @@ function Gd(e, t, n) {
 						padding: 8,
 						font: b,
 						callback(e) {
-							return Ld(e, t.unit, !0, t.currency);
+							return Jd(e, t.unit, !0, t.currency);
 						}
 					} : {
 						display: !1,
@@ -8194,7 +8322,7 @@ function Gd(e, t, n) {
 			}
 		}
 	});
-	return x.metribaySignature = n, x.metribayColors = r, x.metribayCrossDate = Hd, kd.add(x), o || (e.tabIndex = 0, e.setAttribute("aria-keyshortcuts", "ArrowLeft ArrowRight"), e.addEventListener("keydown", (n) => {
+	return x.metribaySignature = n, x.metribayColors = r, x.metribayCrossDate = $d, Bd.add(x), o || (e.tabIndex = 0, e.setAttribute("aria-keyshortcuts", "ArrowLeft ArrowRight"), e.addEventListener("keydown", (n) => {
 		if (![
 			"ArrowLeft",
 			"ArrowRight",
@@ -8212,20 +8340,20 @@ function Gd(e, t, n) {
 					y: 0
 				});
 				else {
-					let i = n.key === "ArrowRight" ? 1 : -1, a = r.metribayCursor ?? r.getActiveElements()[0]?.index ?? (i > 0 ? -1 : s.length), o = Math.max(0, Math.min(s.length - 1, a + i)), l = (e) => r.data.datasets.some((t, n) => r.isDatasetVisible(n) && Id(t.data[e]) !== null);
+					let i = n.key === "ArrowRight" ? 1 : -1, a = r.metribayCursor ?? r.getActiveElements()[0]?.index ?? (i > 0 ? -1 : s.length), o = Math.max(0, Math.min(s.length - 1, a + i)), l = (e) => r.data.datasets.some((t, n) => r.isDatasetVisible(n) && qd(t.data[e]) !== null);
 					for (; !l(o) && o + i >= 0 && o + i < s.length;) o += i;
 					r.metribayCursor = o;
 					let d = e.closest(".metric")?.querySelector("[data-chart-announcement]");
 					if (d) {
 						let e = [];
-						r.isDatasetVisible(0) && e.push(`${Rd(s[o]?.date ?? "", !0)}. ${t.label}: ${Ld(Id(s[o]?.value), t.unit, !1, t.currency)}${s[o]?.partial ? `. ${$("Partial date.")}` : ""}`), u && r.isDatasetVisible(1) && e.push(`${$("Previous period")} ${Rd(c[o]?.date ?? "", !0)}: ${Ld(Id(c[o]?.value), t.unit, !1, t.currency)}${c[o]?.partial ? `. ${$("Partial date.")}` : ""}`);
+						r.isDatasetVisible(0) && e.push(`${Yd(s[o]?.date ?? "", !0)}. ${t.label}: ${Jd(qd(s[o]?.value), t.unit, !1, t.currency)}${s[o]?.partial ? `. ${$("Partial date.")}` : ""}`), u && r.isDatasetVisible(1) && e.push(`${$("Previous period")} ${Yd(c[o]?.date ?? "", !0)}: ${Jd(qd(c[o]?.value), t.unit, !1, t.currency)}${c[o]?.partial ? `. ${$("Partial date.")}` : ""}`);
 						for (let t of f(s[o]?.date)) e.push($("Event: :title", { title: t.title }));
 						d.textContent = e.join(". ");
 					}
 					let p = r.data.datasets.map((e, t) => ({
 						datasetIndex: t,
 						index: o
-					})).filter((e) => r.isDatasetVisible(e.datasetIndex) && Id(r.data.datasets[e.datasetIndex].data[o]) !== null);
+					})).filter((e) => r.isDatasetVisible(e.datasetIndex) && qd(r.data.datasets[e.datasetIndex].data[o]) !== null);
 					r.setActiveElements(p), r.tooltip.setActiveElements(p, {
 						x: r.scales.x.getPixelForValue(o),
 						y: r.chartArea.top
@@ -8234,24 +8362,24 @@ function Gd(e, t, n) {
 				r.update("none");
 			}
 		}
-	}, { signal: Kd(x) })), x;
+	}, { signal: rf(x) })), x;
 }
-function Kd(e) {
+function rf(e) {
 	return e.metribayAbort = new AbortController(), e.metribayAbort.signal;
 }
-function qd(e) {
-	e.metribayAbort?.abort(), e.destroy(), kd.delete(e);
+function af(e) {
+	e.metribayAbort?.abort(), e.destroy(), Bd.delete(e);
 }
-function Jd() {
-	for (let e of kd) e.canvas?.isConnected || qd(e);
+function of() {
+	for (let e of Bd) e.canvas?.isConnected || af(e);
 	document.querySelectorAll("canvas[data-metric-chart]").forEach((e) => {
 		if (e.closest("[data-group-body][hidden]")) return;
-		let t = e.closest("[data-chart-container]").dataset.chartConfig, n = `${t}|${Od.dataset.theme}|${Od.dataset.density}`, r = Dc.getChart(e);
+		let t = e.closest("[data-chart-container]").dataset.chartConfig, n = `${t}|${zd.dataset.theme}|${zd.dataset.density}`, r = Dc.getChart(e);
 		if (r?.metribaySignature !== n) {
-			r && qd(r);
+			r && af(r);
 			try {
 				let r = JSON.parse(t);
-				e.setAttribute("aria-label", r.ariaLabel), Gd(e, r, n);
+				e.setAttribute("aria-label", r.ariaLabel), nf(e, r, n);
 			} catch (t) {
 				console.error("A metric chart could not be rendered.", t);
 				let n = document.createElement("p");
@@ -8260,9 +8388,9 @@ function Jd() {
 		}
 	});
 }
-var Yd = /* @__PURE__ */ new Map();
-function Xd(e) {
-	let t = Yd.get(e.id) ?? {}, n = [...e.querySelectorAll("[data-query-source-panel]")], r = n.find((e) => e.dataset.querySourcePanel === t.source) ?? n[0];
+var sf = /* @__PURE__ */ new Map();
+function cf(e) {
+	let t = sf.get(e.id) ?? {}, n = [...e.querySelectorAll("[data-query-source-panel]")], r = n.find((e) => e.dataset.querySourcePanel === t.source) ?? n[0];
 	if (!r) return;
 	let i = [...e.querySelectorAll("[data-query-view]")], a = i.some((e) => e.dataset.queryView === t.view) ? t.view : i.find((e) => e.getAttribute("aria-selected") === "true")?.dataset.queryView, o = (r.dataset.queryCounts || "").split(",");
 	n.forEach((e) => {
@@ -8289,19 +8417,19 @@ function Xd(e) {
 		}
 	});
 }
-function Zd() {
+function lf() {
 	document.querySelectorAll("[data-query-block]").forEach((e) => {
-		Yd.has(e.id) && Xd(e);
+		sf.has(e.id) && cf(e);
 	});
 }
-function Qd(e, t) {
+function uf(e, t) {
 	let n = {
 		expanded: [],
-		...Yd.get(e.id) ?? {}
+		...sf.get(e.id) ?? {}
 	};
-	t(n), Yd.set(e.id, n), Xd(e);
+	t(n), sf.set(e.id, n), cf(e);
 }
-function $d() {
+function df() {
 	let e = document.querySelector("[data-project-search]");
 	if (!e) return;
 	let t = e.value.trim().toLocaleLowerCase(), n = 0;
@@ -8311,18 +8439,18 @@ function $d() {
 	let r = document.querySelector("[data-search-empty]");
 	r && (r.hidden = !t || n > 0);
 }
-function ef() {
+function ff() {
 	let e = document.querySelector("[data-number-preference]"), t = document.querySelector("[data-density-preference]");
-	e && (e.value = Ad.get("numbers", "full")), t && (t.value = Ad.get("density", "comfortable")), document.querySelectorAll("[data-theme-input]").forEach((e) => {
-		e.checked = e.value === Pd();
+	e && (e.value = Vd.get("numbers", "full")), t && (t.value = Vd.get("density", "comfortable")), document.querySelectorAll("[data-theme-input]").forEach((e) => {
+		e.checked = e.value === Gd();
 	});
 }
-function tf() {
-	Md || (Md = !0, requestAnimationFrame(() => {
-		Md = !1, Ju(), Cd(), Jd(), zd(), Zd(), $d();
+function pf() {
+	Ud || (Ud = !0, requestAnimationFrame(() => {
+		Ud = !1, Ju(), Cd(), of(), Xd(), lf(), df();
 	}));
 }
-function nf(e, t = !1) {
+function mf(e, t = !1) {
 	let n = e.querySelector("[data-provider-switch]")?.value;
 	if (!n) return;
 	e.querySelectorAll("[data-provider-panel]").forEach((e) => {
@@ -8340,11 +8468,11 @@ function nf(e, t = !1) {
 	let i = e.querySelector("[data-provider-timezone]"), a = [...e.querySelectorAll("[data-provider-panel]")].find((e) => e.dataset.providerPanel === n);
 	i && t && a?.dataset.defaultTimezone && (i.value = a.dataset.defaultTimezone);
 }
-function rf() {
+function hf() {
 	let e = document.querySelector("[data-preference-status]");
 	e && (e.textContent = $("Preference saved in this browser."));
 }
-function af() {
+function gf() {
 	let e = ju(window.location.hash);
 	if (!e || e.tagName === "DIALOG") return;
 	let t = e.closest("details");
@@ -8352,7 +8480,7 @@ function af() {
 	let n = Yu(e);
 	if (e.matches("[data-query-panel]")) {
 		let t = e.closest("[data-query-block]"), n = e.closest("[data-query-source-panel]");
-		t && n && Qd(t, (t) => {
+		t && n && uf(t, (t) => {
 			t.source = n.dataset.querySourcePanel, t.view = e.dataset.queryPanel;
 		});
 	}
@@ -8365,19 +8493,19 @@ function af() {
 	};
 	n || e.closest("[data-group-body]") ? requestAnimationFrame(() => requestAnimationFrame(r)) : r();
 }
-window.addEventListener("hashchange", af);
-function of() {
-	Fd(), ef(), Ju(), Dd(), document.querySelectorAll("dialog[data-open-on-load]").forEach((e) => {
+window.addEventListener("hashchange", gf);
+function _f() {
+	Kd(), ff(), Ju(), Dd(), document.querySelectorAll("dialog[data-open-on-load]").forEach((e) => {
 		e.open || e.showModal();
-	}), af(), document.querySelector("[data-validation-errors]")?.focus(), document.querySelectorAll("[data-provider-form]").forEach((e) => nf(e)), tf();
+	}), gf(), document.querySelector("[data-validation-errors]")?.focus(), document.querySelectorAll("[data-provider-form]").forEach((e) => mf(e)), pf();
 }
 document.addEventListener("click", (e) => {
 	let t = e.target.closest("[data-dialog-open]");
 	t && document.getElementById(t.dataset.dialogOpen)?.showModal();
 	let n = e.target.closest("[data-dialog-close]");
 	if (n && n.closest("dialog")?.close(), e.target.closest("[data-theme-cycle]")) {
-		let e = Pd();
-		Fd(e === "system" ? Od.dataset.theme === "light" ? "dark" : "light" : {
+		let e = Gd();
+		Kd(e === "system" ? zd.dataset.theme === "light" ? "dark" : "light" : {
 			light: "dark",
 			dark: "system"
 		}[e], !0);
@@ -8391,13 +8519,13 @@ document.addEventListener("click", (e) => {
 		});
 	}
 	let i = e.target.closest("[data-query-block]"), a = e.target.closest("[data-query-view]"), o = e.target.closest("[data-query-source]"), s = e.target.closest("[data-query-more]");
-	if (i && a && Qd(i, (e) => {
+	if (i && a && uf(i, (e) => {
 		e.view = a.dataset.queryView;
-	}), i && o && Qd(i, (e) => {
+	}), i && o && uf(i, (e) => {
 		e.source = o.dataset.querySource;
 	}), i && s) {
 		let e = s.closest("[data-query-panel]");
-		Qd(i, (t) => {
+		uf(i, (t) => {
 			t.expanded = t.expanded.includes(e.id) ? t.expanded.filter((t) => t !== e.id) : [...t.expanded, e.id];
 		}), s.getAttribute("aria-expanded") === "false" && s.scrollIntoView({ block: "nearest" });
 	}
@@ -8413,9 +8541,9 @@ document.addEventListener("click", (e) => {
 	});
 }), document.addEventListener("change", (e) => {
 	let t = e.target;
-	t.matches("[data-theme-input]") && (Fd(t.value, !0), rf()), t.matches("[data-number-preference]") && (Ad.set("numbers", t.value), zd(), rf()), t.matches("[data-density-preference]") && (Ad.set("density", t.value), Od.dataset.density = t.value, tf(), rf()), t.matches("[data-provider-switch]") && nf(t.closest("form"), !0), t.matches("[data-auto-submit]") && t.form.requestSubmit();
+	t.matches("[data-theme-input]") && (Kd(t.value, !0), hf()), t.matches("[data-number-preference]") && (Vd.set("numbers", t.value), Xd(), hf()), t.matches("[data-density-preference]") && (Vd.set("density", t.value), zd.dataset.density = t.value, pf(), hf()), t.matches("[data-provider-switch]") && mf(t.closest("form"), !0), t.matches("[data-auto-submit]") && t.form.requestSubmit();
 }), document.addEventListener("input", (e) => {
-	e.target.matches("[data-project-search]") && $d();
+	e.target.matches("[data-project-search]") && df();
 }), document.addEventListener("submit", (e) => {
 	let t = e.target;
 	if (t.dataset.confirm && !window.confirm(t.dataset.confirm)) {
@@ -8453,19 +8581,19 @@ document.addEventListener("click", (e) => {
 	document.querySelectorAll("button[aria-busy=\"true\"]").forEach((e) => {
 		e.disabled = !1, e.removeAttribute("aria-busy");
 	});
-}), new MutationObserver(tf).observe(document.body, {
+}), new MutationObserver(pf).observe(document.body, {
 	childList: !0,
 	subtree: !0,
 	attributes: !0,
 	attributeFilter: ["data-chart-config"]
-}), document.addEventListener("livewire:navigated", of), document.addEventListener("livewire:init", () => {
-	window.Livewire.hook("morphed", tf);
-}), Qu(tf), of();
-function sf() {
+}), document.addEventListener("livewire:navigated", _f), document.addEventListener("livewire:init", () => {
+	window.Livewire.hook("morphed", pf);
+}), Qu(pf), _f();
+function vf() {
 	document.querySelectorAll("[data-resource-search]").forEach((e) => {
 		e.oninput = () => document.querySelectorAll("[data-resource-row]").forEach((t) => {
 			t.hidden = !t.textContent.toLowerCase().includes(e.value.toLowerCase());
 		});
 	});
 }
-document.addEventListener("DOMContentLoaded", sf), document.addEventListener("livewire:navigated", sf), ku();
+document.addEventListener("DOMContentLoaded", vf), document.addEventListener("livewire:navigated", vf), ku(), Rd($);

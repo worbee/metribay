@@ -13,6 +13,9 @@ use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
 use Laravel\Fortify\Fortify;
+use Laravel\Passkeys\Actions\StorePasskey;
+use Laravel\Passkeys\Actions\VerifyPasskey;
+use Laravel\Passkeys\Contracts\PasskeyRegistrationResponse;
 use Livewire\Livewire;
 use Metribay\Core\Actions;
 use Metribay\Core\Console\DemoCommand;
@@ -88,7 +91,15 @@ class MetribayServiceProvider extends ServiceProvider
         Fortify::verifyEmailView(fn () => view('metribay::auth.verify-email'));
         RateLimiter::for('login', fn (Request $request) => Limit::perMinute(5)->by(Str::lower((string) $request->input('email')).'|'.$request->ip()));
         RateLimiter::for('two-factor', fn (Request $request) => Limit::perMinute(5)->by((string) $request->session()->get('login.id')));
+        // Passkey sign-in and confirmation: the browser ceremony needs two requests per attempt.
+        RateLimiter::for('passkeys', fn (Request $request) => [
+            Limit::perMinute(20)->by('session|'.$request->ip().'|'.($request->hasSession() ? $request->session()->getId() : '')),
+            Limit::perMinute(120)->by('ip|'.$request->ip()),
+        ]);
         $this->app->bind(ProjectFavicon::class, fn () => new ProjectFavicon);
+        $this->app->bind(VerifyPasskey::class, Actions\Passkeys\VerifyPasskey::class);
+        $this->app->bind(StorePasskey::class, Actions\Passkeys\StorePasskey::class);
+        $this->app->singleton(PasskeyRegistrationResponse::class, \Metribay\Core\Http\Responses\PasskeyRegistrationResponse::class);
         Livewire::component('metribay-dashboard', Dashboard::class);
         Livewire::component('metribay-project-charts', ProjectCharts::class);
         View::composer('metribay::layouts.app', function ($view): void {
