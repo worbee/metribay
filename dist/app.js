@@ -1647,7 +1647,7 @@ function kr(e, t) {
 	let n = e._chartjs;
 	if (!n) return;
 	let r = n.listeners, i = r.indexOf(t);
-	i !== -1 && r.splice(i, 1), !(r.length > 0) && (Dr.forEach((t) => {
+	i !== -1 && r.splice(i, 1), r.length > 0 || (Dr.forEach((t) => {
 		delete e[t];
 	}), delete e._chartjs);
 }
@@ -2389,7 +2389,7 @@ function ta(e, t, n, r) {
 }
 function na(e, t, n) {
 	let r = e.length, i, a, o, s, c, l = $i(e, 0);
-	for (let u = 0; u < r - 1; ++u) c = l, l = $i(e, u + 1), c && l && (sr(t[u], 0, Qi) ? n[u] = n[u + 1] = 0 : (i = n[u] / t[u], a = n[u + 1] / t[u], s = i ** 2 + a ** 2, !(s <= 9) && (o = 3 / Math.sqrt(s), n[u] = i * o * t[u], n[u + 1] = a * o * t[u])));
+	for (let u = 0; u < r - 1; ++u) c = l, l = $i(e, u + 1), c && l && (sr(t[u], 0, Qi) ? n[u] = n[u + 1] = 0 : (i = n[u] / t[u], a = n[u + 1] / t[u], s = i ** 2 + a ** 2, s <= 9 || (o = 3 / Math.sqrt(s), n[u] = i * o * t[u], n[u + 1] = a * o * t[u])));
 }
 function ra(e, t, n = "x") {
 	let r = ea(n), i = e.length, a, o, s, c = $i(e, 0);
@@ -2631,7 +2631,7 @@ function Pa(e, t, n) {
 function Fa(e, t, n) {
 	if (!n) return [e];
 	let { property: r, start: i, end: a } = n, o = t.length, { compare: s, between: c, normalize: l } = Ma(r), { start: u, end: d, loop: f, style: p } = Pa(e, t, n), m = [], h = !1, g = null, _, v, y, b = () => c(i, y, _) && s(i, y) !== 0, x = () => s(a, _) === 0 || c(a, y, _), S = () => h || b(), C = () => !h || x();
-	for (let e = u, n = u; e <= d; ++e) v = t[e % o], !v.skip && (_ = l(v[r]), _ !== y && (h = c(_, i, a), g === null && S() && (g = s(_, i) === 0 ? e : n), g !== null && C() && (m.push(Na({
+	for (let e = u, n = u; e <= d; ++e) v = t[e % o], v.skip || (_ = l(v[r]), _ !== y && (h = c(_, i, a), g === null && S() && (g = s(_, i) === 0 ? e : n), g !== null && C() && (m.push(Na({
 		start: g,
 		end: e,
 		loop: f,
@@ -5565,7 +5565,7 @@ function Mc(e, t, n = {}) {
 }
 function Nc(e, t, n, r) {
 	let { points: i, options: a } = t, { count: o, start: s, loop: c, ilen: l } = Mc(i, n, r), u = jc(a), { move: d = !0, reverse: f } = r || {}, p, m, h;
-	for (p = 0; p <= l; ++p) m = i[(s + (f ? l - p : p)) % o], !m.skip && (d ? (e.moveTo(m.x, m.y), d = !1) : u(e, h, m, f, a.stepped), h = m);
+	for (p = 0; p <= l; ++p) m = i[(s + (f ? l - p : p)) % o], m.skip || (d ? (e.moveTo(m.x, m.y), d = !1) : u(e, h, m, f, a.stepped), h = m);
 	return c && (m = i[(s + (f ? l : 0)) % o], u(e, h, m, f, a.stepped)), !!c;
 }
 function Pc(e, t, n, r) {
@@ -7582,7 +7582,7 @@ function Zu(e) {
 	a && (i.hash === window.location.hash ? (e.preventDefault(), window.dispatchEvent(new HashChangeEvent("hashchange"))) : Yu(a));
 }
 function Qu(e = () => {}) {
-	Lu = e, !(Ru || typeof document > "u") && (Ru = !0, document.addEventListener("click", Zu));
+	Lu = e, Ru || typeof document > "u" || (Ru = !0, document.addEventListener("click", Zu));
 }
 function $u(e, t, n) {
 	return `metribay.views.v1.${e}.${t}.${n}`;
@@ -7841,7 +7841,7 @@ function Ed(e) {
 	e.preventDefault(), e.key === "Escape" ? (t.value = n.querySelector("[data-saved-link]").textContent, t.hidden = !0, n.querySelector("[data-saved-link]").hidden = !1, n.querySelector("[data-saved-rename]").hidden = !1, n.querySelector("[data-saved-rename-save]").hidden = !0, n.querySelector("[data-saved-rename]").focus()) : n.querySelector("[data-saved-rename-save]").click();
 }
 function Dd() {
-	Cd(), !(fd || typeof document > "u") && (fd = !0, document.addEventListener("click", wd), document.addEventListener("submit", Td), document.addEventListener("keydown", Ed, !0));
+	Cd(), fd || typeof document > "u" || (fd = !0, document.addEventListener("click", wd), document.addEventListener("submit", Td), document.addEventListener("keydown", Ed, !0));
 }
 // resources/js/passkeys.js
 function Od(e) {
