@@ -59,6 +59,7 @@
     "An auth token from Matomo under Administration → Personal → Security → Auth tokens. View access is enough. A token limited to POST requests works.": "Auth token z Matomo v Administration → Personal → Security → Auth tokens. Oprávnění k prohlížení stačí. Token omezený na POST požadavky funguje.",
     "An extra layer of protection when you sign in.": "Další vrstva ochrany při přihlášení.",
     "Analytics": "Analytika",
+    "Another Metribay page was opened during setup, so it started again. Choose the provider again.": "Během nastavení se otevřela jiná stránka Metribay, takže začalo znovu. Vyber poskytovatele znovu.",
     "Api Key": "API klíč",
     "Appearance": "Vzhled",
     "Apply": "Použít",

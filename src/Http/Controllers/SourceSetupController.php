@@ -253,13 +253,20 @@ class SourceSetupController
         if ($action === 'restart') {
             $draft = array_intersect_key($draft, ['project_id' => true]);
         } elseif ($action === 'provider') {
+            $draft = $this->recover($request, $draft, $action);
+            if (! isset($draft['project_id'])) {
+                return $this->restart($request);
+            }
             $values = $request->validate(['kind' => ['required', Rule::in(array_keys(ProviderCatalog::all()))]]);
             if ($values['kind'] === 'paddle') {
                 $this->authorize($request, 'manage_access');
             }
             $draft = array_intersect_key($draft, ['project_id' => true]) + ['kind' => $values['kind'], 'step' => ProviderCatalog::requiresConnection($values['kind']) || ProviderCatalog::connectionOptional($values['kind']) ? 'account' : 'resources'];
         } else {
-            abort_unless(isset($draft['kind'], $draft['project_id']), 409, __('Setup expired. Open the project and choose Add data source again.'));
+            $draft = $this->recover($request, $draft, $action);
+            if (! isset($draft['kind'], $draft['project_id'])) {
+                return $this->restart($request);
+            }
             $kind = $draft['kind'];
             if ($kind === 'paddle') {
                 $this->authorize($request, 'manage_access');
@@ -389,7 +396,9 @@ class SourceSetupController
             } elseif ($action === 'back') {
                 $draft['step'] = $request->input('step') === 'account' && ProviderCatalog::requiresConnection($kind) ? 'account' : 'resources';
             } elseif ($action === 'finish') {
-                abort_unless(isset($draft['resource']), 409);
+                if (! isset($draft['resource'])) {
+                    return redirect()->route('metribay.sources.create', app(WorkspaceContext::class)->current()->slug);
+                }
                 if ($kind === 'paddle') {
                     $request->validate(['share_revenue' => ['accepted']]);
                 }
@@ -431,6 +440,57 @@ class SourceSetupController
         $request->session()->put($key, $draft);
 
         return redirect()->route('metribay.sources.create', app(WorkspaceContext::class)->current()->slug);
+    }
+
+    /**
+     * The session's setup can be gone while its page is still open: another Metribay page opened in another tab ends it.
+     * Every setup form names its project and provider, so the step being submitted can continue: choosing a provider
+     * needs only the project, and saving an account only the project and provider. Later steps depend on choices the
+     * session no longer has, and start again instead.
+     *
+     * @param  array<string, mixed>  $draft
+     * @return array<string, mixed>
+     */
+    private function recover(Request $request, array $draft, string $action): array
+    {
+        // A form from another setup tab must not continue this one with its own choices.
+        if ($request->filled('setup_project') && isset($draft['project_id']) && $request->integer('setup_project') !== (int) $draft['project_id']) {
+            $draft = [];
+        } elseif ($request->filled('setup_kind') && isset($draft['kind']) && $request->string('setup_kind')->toString() !== $draft['kind']) {
+            $draft = ['project_id' => $draft['project_id']];
+        }
+        if (! isset($draft['project_id']) && $request->filled('setup_project')) {
+            $project = Project::query()->where('archived', false)->find($request->integer('setup_project'));
+            if (! $project) {
+                return $draft;
+            }
+            $draft = ['project_id' => $project->id];
+        }
+        $kind = $request->string('setup_kind')->toString();
+        if (isset($draft['project_id']) && ! isset($draft['kind']) && $action === 'account' && array_key_exists($kind, ProviderCatalog::all())
+            && (ProviderCatalog::requiresConnection($kind) || ProviderCatalog::connectionOptional($kind))) {
+            if ($kind === 'paddle') {
+                $this->authorize($request, 'manage_access');
+            }
+            $draft['kind'] = $kind;
+            $draft['step'] = 'account';
+        }
+
+        return $draft;
+    }
+
+    /** Starts the setup again for the form's project, or ends it when that project is gone. Never a bare error page. */
+    private function restart(Request $request): RedirectResponse
+    {
+        $request->session()->forget($this->key($request));
+        $slug = app(WorkspaceContext::class)->current()->slug;
+        $project = $request->filled('setup_project') ? Project::query()->where('archived', false)->find($request->integer('setup_project')) : null;
+        if (! $project) {
+            return redirect()->route('metribay.dashboard', $slug)->with('status', __('Data source setup ended. Open a project and choose Add data source to start again.'));
+        }
+
+        return redirect()->route('metribay.sources.create', ['workspace' => $slug, 'project' => $project->id])
+            ->with('status', __('Another Metribay page was opened during setup, so it started again. Choose the provider again.'));
     }
 
     /** @param array<string, mixed> $draft */

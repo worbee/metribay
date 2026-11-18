@@ -59,6 +59,7 @@
     "An auth token from Matomo under Administration → Personal → Security → Auth tokens. View access is enough. A token limited to POST requests works.": "Een auth-token uit Matomo onder Administration → Personal → Security → Auth tokens. Kijkrechten zijn genoeg. Een token dat alleen POST-verzoeken toestaat, werkt.",
     "An extra layer of protection when you sign in.": "Een extra beschermingslaag wanneer je inlogt.",
     "Analytics": "Statistieken",
+    "Another Metribay page was opened during setup, so it started again. Choose the provider again.": "Tijdens het instellen werd een andere Metribay-pagina geopend, dus het begon opnieuw. Kies de provider opnieuw.",
     "Api Key": "API-sleutel",
     "Appearance": "Weergave",
     "Apply": "Toepassen",

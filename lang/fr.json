@@ -59,6 +59,7 @@
     "An auth token from Matomo under Administration → Personal → Security → Auth tokens. View access is enough. A token limited to POST requests works.": "Un jeton d’authentification Matomo sous Administration → Personal → Security → Auth tokens. L’accès en lecture suffit. Un jeton limité aux requêtes POST fonctionne.",
     "An extra layer of protection when you sign in.": "Une couche de protection supplémentaire quand tu te connectes.",
     "Analytics": "Statistiques",
+    "Another Metribay page was opened during setup, so it started again. Choose the provider again.": "Une autre page Metribay a été ouverte pendant la configuration, elle a donc recommencé. Choisis à nouveau le fournisseur.",
     "Api Key": "Clé API",
     "Appearance": "Apparence",
     "Apply": "Appliquer",

@@ -40,7 +40,7 @@ class SourceSetupTest extends TestCase
         $this->assertDatabaseCount('projects', 1);
         $this->assertDatabaseHas('sources', ['kind' => 'wporg', 'workspace_id' => $workspace->id, 'project_id' => $project->id, 'enabled' => true]);
         Queue::assertPushed(CollectSource::class, fn ($job) => $job->workspaceId === $workspace->id && $job->full);
-        $this->post('/w/setup/sources/setup', ['action' => 'finish', 'days' => 180])->assertStatus(409);
+        $this->post('/w/setup/sources/setup', ['action' => 'finish', 'days' => 180])->assertRedirect('/w/setup')->assertSessionHas('status');
         $this->assertDatabaseCount('sources', 1);
     }
 
@@ -57,7 +57,7 @@ class SourceSetupTest extends TestCase
         $this->get('/w/setup/projects/'.$project->id)->assertOk();
         $this->assertNull(session('source_setup'));
         $this->get('/w/setup/sources/new')->assertRedirect('/w/setup');
-        $this->post('/w/setup/sources/setup', ['action' => 'manual', 'resource_id' => 'synthetic-plugin', 'timezone' => 'UTC'])->assertStatus(409);
+        $this->post('/w/setup/sources/setup', ['action' => 'manual', 'resource_id' => 'synthetic-plugin', 'timezone' => 'UTC'])->assertRedirect('/w/setup')->assertSessionHas('status');
         $this->assertDatabaseCount('sources', 0);
         $this->assertDatabaseCount('connections', 0);
     }
@@ -294,6 +294,61 @@ class SourceSetupTest extends TestCase
             $this->assertSame(['base_url' => 'https://us.posthog.com', 'api_key' => 'phx_synthetic'], Connection::query()->firstOrFail()->reveal());
         });
         Queue::assertPushed(CollectSource::class, 3);
+    }
+
+    public function test_an_account_form_still_saves_after_another_page_closed_the_setup(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake(['us.posthog.com/api/projects/*' => Http::response(['results' => [['id' => 48213, 'name' => 'Synthetic app']], 'next' => null])]);
+        $this->app->instance(SafeHttpClient::class, new SafeHttpClient(fn () => ['93.184.216.34']));
+        $owner = User::factory()->create();
+        $workspace = Workspace::create(['owner_id' => $owner->id, 'name' => 'Setup', 'slug' => 'setup']);
+        $project = $this->projectIn($workspace);
+        $this->actingAs($owner)->get('/w/setup/sources/new?project='.$project->id);
+        $this->post('/w/setup/sources/setup', ['action' => 'provider', 'kind' => 'posthog']);
+        $page = $this->get('/w/setup/sources/new')->assertOk()->getContent();
+        $this->assertStringContainsString('name="setup_project" value="'.$project->id.'"', $page);
+        $this->assertStringContainsString('name="setup_kind" value="posthog"', $page);
+        // Another tab opens a different page while the user creates the key, which ends the setup in the session.
+        $this->get('/w/setup/projects/'.$project->id)->assertOk();
+        $this->post('/w/setup/sources/setup', ['action' => 'account', 'setup_project' => $project->id, 'setup_kind' => 'posthog',
+            'values' => ['base_url' => 'https://us.posthog.com', 'api_key' => 'phx_synthetic']])->assertRedirect('/w/setup/sources/new')->assertSessionHasNoErrors();
+        $this->get('/w/setup/sources/new')->assertOk()->assertSee('Synthetic app');
+        $this->assertDatabaseHas('connections', ['kind' => 'posthog', 'workspace_id' => $workspace->id]);
+    }
+
+    public function test_a_setup_step_that_cannot_continue_starts_again_instead_of_failing(): void
+    {
+        $owner = User::factory()->create();
+        $workspace = Workspace::create(['owner_id' => $owner->id, 'name' => 'Setup', 'slug' => 'setup']);
+        $project = $this->projectIn($workspace);
+        $archived = $this->projectIn($workspace, 'Archived');
+        app(WorkspaceContext::class)->run($workspace, fn () => $archived->update(['archived' => true]));
+        $this->actingAs($owner)->get('/w/setup/sources/new?project='.$project->id);
+        $this->post('/w/setup/sources/setup', ['action' => 'provider', 'kind' => 'wporg']);
+        $this->get('/w/setup/projects/'.$project->id);
+        $this->post('/w/setup/sources/setup', ['action' => 'manual', 'setup_project' => $project->id, 'setup_kind' => 'wporg', 'resource_id' => 'synthetic-plugin', 'timezone' => 'UTC'])
+            ->assertRedirect('/w/setup/sources/new?project='.$project->id)->assertSessionHas('status');
+        $this->assertDatabaseCount('sources', 0);
+        $this->post('/w/setup/sources/setup', ['action' => 'account', 'setup_project' => $archived->id, 'setup_kind' => 'posthog', 'values' => ['base_url' => 'https://us.posthog.com', 'api_key' => 'phx_synthetic']])
+            ->assertRedirect('/w/setup')->assertSessionHas('status');
+        $this->post('/w/setup/sources/setup', ['action' => 'account', 'setup_project' => $project->id, 'setup_kind' => 'unknown', 'values' => []])->assertRedirect('/w/setup/sources/new?project='.$project->id);
+        $this->assertDatabaseCount('connections', 0);
+    }
+
+    public function test_prefetches_and_subresource_requests_do_not_close_the_setup(): void
+    {
+        $owner = User::factory()->create();
+        $workspace = Workspace::create(['owner_id' => $owner->id, 'name' => 'Setup', 'slug' => 'setup']);
+        $project = $this->projectIn($workspace);
+        $this->actingAs($owner)->get('/w/setup/sources/new?project='.$project->id);
+        $this->post('/w/setup/sources/setup', ['action' => 'provider', 'kind' => 'wporg']);
+        $this->get('/w/setup/projects/'.$project->id, ['Sec-Purpose' => 'prefetch;prerender'])->assertOk();
+        $this->get('/w/setup/projects/'.$project->id, ['Purpose' => 'prefetch']);
+        $this->get('/w/setup/projects/'.$project->id, ['Sec-Fetch-Mode' => 'cors', 'Sec-Fetch-Dest' => 'empty']);
+        $this->get('/w/setup/sources/new')->assertOk()->assertSee('Search plugins');
+        $this->get('/w/setup/projects/'.$project->id, ['Sec-Fetch-Mode' => 'navigate', 'Sec-Fetch-Dest' => 'document']);
+        $this->get('/w/setup/sources/new')->assertRedirect('/w/setup');
     }
 
     public function test_github_release_downloads_keep_an_optional_token(): void

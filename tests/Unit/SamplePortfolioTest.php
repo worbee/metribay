@@ -36,6 +36,8 @@ class SamplePortfolioTest extends TestCase
         }
     }
 
+    /** Builds two full portfolios. In the suite's process it ran out of memory once the 1.4.0 PostHog samples grew them. */
+    #[RunInSeparateProcess]
     public function test_the_same_seed_and_day_give_the_same_portfolio(): void
     {
         $now = CarbonImmutable::parse('2026-11-03 15:20:00', 'UTC');

@@ -76,9 +76,11 @@ class ProviderOwnershipTest extends TestCase
     {
         Http::fake();
         $owner = User::factory()->create();
-        Workspace::create(['owner_id' => $owner->id, 'name' => 'Own app', 'slug' => 'own']);
+        $workspace = Workspace::create(['owner_id' => $owner->id, 'name' => 'Own app', 'slug' => 'own']);
+        $project = app(WorkspaceContext::class)->run($workspace, fn () => Project::create(['name' => 'Own', 'slug' => 'own']));
         config(['metribay.google.client_id' => 'original-app', 'metribay.google.client_secret' => 'fixture-secret']);
-        $this->actingAs($owner)->post('/w/own/sources/setup', ['action' => 'provider', 'kind' => 'ga4']);
+        $this->actingAs($owner)->get('/w/own/sources/new?project='.$project->id);
+        $this->post('/w/own/sources/setup', ['action' => 'provider', 'kind' => 'ga4']);
         $this->get('/w/own/sources/google')->assertRedirect();
         $state = session('metribay_google.state');
         config(['metribay.google.client_id' => 'changed-app']);

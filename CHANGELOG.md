@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 1.4.1 — 2026-11-18
+
+- Adding a data source no longer fails with an error page (“409 Conflict”) when another Metribay page was opened during setup, for example in another tab while you create an API key. The step you submit now continues: choosing a provider, or saving a connected account with the server address and key you typed. A later step that can't continue starts the setup again for the same project with a short explanation. Browser prefetches and background requests no longer end a setup at all.
+- New string in all twelve languages. No database migration or configuration change.
+
 ## 1.4.0 — 2026-11-18
 
 - Connect **PostHog**. Add a data source, choose **PostHog**, connect PostHog Cloud (US or EU) or a public self-hosted server with a personal API key that can read Project, Query and Event definition, and pick a project. A project API key (`phc_…`) only sends events and is rejected. Then choose **What to track**:
