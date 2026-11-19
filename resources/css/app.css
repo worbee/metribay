@@ -45,6 +45,13 @@
         --event-amber: #a8640a;
         --event-violet: #6d4bb6;
         --event-automatic: #69717c;
+        --channel-1: #aa336d;
+        --channel-2: #2f6db5;
+        --channel-3: #3f7d1c;
+        --channel-4: #a8640a;
+        --channel-5: #6d4bb6;
+        --channel-6: #a7acb1;
+        --share-bar: #c9789f;
         --shadow: 0 12px 32px rgb(12 23 40 / 10%);
         --font: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         --mono: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
@@ -80,6 +87,13 @@
         --event-amber: #e8b45f;
         --event-violet: #b49cf0;
         --event-automatic: #98a6b5;
+        --channel-1: #df7aad;
+        --channel-2: #7fb0ee;
+        --channel-3: #9fcf6c;
+        --channel-4: #e8b45f;
+        --channel-5: #b49cf0;
+        --channel-6: #64778b;
+        --share-bar: #b7608c;
         --shadow: 0 12px 32px rgb(0 0 0 / 30%);
     }
     body { display: flex; flex-direction: column; background: var(--page); color: var(--text); font: 14px/1.5 var(--font); -webkit-font-smoothing: antialiased; }
@@ -433,6 +447,19 @@
     .query-table td .cell-change { margin-left: 6px; }
     .query-more { margin-top: 8px; font-size: 11px; }
     .query-empty { padding: 6px 0 4px; color: var(--text-muted); font-size: 12px; }
+    .channel-chart { position: relative; height: 150px; margin-bottom: 4px; }
+    .channel-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0 0 10px; padding: 0; list-style: none; color: var(--text-muted); font-size: 11px; }
+    .channel-legend li { display: inline-flex; align-items: center; gap: 6px; }
+    .channel-swatch { width: 10px; height: 10px; border-radius: 2px; background: var(--channel-6); }
+    .channel-swatch.channel-1 { background: var(--channel-1); }
+    .channel-swatch.channel-2 { background: var(--channel-2); }
+    .channel-swatch.channel-3 { background: var(--channel-3); }
+    .channel-swatch.channel-4 { background: var(--channel-4); }
+    .channel-swatch.channel-5 { background: var(--channel-5); }
+    .breakdown-share { width: 150px; white-space: nowrap; }
+    .share-track { display: inline-block; width: 96px; height: 8px; margin-right: 8px; overflow: hidden; border-radius: 2px; background: var(--chart-grid); vertical-align: middle; }
+    .share-bar { display: block; height: 100%; border-radius: 2px; background: var(--share-bar); }
+    .share-value { color: var(--text-muted); font-size: 11px; font-variant-numeric: tabular-nums; vertical-align: middle; }
     .metric-strip .metric-value { display: inline-flex; align-items: center; gap: 8px; }
     .metric-strip .metric-value .status-dot { width: 9px; height: 9px; }
     .status-strip { display: grid; grid-template-columns: repeat(var(--days, 30), minmax(0, 1fr)); column-gap: min(2px, .3%); height: 26px; margin-top: 10px; }

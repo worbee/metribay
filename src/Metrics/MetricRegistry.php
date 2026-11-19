@@ -11,6 +11,11 @@ final class MetricRegistry
     {
         $definitions = [
             ['visitors', 'Visitors', 'count', 'period'], ['visits', 'Visits', 'count', 'sum'], ['pageviews', 'Page views', 'count', 'sum'],
+            // Stored parts of the engagement ratios: bounced visits and the total length of visits in seconds.
+            ['bounces', 'Bounces', 'count', 'sum'], ['visit_duration', 'Total visit duration', 'seconds', 'sum'],
+            ['bounce_rate', 'Bounce rate', 'percent', 'ratio', false, ['bounces', 'visits', 100.0]],
+            ['avg_visit_duration', 'Average visit duration', 'seconds', 'ratio', false, ['visit_duration', 'visits', 1.0]],
+            ['conversions', 'Conversions', 'count', 'sum'],
             ['impressions', 'Impressions', 'count', 'sum'], ['clicks', 'Clicks', 'count', 'sum'], ['downloads', 'Downloads', 'count', 'sum'],
             ['release_downloads', 'Release downloads', 'count', 'latest', true],
             ['followers', 'Followers', 'count', 'latest', true],
@@ -40,5 +45,11 @@ final class MetricRegistry
     public static function get(string $key): MetricDefinition
     {
         return self::all()[$key] ?? throw new InvalidArgumentException('Unknown metric.');
+    }
+
+    /** Whether the metric is computed from other metrics instead of being stored. */
+    public static function derived(string $key): bool
+    {
+        return self::get($key)->ratio !== null;
     }
 }

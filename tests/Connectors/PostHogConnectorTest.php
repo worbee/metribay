@@ -226,9 +226,11 @@ final class PostHogConnectorTest extends FixtureTestCase
         $event = ProviderCatalog::source('posthog', ['project_id' => '12345', 'event' => ' user_signed_up '], 'Europe/Berlin');
         $this->assertSame(['project_id' => '12345', 'days' => 180], $usage);
         $this->assertSame(['project_id' => '12345', 'event' => 'user_signed_up', 'days' => 180], $event);
-        $this->assertSame(['visitors', 'visits', 'pageviews', 'active_users'], ProviderCatalog::metricKeys('posthog', $usage));
+        $this->assertSame(['visitors', 'visits', 'pageviews', 'bounce_rate', 'avg_visit_duration', 'active_users'], ProviderCatalog::metricKeys('posthog', $usage));
         $this->assertSame(['key_events'], ProviderCatalog::metricKeys('posthog', $event));
-        $this->assertSame(['visitors', 'visits', 'pageviews', 'active_users', 'key_events'], ProviderCatalog::metricKeys('posthog'));
+        $this->assertSame(['visitors', 'visits', 'pageviews', 'bounce_rate', 'avg_visit_duration', 'active_users', 'key_events'], ProviderCatalog::metricKeys('posthog'));
+        $this->assertTrue(ProviderCatalog::hasBreakdowns('posthog', $usage));
+        $this->assertFalse(ProviderCatalog::hasBreakdowns('posthog', $event));
         $this->assertTrue(ProviderCatalog::usesSiteTimezone('posthog'));
         $this->assertNotSame(ProjectResources::resource('posthog', $usage), ProjectResources::resource('posthog', $event));
         $this->assertNotSame(ProviderCatalog::identityHash('posthog', $usage, 'Europe/Berlin'), ProviderCatalog::identityHash('posthog', $event, 'Europe/Berlin'));
@@ -243,7 +245,7 @@ final class PostHogConnectorTest extends FixtureTestCase
 
     private function usage(): SourceConfiguration
     {
-        return new SourceConfiguration('posthog', ['project_id' => '12345', 'days' => 4, 'period_days' => [3]], 'Europe/Berlin');
+        return new SourceConfiguration('posthog', ['project_id' => '12345', 'days' => 4, 'period_days' => [3], 'breakdowns' => false], 'Europe/Berlin');
     }
 
     /**

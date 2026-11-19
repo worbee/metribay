@@ -16,6 +16,7 @@ use Metribay\Core\Models\HiddenChart;
 use Metribay\Core\Models\Project;
 use Metribay\Core\Models\ProjectEvent;
 use Metribay\Core\Models\Workspace;
+use Metribay\Core\Services\AudienceBreakdowns;
 use Metribay\Core\Services\DashboardData;
 use Metribay\Core\Services\ProviderCatalog;
 use Metribay\Core\Services\SearchQueries;
@@ -116,8 +117,16 @@ class ProjectCharts extends Component
             $month = in_array($this->queryMonth, $months, true) ? $this->queryMonth : null;
             $compare = $month !== null && ($this->queryCompare === 'none' || (in_array($this->queryCompare, $months, true) && $this->queryCompare !== $month)) ? $this->queryCompare : null;
             $queries = $metricsView ? $searchQueries->forSources($sources, $period, $month, $compare) : [];
+            $breakdowns = $metricsView ? app(AudienceBreakdowns::class)->forSources($sources, $period) : [];
             foreach ($sources as &$source) {
                 $source['queries'] = in_array((int) $source['id'], $queryIds, true) ? ($queries[(int) $source['id']] ?? null) : null;
+                // Breakdown blocks a viewer hid for this source stay off the page, like hidden charts.
+                $source['breakdowns'] = [];
+                foreach (AudienceBreakdowns::BLOCKS as $block => $dimensions) {
+                    if (! in_array($block, $source['hidden_keys'], true)) {
+                        $source['breakdowns'][$block] = array_intersect_key($breakdowns[(int) $source['id']] ?? [], array_flip($dimensions));
+                    }
+                }
             }
             unset($source);
             $singleDay = $period->days === 1;

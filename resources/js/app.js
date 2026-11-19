@@ -1,12 +1,12 @@
 import './usage-analytics.js';
 import '../css/app.css';
-import { Chart, LineController, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Filler } from 'chart.js';
+import { Chart, LineController, LineElement, PointElement, BarController, BarElement, CategoryScale, LinearScale, Tooltip, Filler } from 'chart.js';
 import { setupHourlyRefresh } from './hourly-refresh.js';
 import { applyGroupCollapse, fragmentTarget, openCollapsedGroup, setupGroupCollapse } from './group-collapse.js';
 import { renderProjectViews, setupProjectViews } from './project-views.js';
 import { setupPasskeys } from './passkeys.js';
 
-Chart.register(LineController, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Filler);
+Chart.register(LineController, LineElement, PointElement, BarController, BarElement, CategoryScale, LinearScale, Tooltip, Filler);
 
 const root = document.documentElement;
 const charts = new Set();
@@ -50,6 +50,7 @@ function finite(value) { return value !== null && value !== undefined && value !
 function formatNumber(value, unit = 'count', compact = false, currency = null) {
     if (value === null) return t('Unavailable');
     if (unit === 'status') return ({ 0: t('Paused'), 1: t('Not checked yet'), 2: t('Up'), 8: t('Seems down'), 9: t('Down') })[value] ?? String(value);
+    if (unit === 'seconds') return formatDuration(value);
     if (unit === 'currency' && currency) return new Intl.NumberFormat(document.documentElement.lang || 'en', { style: 'currency', currency, notation: compact && Math.abs(value) >= 1000 ? 'compact' : 'standard' }).format(value);
     const options = { maximumFractionDigits: unit === 'score' ? 0 : (unit === 'ratio' ? 3 : (unit === 'percent' ? 2 : (Number.isInteger(value) ? 0 : 1))) };
     if (compact && Math.abs(value) >= 1000 && !['percent', 'ms', 'score', 'ratio'].includes(unit)) {
@@ -58,6 +59,14 @@ function formatNumber(value, unit = 'count', compact = false, currency = null) {
     }
     const formatted = new Intl.NumberFormat(document.documentElement.lang || 'en', options).format(value);
     return unit === 'percent' ? `${formatted}%` : unit === 'ms' ? `${formatted} ms` : unit === 'score' ? `${formatted}/100` : formatted;
+}
+// A length of time in whole seconds, minutes and hours: "45 s", "2 min 05 s", "1 h 04 min".
+function formatDuration(value) {
+    const total = Math.max(0, Math.round(value));
+    const pad = number => String(number).padStart(2, '0');
+    if (total < 60) return `${total} s`;
+    if (total < 3600) return `${Math.floor(total / 60)} min ${pad(total % 60)} s`;
+    return `${Math.floor(total / 3600)} h ${pad(Math.floor((total % 3600) / 60))} min`;
 }
 function formatDate(value, full = false) {
     const date = new Date(`${value}T12:00:00Z`);
@@ -342,6 +351,85 @@ function makeChart(canvas, config, signature) {
     }
     return chart;
 }
+// Visits by channel per day, stacked; the largest channels in order, then the rest combined. Missing dates stay empty.
+function makeChannelChart(canvas, config, signature) {
+    const colors = chartColors();
+    const style = getComputedStyle(root);
+    const series = Array.isArray(config.series) ? config.series : [];
+    const labels = series.map(point => point.date);
+    const datasets = (config.datasets ?? []).map((dataset, index) => ({
+        label: dataset.label,
+        data: series.map(point => (point.values ? finite(point.values[dataset.key]) ?? 0 : null)),
+        backgroundColor: style.getPropertyValue(`--channel-${index + 1}`).trim() || colors['chart-previous'],
+        borderWidth: 0,
+        stack: 'visits',
+        categoryPercentage: 0.92,
+        barPercentage: 0.92,
+    }));
+    const tickFont = { family: 'system-ui', size: 10 };
+    const chart = new Chart(canvas, {
+        type: 'bar',
+        data: { labels, datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: colors.text,
+                    titleColor: colors.page,
+                    bodyColor: colors.page,
+                    footerColor: colors.page,
+                    padding: 10,
+                    titleFont: { family: 'system-ui', size: 11, weight: 'normal' },
+                    bodyFont: { family: 'system-ui', size: 11 },
+                    footerFont: { family: 'system-ui', size: 11, weight: 'normal' },
+                    itemSort: (a, b) => b.datasetIndex - a.datasetIndex,
+                    filter: item => finite(item.raw) !== null && finite(item.raw) > 0,
+                    callbacks: {
+                        title(items) { return items.length ? formatDate(labels[items[0].dataIndex] ?? '', true) : ''; },
+                        label(context) { return `${context.dataset.label}: ${formatNumber(finite(context.raw))}`; },
+                        footer(items) {
+                            if (!items.length) return '';
+                            const point = series[items[0].dataIndex];
+                            if (!point?.values) return t('No data');
+                            const total = Object.values(point.values).reduce((sum, value) => sum + (finite(value) ?? 0), 0);
+                            return `${t('Visits')}: ${formatNumber(total)}${point.partial ? ` · ${t('partial')}` : ''}`;
+                        },
+                    },
+                },
+            },
+            scales: {
+                x: { stacked: true, grid: { display: false, drawTicks: false }, border: { display: false },
+                    ticks: { color: colors['text-muted'], maxTicksLimit: 6, maxRotation: 0, padding: 6, font: tickFont, callback(value) { return formatDate(labels[value] ?? ''); } } },
+                y: { stacked: true, beginAtZero: true, grid: { color: colors['chart-grid'], drawTicks: false }, border: { display: false },
+                    ticks: { color: colors['text-muted'], maxTicksLimit: 4, padding: 8, font: tickFont, callback(value) { return formatNumber(value, 'count', true); } } },
+            },
+        },
+    });
+    chart.metribaySignature = signature;
+    charts.add(chart);
+    return chart;
+}
+function syncChannelCharts() {
+    document.querySelectorAll('[data-channel-chart]').forEach(container => {
+        // A chart in a hidden tab or folded group has no size yet; it is drawn when it is shown.
+        if (container.closest('[hidden]')) return;
+        const canvas = container.querySelector('canvas');
+        if (!canvas) return;
+        const signature = `${container.dataset.channelChart}|${root.dataset.theme}`;
+        const existing = Chart.getChart(canvas);
+        if (existing?.metribaySignature === signature) return;
+        if (existing) destroyChart(existing);
+        try {
+            makeChannelChart(canvas, JSON.parse(container.dataset.channelChart), signature);
+        } catch (error) {
+            console.error('The channel chart could not be rendered.', error);
+        }
+    });
+}
 function chartAbortSignal(chart) {
     chart.metribayAbort = new AbortController();
     return chart.metribayAbort.signal;
@@ -414,6 +502,7 @@ function updateQueries(block, change) {
     change(state);
     queryState.set(block.id, state);
     showQueries(block);
+    syncChannelCharts();
 }
 function filterProjects() {
     const input = document.querySelector('[data-project-search]');
@@ -442,6 +531,7 @@ function queueSync() {
         applyGroupCollapse();
         renderProjectViews();
         syncCharts();
+        syncChannelCharts();
         syncNumbers();
         syncQueries();
         filterProjects();

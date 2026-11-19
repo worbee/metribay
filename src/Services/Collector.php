@@ -4,6 +4,7 @@ namespace Metribay\Core\Services;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Metribay\Core\Connectors\ConnectorRegistry;
 use Metribay\Core\Connectors\SourceConfiguration;
 use Metribay\Core\Contracts\ConnectionCredentials;
@@ -42,7 +43,12 @@ class Collector
             }
             $archived = in_array($source->kind, ProviderCatalog::QUERY_PROVIDERS, true)
                 ? SearchQueryMonth::query()->where('source_id', $source->id)->pluck('month')->map(fn (CarbonImmutable $month): string => $month->format('Y-m'))->all() : [];
-            $result = ProviderCatalog::withoutConvertedEvents($source->kind, $source->config ?? [], $this->connectors->for($source->kind)->collect(new SourceConfiguration($source->kind, $source->config ?? [], $source->reporting_timezone, $from, $archived), $credentials, $now));
+            $lists = $full || $this->listsDue($source, $now);
+            $result = ProviderCatalog::withoutConvertedEvents($source->kind, $source->config ?? [], $this->connectors->for($source->kind)->collect(new SourceConfiguration($source->kind, $source->config ?? [], $source->reporting_timezone, $from, $archived, $lists), $credentials, $now));
+            if ($result->breakdownErrors !== []) {
+                // Breakdowns are optional: the metrics are saved and the stored breakdowns of these dimensions stay.
+                Log::warning('Metribay could not update audience breakdowns.', ['source_id' => $source->id, 'kind' => $source->kind, 'errors' => $result->breakdownErrors]);
+            }
             $finished = CarbonImmutable::now('UTC');
             DB::transaction(function () use ($source, $result, $now, $finished, $version, $connection, $connectionVersion, $run): void {
                 $fresh = Source::query()->lockForUpdate()->findOrFail($source->id);
@@ -66,5 +72,23 @@ class Collector
         }
 
         return $run->fresh();
+    }
+
+    /**
+     * Audience top lists cover 7 to 90 days and refresh about once a day, which keeps a provider's request budget for the
+     * metrics (Plausible allows 600 requests an hour per key). Each source has its own slot among the day's four-hourly
+     * syncs, so sources sharing a key spread out. A source without lists, or with lists older than a day, reads them now.
+     */
+    private function listsDue(Source $source, CarbonImmutable $now): bool
+    {
+        if (! ProviderCatalog::hasBreakdowns($source->kind, $source->config ?? [])) {
+            return false;
+        }
+        if ($source->breakdowns_collected_at === null) {
+            return true;
+        }
+        $age = $source->breakdowns_collected_at->diffInHours($now);
+
+        return $age >= 26 || ($age >= 20 && intdiv($now->hour, 4) === $source->id % 6);
     }
 }

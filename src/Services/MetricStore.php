@@ -5,8 +5,11 @@ namespace Metribay\Core\Services;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
+use Metribay\Core\Connectors\Breakdowns;
 use Metribay\Core\Connectors\CollectionResult;
 use Metribay\Core\Metrics\MetricRegistry;
+use Metribay\Core\Models\BreakdownRow;
+use Metribay\Core\Models\ChannelDay;
 use Metribay\Core\Models\DailyMetric;
 use Metribay\Core\Models\PeriodMetric;
 use Metribay\Core\Models\ProjectEvent;
@@ -99,9 +102,95 @@ class MetricStore
         }
     }
 
+    /** Validates channel days and breakdown rows before anything is written. */
+    private function breakdowns(Source $source, CollectionResult $result): void
+    {
+        $supported = ProviderCatalog::hasBreakdowns($source->kind, $source->config ?? []);
+        if (($result->channelDays !== null || $result->breakdownDimensions !== [] || $result->breakdowns !== []) && ! $supported) {
+            throw new InvalidArgumentException('This provider does not report audience breakdowns.');
+        }
+        $dates = [];
+        foreach ($result->channelDays ?? [] as $day) {
+            $date = $this->channelDay($day);
+            if (isset($dates[$date])) {
+                throw new InvalidArgumentException('Invalid channel visits.');
+            }
+            $dates[$date] = true;
+        }
+        $dimensions = $result->breakdownDimensions;
+        if (count(array_unique($dimensions)) !== count($dimensions) || array_diff($dimensions, Breakdowns::DIMENSIONS) !== []) {
+            throw new InvalidArgumentException('Invalid breakdown dimension.');
+        }
+        $seen = [];
+        foreach ($result->breakdowns as $row) {
+            $key = $this->breakdownRow($row, $dimensions);
+            if (isset($seen[$key])) {
+                throw new InvalidArgumentException('Duplicate breakdown item.');
+            }
+            $seen[$key] = true;
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $day
+     * @return string The date.
+     */
+    private function channelDay(array $day): string
+    {
+        $date = $day['date'] ?? null;
+        $this->date(is_string($date) ? $date : '');
+        if (! is_bool($day['is_partial'] ?? null) || ! is_array($day['visits'] ?? null)) {
+            throw new InvalidArgumentException('Invalid channel visits.');
+        }
+        foreach ($day['visits'] as $channel => $visits) {
+            if (! in_array($channel, Breakdowns::CHANNELS, true) || ! is_float($visits) || ! is_finite($visits) || $visits < 0) {
+                throw new InvalidArgumentException('Invalid channel visits.');
+            }
+        }
+
+        return (string) $date;
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @param  list<string>  $dimensions  Dimensions read in this collection.
+     * @return string The row's identity within the collection.
+     */
+    private function breakdownRow(array $row, array $dimensions): string
+    {
+        $dimension = $row['dimension'] ?? null;
+        if (! in_array($dimension, $dimensions, true) || ! in_array($row['days'] ?? null, Breakdowns::WINDOWS, true) || ! is_bool($row['previous'] ?? null) || ! is_bool($row['is_partial'] ?? null)) {
+            throw new InvalidArgumentException('Invalid breakdown window.');
+        }
+        $start = $row['start_date'] ?? null;
+        $end = $row['end_date'] ?? null;
+        $this->date(is_string($start) ? $start : '');
+        $this->date(is_string($end) ? $end : '');
+        $item = $row['item'] ?? null;
+        if ($start > $end || ! is_string($item) || trim($item) === '' || mb_strlen($item) > 1000
+            || ($dimension === 'channel' && ! in_array($item, Breakdowns::CHANNELS, true))
+            || ($dimension === 'device' && ! in_array($item, Breakdowns::DEVICES, true))
+            || ($dimension === 'country' && $item !== 'unknown' && ! preg_match('/^[A-Z]{2}$/D', $item))) {
+            throw new InvalidArgumentException('Invalid breakdown item.');
+        }
+        $known = 0;
+        foreach (['visits', 'visitors', 'conversions'] as $measure) {
+            $value = $row[$measure] ?? null;
+            if ($value !== null && (! is_float($value) || ! is_finite($value) || $value < 0)) {
+                throw new InvalidArgumentException('Invalid breakdown count.');
+            }
+            $known += $value === null ? 0 : 1;
+        }
+        if ($known === 0) {
+            throw new InvalidArgumentException('Invalid breakdown count.');
+        }
+
+        return $dimension.'|'.$row['days'].'|'.($row['previous'] ? 1 : 0).'|'.$item;
+    }
+
     public function persist(Source $source, CollectionResult $result, CarbonImmutable $now): int
     {
-        $allowed = ProviderCatalog::metricKeys($source->kind, $source->config ?? []);
+        $allowed = ProviderCatalog::storedMetricKeys($source->kind, $source->config ?? []);
         foreach ($result->daily as $row) {
             if (! in_array($row['metric'], $allowed, true)) {
                 throw new InvalidArgumentException('Metric does not belong to this provider.');
@@ -149,6 +238,7 @@ class MetricStore
             $this->query($source, $row);
         }
         $this->queryMonths($source, $result->queryMonths);
+        $this->breakdowns($source, $result);
 
         return DB::transaction(function () use ($source, $result, $now) {
             $daily = $result->daily;
@@ -231,9 +321,22 @@ class MetricStore
                         'clicks' => $row['clicks'], 'impressions' => $row['impressions'], 'position' => $row['position']], $chunk));
                 }
             }
+            foreach ($result->channelDays ?? [] as $day) {
+                ChannelDay::query()->where('source_id', $source->id)->whereDate('date', $day['date'])->delete();
+                ChannelDay::query()->insert(array_map(fn (string $channel, float $visits): array => ['workspace_id' => $source->workspace_id, 'source_id' => $source->id,
+                    'date' => $day['date'], 'channel' => $channel, 'visits' => $visits, 'is_partial' => $day['is_partial'], 'collected_at' => $now], array_keys($day['visits']), array_values($day['visits'])));
+            }
+            if ($result->breakdownDimensions !== []) {
+                BreakdownRow::query()->where('source_id', $source->id)->whereIn('dimension', $result->breakdownDimensions)->delete();
+                foreach (array_chunk($result->breakdowns, 200) as $chunk) {
+                    BreakdownRow::query()->insert(array_map(fn (array $row): array => ['workspace_id' => $source->workspace_id, 'source_id' => $source->id, 'dimension' => $row['dimension'],
+                        'days' => $row['days'], 'previous' => $row['previous'], 'start_date' => $row['start_date'], 'end_date' => $row['end_date'], 'item' => $row['item'],
+                        'visits' => $row['visits'], 'visitors' => $row['visitors'], 'conversions' => $row['conversions'], 'is_partial' => $row['is_partial'], 'collected_at' => $now], $chunk));
+                }
+            }
             $observed = DailyMetric::query()->where('source_id', $source->id)->max('date');
             $finalized = DailyMetric::query()->where('source_id', $source->id)->where('is_partial', false)->whereNotIn('metric', array_keys(array_filter(MetricRegistry::all(), fn ($definition) => $definition->snapshot)))->max('date');
-            $source->forceFill(['latest_data_date' => $observed, 'finalized_through' => $finalized])->save();
+            $source->forceFill(['latest_data_date' => $observed, 'finalized_through' => $finalized] + ($result->breakdownDimensions !== [] ? ['breakdowns_collected_at' => $now] : []))->save();
 
             return count($daily) + count($result->periods);
         });

@@ -80,7 +80,7 @@ class SamplePortfolioTest extends TestCase
         $this->assertCount(7, $projects);
         $this->assertCount(7, array_unique(array_map(fn ($project) => $project->audience, $projects)));
         foreach (array_keys(ProviderCatalog::all()) as $kind) {
-            $this->assertEqualsCanonicalizing(ProviderCatalog::metricKeys($kind), array_keys($metrics[$kind] ?? []), $kind);
+            $this->assertEqualsCanonicalizing(ProviderCatalog::storedMetricKeys($kind), array_keys($metrics[$kind] ?? []), $kind);
         }
         $this->assertEqualsCanonicalizing(['github_release', 'github_deployment', 'azure_devops_deployment', 'feed_item', 'sitemap_url'], array_keys($origins));
     }

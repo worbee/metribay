@@ -12,6 +12,13 @@ final class PlausibleConnector extends AbstractConnector
 {
     private const DAILY_LIMIT = 4000;
 
+    /** Rows of a daily breakdown: every day of the window times every channel or goal. */
+    private const BREAKDOWN_DAILY_LIMIT = 10000;
+
+    /** Breakdown dimensions and the Plausible dimension that answers each. */
+    private const DIMENSIONS = ['referrer' => 'visit:source', 'landing_page' => 'visit:entry_page', 'campaign' => 'visit:utm_campaign',
+        'country' => 'visit:country', 'device' => 'visit:device', 'goal' => 'event:goal'];
+
     public function collect(SourceConfiguration $source, array $credentials, CarbonImmutable $now): CollectionResult
     {
         $base = $this->base($credentials['base_url'] ?? null);
@@ -26,12 +33,12 @@ final class PlausibleConnector extends AbstractConnector
         }
         $dailyBody = [
             'site_id' => $site,
-            'metrics' => ['visitors', 'visits', 'pageviews'],
+            'metrics' => ['visitors', 'visits', 'pageviews', 'bounce_rate', 'visit_duration'],
             'date_range' => [$start->toDateString(), $today->toDateString()],
             'dimensions' => ['time:day'],
             'pagination' => ['limit' => self::DAILY_LIMIT, 'offset' => 0],
         ];
-        $rows = $this->results($this->query($client, $base, $key, $dailyBody), 3);
+        $rows = $this->results($this->query($client, $base, $key, $dailyBody), 5, [3, 4]);
         if (count($rows) >= self::DAILY_LIMIT) {
             throw new ConnectorException('Plausible returned a truncated daily report.');
         }
@@ -43,8 +50,14 @@ final class PlausibleConnector extends AbstractConnector
                 throw new ConnectorException('Plausible returned a duplicate or out-of-window date.');
             }
             $seen[$date] = true;
-            foreach (['visitors', 'visits', 'pageviews'] as $index => $metric) {
-                $daily[] = $this->daily($metric, $date, $row['metrics'][$index], $date === $today->toDateString());
+            [$visitors, $visits, $views, $bounceRate, $duration] = $row['metrics'];
+            $values = ['visitors' => $visitors, 'visits' => $visits, 'pageviews' => $views];
+            // Plausible reports a day's bounce rate (percent) and average visit duration (seconds); their parts follow from the visits.
+            if ($bounceRate !== null && $duration !== null && $bounceRate <= 100) {
+                $values += ['bounces' => round($visits * $bounceRate / 100), 'visit_duration' => $visits * $duration];
+            }
+            foreach ($values as $metric => $value) {
+                $daily[] = $this->daily($metric, $date, (float) $value, $date === $today->toDateString());
             }
         }
         $periods = [];
@@ -60,8 +73,72 @@ final class PlausibleConnector extends AbstractConnector
             $periods[] = ['metric' => 'visitors', 'start_date' => $from->toDateString(), 'end_date' => $end->toDateString(),
                 'value' => $totals[0]['metrics'][0], 'is_partial' => $end->equalTo($today)];
         }
+        if (($source->config['breakdowns'] ?? true) === false) {
+            return new CollectionResult(daily: $daily, periods: $periods);
+        }
 
-        return new CollectionResult(daily: $daily, periods: $periods);
+        $errors = [];
+        $range = [$start->toDateString(), $today->toDateString()];
+        $byDay = function (string $dimension, string $metric) use ($client, $base, $key, $site, $range, $seen): array {
+            $body = ['site_id' => $site, 'metrics' => [$metric], 'date_range' => $range, 'dimensions' => ['time:day', $dimension], 'pagination' => ['limit' => self::BREAKDOWN_DAILY_LIMIT, 'offset' => 0]];
+            $rows = $this->results($this->query($client, $base, $key, $body), 1);
+            if (count($rows) >= self::BREAKDOWN_DAILY_LIMIT) {
+                throw new ConnectorException('Plausible returned a truncated daily report.');
+            }
+
+            return array_map(function (array $row) use ($seen): array {
+                $date = $this->date($row['dimensions'][0] ?? null, 'Plausible');
+                $item = $row['dimensions'][1] ?? null;
+                if (! isset($seen[$date]) || ! is_string($item)) {
+                    throw new ConnectorException('Plausible returned an unexpected daily breakdown.');
+                }
+
+                return ['date' => $date, 'item' => $item, 'value' => $row['metrics'][0]];
+            }, $rows);
+        };
+        $channelDays = null;
+        try {
+            $channelDays = Breakdowns::channelDays(array_map(fn (array $row): array => ['date' => $row['date'], 'channel' => $row['item'], 'visits' => $row['value']], $byDay('visit:channel', 'visits')), array_keys($seen), $today);
+        } catch (ConnectorException $exception) {
+            $errors['channel_days'] = $exception->getMessage();
+        }
+        try {
+            // Goal completions per day. A site without goals, or without completions in the window, records no conversions.
+            $completions = [];
+            foreach ($byDay('event:goal', 'events') as $row) {
+                $completions[$row['date']] = ($completions[$row['date']] ?? 0.0) + $row['value'];
+            }
+            if (array_sum($completions) > 0) {
+                foreach (array_keys($seen) as $date) {
+                    $daily[] = $this->daily('conversions', $date, $completions[$date] ?? 0.0, $date === $today->toDateString());
+                }
+            }
+        } catch (ConnectorException $exception) {
+            $errors['conversions'] = $exception->getMessage();
+        }
+        $fetchers = [];
+        foreach (self::DIMENSIONS as $dimension => $name) {
+            $metrics = $dimension === 'goal' ? ['events', 'visitors'] : ['visits', 'visitors'];
+            $fetchers[$dimension] = Breakdowns::perWindow(function (CarbonImmutable $from, CarbonImmutable $end) use ($client, $base, $key, $site, $dimension, $name, $metrics): array {
+                $body = ['site_id' => $site, 'metrics' => $metrics, 'date_range' => [$from->toDateString(), $end->toDateString()], 'dimensions' => [$name],
+                    'order_by' => [[$metrics[0], 'desc']], 'pagination' => ['limit' => Breakdowns::LIMIT, 'offset' => 0]];
+                $items = [];
+                foreach ($this->results($this->query($client, $base, $key, $body), 2) as $row) {
+                    $item = $row['dimensions'][0] ?? null;
+                    if (! is_string($item) || ($dimension === 'referrer' && $item === 'Direct / None')) {
+                        continue;
+                    }
+                    $items[] = $dimension === 'goal' ? ['item' => $item, 'conversions' => $row['metrics'][0], 'visitors' => $row['metrics'][1]]
+                        : ['item' => $item, 'visits' => $row['metrics'][0], 'visitors' => $row['metrics'][1]];
+                }
+
+                return $items;
+            });
+        }
+        $breakdowns = Breakdowns::collect($source->breakdownLists ? $fetchers : [], $today);
+
+        return new CollectionResult(daily: $daily, periods: $periods, channelDays: $channelDays, breakdowns: $breakdowns['rows'],
+            breakdownDimensions: $breakdowns['dimensions'], breakdownErrors: $errors + $breakdowns['errors']);
     }
 
     /**
@@ -85,9 +162,10 @@ final class PlausibleConnector extends AbstractConnector
 
     /**
      * @param  array<string, mixed>  $data
-     * @return list<array{dimensions: list<mixed>, metrics: list<float>}>
+     * @param  list<int>  $nullable  Metric positions that may be null (Plausible leaves a rate empty when it cannot be calculated).
+     * @return list<array{dimensions: list<mixed>, metrics: list<float|null>}>
      */
-    private function results(array $data, int $metrics): array
+    private function results(array $data, int $metrics, array $nullable = []): array
     {
         $rows = [];
         foreach ($this->list($data['results'] ?? null, 'Plausible') as $raw) {
@@ -97,7 +175,7 @@ final class PlausibleConnector extends AbstractConnector
             if (count($values) !== $metrics) {
                 throw new ConnectorException('Plausible returned an unexpected metric count.');
             }
-            $rows[] = ['dimensions' => $dimensions, 'metrics' => array_map(fn (mixed $value): float => $this->number($value, 'Plausible'), $values)];
+            $rows[] = ['dimensions' => $dimensions, 'metrics' => array_map(fn (mixed $value, int $index): ?float => $value === null && in_array($index, $nullable, true) ? null : $this->number($value, 'Plausible'), $values, array_keys($values))];
         }
 
         return $rows;

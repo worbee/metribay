@@ -15,6 +15,7 @@ use Metribay\Core\Connectors\PostHogConnector;
 use Metribay\Core\Connectors\ProviderRequestLimit;
 use Metribay\Core\Connectors\SocialAccount;
 use Metribay\Core\Contracts\PageSpeedCredentials;
+use Metribay\Core\Metrics\MetricRegistry;
 
 class ProviderCatalog
 {
@@ -284,6 +285,24 @@ class ProviderCatalog
     /** Providers that report their top search queries. */
     public const QUERY_PROVIDERS = ['gsc', 'bing'];
 
+    /** Website analytics providers with audience breakdowns: channels, referrers, landing pages, campaigns, countries, devices and goals. */
+    public const BREAKDOWN_PROVIDERS = ['ga4', 'plausible', 'umami', 'matomo', 'posthog'];
+
+    private const WEBSITE_METRICS = ['visitors', 'visits', 'pageviews'];
+
+    /** Shown as ratios; stored as their parts (see storedMetricKeys). */
+    private const ENGAGEMENT_METRICS = ['bounce_rate', 'avg_visit_duration'];
+
+    /**
+     * Whether a data source of this provider and configuration reports audience breakdowns (a PostHog event source does not).
+     *
+     * @param  array<string, mixed>|null  $config
+     */
+    public static function hasBreakdowns(string $kind, ?array $config = null): bool
+    {
+        return in_array($kind, self::BREAKDOWN_PROVIDERS, true) && ! ($kind === 'posthog' && isset($config['event']));
+    }
+
     /**
      * Parses comma-separated GitHub environment names: trimmed, without duplicates (ignoring case), at most ten.
      *
@@ -388,6 +407,10 @@ class ProviderCatalog
             queries: $result->queries,
             queryMonths: $result->queryMonths,
             sitemapUrls: $result->sitemapUrls,
+            channelDays: $result->channelDays,
+            breakdowns: $result->breakdowns,
+            breakdownDimensions: $result->breakdownDimensions,
+            breakdownErrors: $result->breakdownErrors,
         );
     }
 
@@ -425,6 +448,25 @@ class ProviderCatalog
     }
 
     /**
+     * Metrics a source writes: its metrics, with each ratio replaced by the metrics it is computed from.
+     *
+     * @param  array<string, mixed>|null  $config
+     * @return list<string>
+     */
+    public static function storedMetricKeys(string $kind, ?array $config = null): array
+    {
+        $keys = [];
+        foreach (self::metricKeys($kind, $config) as $key) {
+            $ratio = MetricRegistry::get($key)->ratio;
+            foreach ($ratio === null ? [$key] : [$ratio[0], $ratio[1]] as $stored) {
+                $keys[$stored] = true;
+            }
+        }
+
+        return array_keys($keys);
+    }
+
+    /**
      * Metrics a source of this provider records. Without a configuration: every metric the provider can record.
      * A PostHog source records website and product usage, or, when it names an event, only that event's key events.
      *
@@ -434,14 +476,15 @@ class ProviderCatalog
     public static function metricKeys(string $kind, ?array $config = null): array
     {
         if ($kind === 'posthog') {
-            $usage = ['visitors', 'visits', 'pageviews', 'active_users'];
+            $usage = [...self::WEBSITE_METRICS, ...self::ENGAGEMENT_METRICS, 'active_users'];
 
             return $config === null ? [...$usage, 'key_events'] : (isset($config['event']) ? ['key_events'] : $usage);
         }
 
         return match ($kind) {
             'paddle' => ['paddle_revenue', 'paddle_mrr', 'paddle_active_subscribers'],
-            'umami','plausible','matomo','ga4' => ['visitors', 'visits', 'pageviews'],'gsc' => ['impressions', 'clicks'],'bing' => ['impressions', 'clicks', 'indexed_pages'],'wporg' => ['downloads'],'feed' => ['published_items'],'sitemap' => ['new_urls', 'published_urls'],'github' => ['commits', 'prs_merged', 'loc_changed', 'open_issues'],'github_releases' => ['release_downloads'],'bluesky','mastodon' => ['followers'],'uptimerobot' => ['monitor_status', 'uptime_24h', 'response_time_24h'],'azure_devops' => ['commits', 'prs_merged', 'pipeline_runs_succeeded', 'pipeline_runs_failed', 'open_issues'],'pagespeed' => ['lab_score', 'lab_lcp', 'lab_cls', 'lab_tbt', 'crux_lcp', 'crux_inp', 'crux_cls', 'crux_origin_lcp', 'crux_origin_inp', 'crux_origin_cls'],default => []
+            'umami' => [...self::WEBSITE_METRICS, ...self::ENGAGEMENT_METRICS],
+            'plausible','matomo','ga4' => [...self::WEBSITE_METRICS, ...self::ENGAGEMENT_METRICS, 'conversions'],'gsc' => ['impressions', 'clicks'],'bing' => ['impressions', 'clicks', 'indexed_pages'],'wporg' => ['downloads'],'feed' => ['published_items'],'sitemap' => ['new_urls', 'published_urls'],'github' => ['commits', 'prs_merged', 'loc_changed', 'open_issues'],'github_releases' => ['release_downloads'],'bluesky','mastodon' => ['followers'],'uptimerobot' => ['monitor_status', 'uptime_24h', 'response_time_24h'],'azure_devops' => ['commits', 'prs_merged', 'pipeline_runs_succeeded', 'pipeline_runs_failed', 'open_issues'],'pagespeed' => ['lab_score', 'lab_lcp', 'lab_cls', 'lab_tbt', 'crux_lcp', 'crux_inp', 'crux_cls', 'crux_origin_lcp', 'crux_origin_inp', 'crux_origin_cls'],default => []
         };
     }
 }

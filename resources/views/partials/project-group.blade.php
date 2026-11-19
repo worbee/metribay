@@ -6,7 +6,7 @@
     $charts = collect($group['cards'])->whereIn('size', ['l', 's']);
     $hasPrevious = $charts->contains(fn ($card) => collect($card['metric']['previous_series'] ?? [])->contains(fn ($point) => ($point['value'] ?? null) !== null));
     $hasPageSpeed = $group['key'] === 'page_speed' && collect($group['sources'])->contains(fn ($source): bool => (bool) $source['last_success_at']);
-    $hasBody = $group['cards'] || $group['lines'] || $group['queries'] || $hasPageSpeed;
+    $hasBody = $group['cards'] || $group['lines'] || $group['queries'] || ($group['blocks'] ?? []) || $hasPageSpeed;
     $groupTitle = __($group['title']);
 @endphp
 <section @class(['project-group', 'is-half' => $group['half']]) id="{{ $groupId }}" aria-labelledby="{{ $groupId }}-heading" data-chart-group @if($hasBody) data-collapsible @endif data-group-key="{{ $group['key'] }}" wire:key="{{ $groupId }}">
@@ -30,7 +30,7 @@
         @endif
         @if($group['key'] === 'page_speed')
             @foreach($group['sources'] as $source)@if($source['last_success_at'])@include('metribay::partials/page-speed', ['source' => $source, 'multiple' => $multiple])@endif @endforeach
-        @elseif($group['cards'] || $group['lines'] || $group['queries'])
+        @elseif($group['cards'] || $group['lines'] || $group['queries'] || ($group['blocks'] ?? []))
         <div class="metric-grid">
             @foreach($group['cards'] as $card)
                 @include($card['size'] === 'strip' ? 'metribay::partials/metric-strip' : 'metribay::partials/metric', ['card' => $card])
@@ -40,6 +40,7 @@
                 <div class="metric-line" wire:key="{{ $lineId }}"><b id="{{ $lineId }}-label">{{ __($line['metric']['label']) }}</b>@if($line['label'])<span class="metric-source">{{ $line['label'] }}</span>@endif<span aria-hidden="true">·</span><span>{{ __('No data for this period') }}</span>@include('metribay::partials/chart-hide', ['metric' => $line['metric'], 'sourceId' => $line['source']['id']])</div>
             @endforeach
             @if($group['queries'])@include('metribay::partials/search-queries', ['group' => $group])@endif
+            @foreach($group['blocks'] ?? [] as $block)@include('metribay::partials/breakdowns', ['group' => $group, 'block' => $block])@endforeach
         </div>
         @endif
     </div>

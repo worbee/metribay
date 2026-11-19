@@ -24,6 +24,9 @@ final class PostHogConnector extends AbstractConnector
 
     private const USAGE = ['visitors', 'visits', 'pageviews', 'active_users'];
 
+    /** Bounds a breakdown result: days times channels, or the items of one dimension. */
+    private const BREAKDOWN_LIMIT = 10000;
+
     public function collect(SourceConfiguration $source, array $credentials, CarbonImmutable $now): CollectionResult
     {
         $base = PostHogClient::base($credentials['base_url'] ?? null);
@@ -78,6 +81,39 @@ final class PostHogConnector extends AbstractConnector
             }
         }
         ksort($dates);
+        $periods = $event === null ? $this->periods($client, $base, $key, $id, $source, $today) : [];
+        $errors = [];
+        $channelDays = null;
+        $breakdowns = ['rows' => [], 'dimensions' => [], 'errors' => []];
+        if ($event === null && ($source->config['breakdowns'] ?? true) !== false) {
+            try {
+                // Sessions with a page view: channel, bounce and length, by the day the session started.
+                $sessions = $this->query($client, $base, $key, $id, 'SELECT toString(toDate(toTimeZone($start_timestamp, {tz}))) AS day, toString($channel_type) AS channel, count() AS visits, '
+                    .'countIf($is_bounce) AS bounces, sum($session_duration) AS duration FROM sessions WHERE $start_timestamp >= toDateTime({from}, {tz}) AND $start_timestamp < toDateTime({to}, {tz}) '
+                    .'AND $pageview_count > 0 GROUP BY day, channel ORDER BY day ASC LIMIT '.self::BREAKDOWN_LIMIT, $range, ['day', 'channel', 'visits', 'bounces', 'duration']);
+                if (count($sessions) >= self::BREAKDOWN_LIMIT) {
+                    throw new ConnectorException('PostHog returned a truncated report.');
+                }
+                $channels = [];
+                $engagement = array_fill_keys(array_keys($dates), ['bounces' => 0.0, 'visit_duration' => 0.0]);
+                foreach ($sessions as [$day, $channel, $visits, $bounces, $duration]) {
+                    $day = $this->date($day, 'PostHog');
+                    if (! isset($engagement[$day])) {
+                        throw new ConnectorException('PostHog returned a duplicate or out-of-window date.');
+                    }
+                    $channels[] = ['date' => $day, 'channel' => is_string($channel) ? $channel : '', 'visits' => (float) $this->count($visits, 'PostHog')];
+                    $engagement[$day]['bounces'] += $this->count($bounces, 'PostHog');
+                    $engagement[$day]['visit_duration'] += $this->number($duration, 'PostHog');
+                }
+                $channelDays = Breakdowns::channelDays($channels, array_keys($dates), $today);
+                foreach ($engagement as $day => $values) {
+                    $dates[$day] += $values;
+                }
+            } catch (ConnectorException $exception) {
+                $errors['channel_days'] = $exception->getMessage();
+            }
+            $breakdowns = Breakdowns::collect($source->breakdownLists ? $this->breakdownFetchers($client, $base, $key, $id, $source->reportingTimezone, $today) : [], $today);
+        }
         $rows = [];
         foreach ($dates as $date => $values) {
             foreach ($values as $metric => $value) {
@@ -85,7 +121,66 @@ final class PostHogConnector extends AbstractConnector
             }
         }
 
-        return new CollectionResult(daily: $rows, periods: $event === null ? $this->periods($client, $base, $key, $id, $source, $today) : []);
+        return new CollectionResult(daily: $rows, periods: $periods, channelDays: $channelDays, breakdowns: $breakdowns['rows'],
+            breakdownDimensions: $breakdowns['dimensions'], breakdownErrors: $errors + $breakdowns['errors']);
+    }
+
+    /**
+     * One query per dimension that counts every reporting window at once. Session dimensions (referrer, landing page,
+     * campaign) come from the sessions table and count visits; country and device come from page views and also count people.
+     *
+     * @return array<string, \Closure(list<array{days: int, previous: bool, from: CarbonImmutable, end: CarbonImmutable}>): array<int, list<array<string, mixed>>>>
+     */
+    private function breakdownFetchers(PostHogClient $client, string $base, string $key, string $id, string $timezone, CarbonImmutable $today): array
+    {
+        $fetchers = [];
+        $dimensions = ['referrer' => ['sessions', 'toString($entry_referring_domain)'], 'landing_page' => ['sessions', 'toString($entry_pathname)'],
+            'campaign' => ['sessions', 'toString($entry_utm_campaign)'], 'country' => ['events', 'toString(properties.$geoip_country_code)'], 'device' => ['events', 'toString(properties.$device_type)']];
+        foreach ($dimensions as $dimension => [$table, $expression]) {
+            $fetchers[$dimension] = function (array $windows) use ($client, $base, $key, $id, $timezone, $today, $table, $expression): array {
+                $time = $table === 'sessions' ? '$start_timestamp' : 'timestamp';
+                $values = ['tz' => $timezone, 'to' => $today->addDay()->format('Y-m-d H:i:s')];
+                $columns = ['item'];
+                $select = [$expression.' AS item'];
+                $earliest = $today;
+                foreach ($windows as $index => $window) {
+                    $values['from'.$index] = $window['from']->format('Y-m-d H:i:s');
+                    $values['to'.$index] = $window['end']->addDay()->format('Y-m-d H:i:s');
+                    $within = "{$time} >= toDateTime({from{$index}}, {tz}) AND {$time} < toDateTime({to{$index}}, {tz})";
+                    $select[] = $table === 'sessions' ? "countIf({$within}) AS visits_{$index}" : "uniqIf(properties.\$session_id, {$within}) AS visits_{$index}";
+                    $columns[] = 'visits_'.$index;
+                    if ($table === 'events') {
+                        $select[] = "uniqIf(person_id, {$within}) AS visitors_{$index}";
+                        $columns[] = 'visitors_'.$index;
+                    }
+                    $earliest = $earliest->min($window['from']);
+                }
+                $values['from'] = $earliest->format('Y-m-d H:i:s');
+                $where = $table === 'sessions' ? '$pageview_count > 0' : "event = '\$pageview'";
+                $rows = $this->query($client, $base, $key, $id, 'SELECT '.implode(', ', $select)." FROM {$table} WHERE {$where} AND {$time} >= toDateTime({from}, {tz}) AND {$time} < toDateTime({to}, {tz}) "
+                    .'GROUP BY item ORDER BY count() DESC LIMIT '.self::BREAKDOWN_LIMIT, $values, $columns);
+                $byWindow = array_fill(0, count($windows), []);
+                $stride = $table === 'events' ? 2 : 1;
+                foreach ($rows as $row) {
+                    $item = $row[0];
+                    // PostHog marks visits without a referrer as "$direct".
+                    if (! is_string($item) || $item === '' || $item === '$direct') {
+                        continue;
+                    }
+                    foreach (array_keys($windows) as $index) {
+                        $counts = ['item' => $item, 'visits' => (float) $this->count($row[1 + $stride * $index], 'PostHog')];
+                        if ($stride === 2) {
+                            $counts['visitors'] = (float) $this->count($row[2 + $stride * $index], 'PostHog');
+                        }
+                        $byWindow[$index][] = $counts;
+                    }
+                }
+
+                return $byWindow;
+            };
+        }
+
+        return $fetchers;
     }
 
     /**

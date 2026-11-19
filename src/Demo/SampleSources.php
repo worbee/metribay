@@ -7,6 +7,7 @@ namespace Metribay\Core\Demo;
 use Carbon\CarbonImmutable;
 use Closure;
 use Metribay\Core\Connectors\BingConnector;
+use Metribay\Core\Connectors\Breakdowns;
 use Metribay\Core\Connectors\CollectionResult;
 use Metribay\Core\Connectors\GscConnector;
 
@@ -57,6 +58,8 @@ final class SampleSources
         $counts = $noise->fork('counts');
         $daily = [];
         $visitors = [];
+        $humans = [];
+        $robots = [];
         for ($ago = $first; $ago >= 0; $ago--) {
             $date = $today->subDays($ago);
             $perVisitor = max(1.03, $options['returning'] * (1 + 0.04 * $mix->normal()));
@@ -74,6 +77,7 @@ final class SampleSources
             $count = $counts->poisson($visits($ago, $date) * $level[$first - $ago] * $completeness);
             $people = max(min($count, 1), (int) round($count / $perVisitor));
             $views = (int) round($count * $pages);
+            $humans[$ago] = $count;
             if ($bots = $options['bots'][$ago] ?? 0) {
                 // Crawlers posing as browsers: one short visit each, so page views per visit fall that day.
                 $count += $bots;
@@ -82,10 +86,12 @@ final class SampleSources
             }
             $partial = $kind === 'ga4' ? $ago < 3 : $ago === 0;
             $visitors[$ago] = $people;
+            $robots[$ago] = $bots;
             foreach (['visitors' => $people, 'visits' => $count, 'pageviews' => $views] as $metric => $value) {
                 $daily[] = $this->row($metric, $date, $value, $partial);
             }
         }
+        $audience = $this->audience($kind, $label, $timezone, $humans, $robots, $options);
         $periods = [];
         if ($options['periods'] ?? true) {
             foreach ([7, 30, 90] as $length) {
@@ -102,7 +108,8 @@ final class SampleSources
             }
         }
 
-        return $this->source($kind, $label, $config, $timezone, [new CollectionResult(daily: $daily, periods: $periods)], 9);
+        return $this->source($kind, $label, $config, $timezone, [new CollectionResult(daily: [...$daily, ...$audience['daily']], periods: $periods, channelDays: $audience['channel_days'],
+            breakdowns: $audience['rows'], breakdownDimensions: $audience['dimensions'])], 9);
     }
 
     /**
@@ -127,6 +134,7 @@ final class SampleSources
         $mix = $noise->fork('mix');
         $counts = $noise->fork('counts');
         $daily = [];
+        $sessions = [];
         $people = ['active_users' => [], 'visitors' => []];
         for ($ago = $first; $ago >= 0; $ago--) {
             $date = $today->subDays($ago);
@@ -137,6 +145,7 @@ final class SampleSources
             $views = (int) round($visits * max(1.5, $options['pages'] * (1 + 0.06 * $mix->normal())));
             $people['active_users'][$ago] = $users;
             $people['visitors'][$ago] = $viewers;
+            $sessions[$ago] = $visits;
             foreach (['visitors' => $viewers, 'visits' => $visits, 'pageviews' => $views, 'active_users' => $users] as $metric => $value) {
                 $daily[] = $this->row($metric, $date, $value, $ago === 0);
             }
@@ -156,7 +165,139 @@ final class SampleSources
             }
         }
 
-        return $this->source('posthog', $label, $config, $timezone, [new CollectionResult(daily: $daily, periods: $periods)], 14);
+        $audience = $this->audience('posthog', $label, $timezone, $sessions, [], ['bounce' => 0.22, 'duration' => 540.0, 'channels' => ['direct' => 0.52, 'organic_search' => 0.18, 'referral' => 0.12, 'email' => 0.12, 'organic_social' => 0.04, 'ai_assistant' => 0.02],
+            'landing_pages' => ['/login' => 0.34, '/dashboard' => 0.31, '/invoices' => 0.14, '/invoices/new' => 0.08, '/clients' => 0.06, '/settings/billing' => 0.04, '/signup' => 0.03]]);
+
+        return $this->source('posthog', $label, $config, $timezone, [new CollectionResult(daily: [...$daily, ...$audience['daily']], periods: $periods, channelDays: $audience['channel_days'],
+            breakdowns: $audience['rows'], breakdownDimensions: $audience['dimensions'])], 14);
+    }
+
+    /**
+     * Engagement, conversions and breakdowns for a website analytics source, shaped like each provider reports them:
+     * channels per day (Umami: per window, as visitors), top lists per 7, 30 and 90-day window and the window before,
+     * visits or visitors as the provider counts them. Crawler visits are Direct, bounce and last no time.
+     *
+     * Options: channels, landing_pages, referrers, campaigns, countries, goals (name => share), bounce (share of human visits),
+     * duration (average seconds of a human visit), conversion (goal completions per visit).
+     *
+     * @param  array<int, int>  $visits  Human visits by days ago.
+     * @param  array<int, int>  $bots  Crawler visits by days ago.
+     * @param  array<string, mixed>  $options
+     * @return array{daily: list<array<string, mixed>>, channel_days: list<array<string, mixed>>|null, rows: list<array<string, mixed>>, dimensions: list<string>}
+     */
+    private function audience(string $kind, string $label, string $timezone, array $visits, array $bots, array $options): array
+    {
+        $today = $this->today($timezone);
+        $noise = $this->noise->fork('audience:'.$kind.':'.$label);
+        $provisional = $kind === 'ga4' ? 3 : 1;
+        $partial = fn (int $ago): bool => $ago < $provisional;
+        $channels = $options['channels'] ?? ['organic_search' => 0.41, 'direct' => 0.27, 'referral' => 0.1, 'organic_social' => 0.08, 'email' => 0.05, 'ai_assistant' => 0.04,
+            'paid_search' => 0.03, 'organic_video' => 0.01, 'other' => 0.01];
+        $goals = $options['goals'] ?? ['sign_up' => 0.55, 'newsletter_signup' => 0.3, 'contact' => 0.15];
+        $daily = [];
+        $channelDays = [];
+        $conversions = [];
+        $engagement = $noise->fork('engagement');
+        foreach ($visits as $ago => $human) {
+            $date = $today->subDays($ago);
+            $robots = $bots[$ago] ?? 0;
+            $bounced = (int) round($human * min(0.9, max(0.1, ($options['bounce'] ?? 0.46) * (1 + 0.06 * $engagement->normal())))) + $robots;
+            $seconds = round($human * ($options['duration'] ?? 95.0) * (1 + 0.08 * $engagement->normal()));
+            $daily[] = $this->row('bounces', $date, $bounced, $partial($ago));
+            $daily[] = $this->row('visit_duration', $date, $seconds, $partial($ago));
+            if (in_array($kind, ['ga4', 'plausible', 'matomo'], true)) {
+                $conversions[$ago] = $engagement->poisson($human * ($options['conversion'] ?? 0.018));
+                $daily[] = $this->row('conversions', $date, $conversions[$ago], $partial($ago));
+            }
+            $split = $this->split($human, $channels, $noise->fork('channels:'.$ago));
+            if ($robots > 0) {
+                $split['direct'] = ($split['direct'] ?? 0) + $robots;
+            }
+            $channelDays[] = ['date' => $date->toDateString(), 'visits' => array_map(fn (int $count): float => (float) $count, array_filter($split)), 'is_partial' => $partial($ago)];
+        }
+        $lists = [
+            'referrer' => $options['referrers'] ?? ['google' => 0.46, 'duckduckgo.com' => 0.07, 'bing' => 0.06, 'news.ycombinator.com' => 0.09, 'reddit.com' => 0.08, 'github.com' => 0.07,
+                'chatgpt.com' => 0.05, 'linkedin.com' => 0.05, 'producthunt.com' => 0.04, 'perplexity.ai' => 0.03],
+            'landing_page' => $options['landing_pages'] ?? ['/' => 0.34, '/pricing' => 0.13, '/blog/' => 0.11, '/features' => 0.09, '/docs/getting-started' => 0.08, '/changelog' => 0.06,
+                '/about' => 0.05, '/blog/launch-week' => 0.05, '/contact' => 0.04, '/privacy' => 0.02, '/careers' => 0.02, '/integrations' => 0.01],
+            'campaign' => $options['campaigns'] ?? ['newsletter' => 0.5, 'launch-week' => 0.3, 'partner-webinar' => 0.2],
+            'country' => $options['countries'] ?? ['US' => 0.31, 'DE' => 0.12, 'GB' => 0.09, 'IN' => 0.06, 'CA' => 0.06, 'FR' => 0.05, 'NL' => 0.04, 'BR' => 0.03, 'AU' => 0.03, 'SE' => 0.02,
+                'PL' => 0.02, 'ES' => 0.02, 'IT' => 0.02, 'JP' => 0.02, 'CH' => 0.01, 'unknown' => 0.01],
+            'device' => ['desktop' => 0.63, 'mobile' => 0.34, 'tablet' => 0.03],
+        ];
+        // Share of visits each list covers: most visits have no referrer or campaign.
+        $coverage = ['referrer' => 0.62, 'landing_page' => 1.0, 'campaign' => 0.07, 'country' => 1.0, 'device' => 1.0];
+        if ($kind === 'umami') {
+            $lists = ['channel' => $channels] + $lists;
+            $coverage['channel'] = 1.0;
+        }
+        $rows = [];
+        $windowNoise = $noise->fork('windows');
+        foreach (Breakdowns::windows($today) as $window) {
+            $agos = range((int) round($window['end']->diffInDays($today)), (int) round($window['from']->diffInDays($today)));
+            $total = array_sum(array_map(fn (int $ago): int => ($visits[$ago] ?? 0) + ($bots[$ago] ?? 0), $agos));
+            $completed = array_sum(array_map(fn (int $ago): int => $conversions[$ago] ?? 0, $agos));
+            if ($total === 0) {
+                continue; // No data in the window: no rows, as a provider without data reports none.
+            }
+            $base = ['days' => $window['days'], 'previous' => $window['previous'], 'start_date' => $window['from']->toDateString(), 'end_date' => $window['end']->toDateString(),
+                'is_partial' => $window['end'] > $today->subDays($provisional)];
+            foreach ($lists as $dimension => $weights) {
+                foreach ($this->split((int) round($total * $coverage[$dimension]), $weights, $windowNoise) as $item => $count) {
+                    if ($count === 0) {
+                        continue;
+                    }
+                    // Umami counts visitors; Matomo's range reports have no unique visitors; PostHog counts people only from page views.
+                    $people = (float) max(1, (int) round($count / 1.22));
+                    $values = match (true) {
+                        $kind === 'umami' => ['visits' => null, 'visitors' => $people],
+                        $kind === 'matomo' || ($kind === 'posthog' && ! in_array($dimension, ['country', 'device'], true)) => ['visits' => (float) $count, 'visitors' => null],
+                        default => ['visits' => (float) $count, 'visitors' => $people],
+                    };
+                    $rows[] = $base + ['dimension' => $dimension, 'item' => (string) $item] + $values + ['conversions' => null];
+                }
+            }
+            if ($kind !== 'posthog') {
+                // Umami lists custom events from its own counts; the others split the recorded conversions.
+                $events = $kind === 'umami' ? (int) round($total * 0.03) : $completed;
+                foreach ($this->split($events, $goals, $windowNoise) as $goal => $count) {
+                    if ($count > 0) {
+                        $rows[] = $base + ['dimension' => 'goal', 'item' => (string) $goal, 'visits' => null, 'visitors' => $kind === 'matomo' ? null : (float) max(1, (int) round($count * 0.9)), 'conversions' => (float) $count];
+                    }
+                }
+            }
+        }
+
+        return ['daily' => $daily, 'channel_days' => $kind === 'umami' ? null : $channelDays, 'rows' => $rows,
+            'dimensions' => [...array_keys($lists), ...($kind === 'posthog' ? [] : ['goal'])]];
+    }
+
+    /**
+     * Splits a count across weighted items with a little noise; the parts add up to the count.
+     *
+     * @param  array<string, float>  $weights
+     * @return array<string, int>
+     */
+    private function split(int $count, array $weights, Noise $noise): array
+    {
+        $shares = [];
+        foreach ($weights as $item => $weight) {
+            $shares[$item] = max(0.0, $weight * (1 + 0.12 * $noise->normal()));
+        }
+        $sum = array_sum($shares) ?: 1.0;
+        $parts = [];
+        $remainders = [];
+        foreach ($shares as $item => $share) {
+            $exact = $count * $share / $sum;
+            $parts[$item] = (int) floor($exact);
+            $remainders[$item] = $exact - $parts[$item];
+        }
+        arsort($remainders);
+        foreach (array_slice(array_keys($remainders), 0, $count - array_sum($parts)) as $item) {
+            $parts[$item]++;
+        }
+
+        return $parts;
     }
 
     /**

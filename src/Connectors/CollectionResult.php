@@ -20,6 +20,10 @@ final readonly class CollectionResult
      * @param  list<array{days: int, previous: bool, start_date: string, end_date: string, query: string, clicks: float, impressions: float, position: float|null, is_partial: bool}>|null  $queries
      * @param  list<array{month: string, start_date: string, end_date: string, weeks: int|null, rows: list<array{query: string, clicks: float, impressions: float, position: float|null}>}>  $queryMonths
      * @param  list<array{url: string, last_modified_at: string|null}>|null  $sitemapUrls  A complete sitemap catalog, independent of optional events. Null leaves tracking unchanged.
+     * @param  list<array{date: string, visits: array<string, float>, is_partial: bool}>|null  $channelDays  Visits per channel for each date the provider answered for; those dates are replaced. Null leaves stored channels alone.
+     * @param  list<array{dimension: string, days: int, previous: bool, start_date: string, end_date: string, item: string, visits: float|null, visitors: float|null, conversions: float|null, is_partial: bool}>  $breakdowns
+     * @param  list<string>  $breakdownDimensions  Dimensions read completely: their stored rows are replaced by $breakdowns. Other dimensions stay as they are.
+     * @param  array<string, string>  $breakdownErrors  Safe messages of dimensions or channel days that could not be read, for the log.
      */
     public function __construct(
         public array $daily = [],
@@ -30,5 +34,9 @@ final readonly class CollectionResult
         public ?array $queries = null,
         public array $queryMonths = [],
         public ?array $sitemapUrls = null,
+        public ?array $channelDays = null,
+        public array $breakdowns = [],
+        public array $breakdownDimensions = [],
+        public array $breakdownErrors = [],
     ) {}
 }

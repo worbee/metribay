@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Metribay\Core\Connectors\SafeHttpClient;
 use Metribay\Core\Jobs\CollectSource;
+use Metribay\Core\Models\BreakdownRow;
 use Metribay\Core\Models\Connection;
 use Metribay\Core\Models\DailyMetric;
 use Metribay\Core\Models\Project;
@@ -216,5 +217,49 @@ class CollectionPipelineTest extends TestCase
         $foreign = Workspace::create(['owner_id' => $other->id, 'name' => 'Other', 'slug' => 'other']);
         $this->expectException(\LogicException::class);
         app(WorkspaceContext::class)->run($foreign, fn () => $project->delete());
+    }
+
+    public function test_audience_lists_refresh_once_a_day_in_the_source_slot_while_metrics_sync_every_time(): void
+    {
+        $this->scoped(function () {
+            $project = Project::create(['name' => 'Example', 'slug' => 'example']);
+            $connection = new Connection(['name' => 'Umami', 'kind' => 'umami', 'workspace_id' => $this->workspace->id]);
+            $connection->storeSecrets(['base_url' => 'https://umami.example.com', 'token' => 'fixture-token']);
+            $connection->save();
+            $source = Source::create(['project_id' => $project->id, 'connection_id' => $connection->id, 'kind' => 'umami', 'label' => 'Umami',
+                'config' => ['website_id' => '5b9e3c1a-7d42-4f0e-9a61-2c8d1e4f7a30', 'days' => 2], 'identity_hash' => str_repeat('u', 64), 'reporting_timezone' => 'UTC']);
+            $lists = 0;
+            Http::fake(function (Request $request) use (&$lists) {
+                $path = parse_url($request->url(), PHP_URL_PATH);
+                if (str_ends_with($path, '/metrics')) {
+                    $lists++;
+
+                    return Http::response($request['type'] === 'referrer' ? [['x' => 'news.example', 'y' => 3]] : []);
+                }
+
+                return Http::response(match (true) {
+                    str_ends_with($path, '/pageviews') => ['pageviews' => [['x' => '2026-10-25 00:00:00', 'y' => 4]], 'sessions' => [['x' => '2026-10-25 00:00:00', 'y' => 2]]],
+                    str_ends_with($path, '/stats') => ['pageviews' => 4, 'visitors' => 2, 'visits' => 3, 'bounces' => 1, 'totaltime' => 90],
+                    default => ['id' => '5b9e3c1a-7d42-4f0e-9a61-2c8d1e4f7a30'],
+                });
+            });
+            $this->assertSame('success', app(Collector::class)->run($source)->status);
+            $this->assertSame(42, $lists, 'Seven lists in six windows on the first sync.');
+            $this->assertSame(6, BreakdownRow::query()->count());
+            // Four hours later the metrics sync again, the lists do not.
+            $this->travel(4)->hours();
+            $this->assertSame('success', app(Collector::class)->run($source)->status);
+            $this->assertSame(42, $lists);
+            // From 20 hours on, the lists refresh in this source's own slot of the day's six four-hour syncs, chosen by its ID ...
+            $hour = collect(range(6, 11))->first(fn (int $hour): bool => intdiv($hour, 4) !== $source->id % 6);
+            $this->travelTo(CarbonImmutable::parse('2026-10-26T00:00:00Z')->setHour($hour));
+            app(Collector::class)->run($source);
+            $this->assertSame(42, $lists, 'Outside its slot a source waits.');
+            // ... and from 26 hours on in any sync, so a missed slot never leaves them stale for long.
+            $this->travelTo(CarbonImmutable::parse('2026-10-26T12:00:00Z'));
+            app(Collector::class)->run($source);
+            $this->assertSame(84, $lists);
+            $this->assertSame(6, BreakdownRow::query()->count());
+        });
     }
 }

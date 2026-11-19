@@ -11,6 +11,7 @@ final readonly class SourceConfiguration
     /**
      * @param  array<string, mixed>  $config
      * @param  list<string>  $archivedQueryMonths  Months (Y-m) whose top queries are already archived; connectors skip them.
+     * @param  bool  $breakdownLists  Whether this collection reads the audience top lists, which refresh about once a day (Collector).
      */
     public function __construct(
         public string $kind,
@@ -18,5 +19,6 @@ final readonly class SourceConfiguration
         public string $reportingTimezone = 'UTC',
         public ?CarbonImmutable $from = null,
         public array $archivedQueryMonths = [],
+        public bool $breakdownLists = true,
     ) {}
 }

@@ -28,11 +28,11 @@ The app speaks twelve languages: English, German, Bulgarian, Czech, Spanish, Fre
 
 | Provider | What Metribay reads | You need |
 |---|---|---|
-| Umami | Visits, visitors, page views | Your Umami URL and a login |
-| Plausible | Visits, visitors, page views | A Stats API key and the site domain. Plausible Cloud or a public self-hosted server |
-| Matomo | Visits, visitors, page views | An auth token, the Matomo URL and the numeric site ID. Period visitor totals stay unknown |
-| PostHog | Visits, visitors, page views, active users, and daily counts of key events you name | A personal API key with read access to Project, Query and Event definition. PostHog Cloud (US or EU) or a public self-hosted server |
-| Google Analytics 4 | Visits, visitors, page views | A service account, or your own Google OAuth app |
+| Umami | Visits, visitors, page views, bounce rate, visit duration; channels, referrers, landing pages, countries, devices and custom events | Your Umami URL and a login |
+| Plausible | Visits, visitors, page views, bounce rate, visit duration, conversions; channels, referrers, landing pages, campaigns, countries, devices and goals | A Stats API key and the site domain. Plausible Cloud or a public self-hosted server |
+| Matomo | Visits, visitors, page views, bounce rate, visit duration, conversions; channels, referrers, landing pages, campaigns, countries, devices and goals | An auth token, the Matomo URL and the numeric site ID. Period visitor totals stay unknown |
+| PostHog | Visits, visitors, page views, bounce rate, visit duration, active users; channels, referrers, landing pages, campaigns, countries and devices; daily counts of key events you name | A personal API key with read access to Project, Query and Event definition. PostHog Cloud (US or EU) or a public self-hosted server |
+| Google Analytics 4 | Visits, visitors, page views, bounce rate, visit duration, key events; channels, referrers, landing pages, campaigns, countries, devices and goals | A service account, or your own Google OAuth app |
 | Google Search Console | Clicks, impressions, top queries | A service account, or your own Google OAuth app |
 | Bing Webmaster Tools | Clicks, impressions, indexed pages, top queries | An API key |
 | GitHub | Commits, merged pull requests, lines changed, open issues, releases, deployments | A token, or your own GitHub App |

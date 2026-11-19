@@ -196,7 +196,7 @@ final class ProviderConnectorsTest extends FixtureTestCase
 
             return Http::response(['visits' => 11, 'visitors' => $span > 1 ? 123 : 8]);
         });
-        $source = new SourceConfiguration('umami', ['base_url' => 'https://umami.example.com', 'website_id' => 'site-one', 'days' => 3, 'period_days' => [7]]);
+        $source = new SourceConfiguration('umami', ['base_url' => 'https://umami.example.com', 'website_id' => 'site-one', 'days' => 3, 'period_days' => [7], 'breakdowns' => false]);
         $result = (new UmamiConnector($this->http()))->collect($source, ['username' => 'fixture', 'password' => 'secret-password'], $this->now());
         $this->assertSame(['pageviews' => 10.0, 'visitors' => 8.0, 'visits' => 11.0], $this->valuesOn($result->daily, '2026-10-23'));
         $this->assertSame([], $this->valuesOn($result->daily, '2026-10-22'));
@@ -279,7 +279,7 @@ final class ProviderConnectorsTest extends FixtureTestCase
             return Http::response(['id' => 'site-one']);
         });
         $result = (new UmamiConnector($this->http()))->collect(new SourceConfiguration('umami', [
-            'base_url' => 'https://umami.example.com', 'website_id' => 'site-one', 'period_days' => [],
+            'base_url' => 'https://umami.example.com', 'website_id' => 'site-one', 'period_days' => [], 'breakdowns' => false,
         ]), ['username' => 'fixture', 'password' => "  fixture password\nwith spaces  "], $this->now());
         $this->assertSame([], $result->daily);
         Http::assertSentCount(3);
@@ -371,18 +371,19 @@ final class ProviderConnectorsTest extends FixtureTestCase
                 $this->assertSame('2026-10-19', $request['dateRanges'][0]['startDate']);
             }
             $data = $this->ga4Report($daily, $daily ? [
-                ['dimensionValues' => [['value' => '20261022']], 'metricValues' => [['value' => '4'], ['value' => '6'], ['value' => '10']]],
-                ['dimensionValues' => [['value' => '20261025']], 'metricValues' => [['value' => '0'], ['value' => '0'], ['value' => '0']]],
+                ['dimensionValues' => [['value' => '20261022']], 'metricValues' => [['value' => '4'], ['value' => '6'], ['value' => '10'], ['value' => '4'], ['value' => '30.5'], ['value' => '0']]],
+                ['dimensionValues' => [['value' => '20261025']], 'metricValues' => [['value' => '0'], ['value' => '0'], ['value' => '0'], ['value' => '0'], ['value' => '0'], ['value' => '0']]],
             ] : [['metricValues' => [['value' => '123']]]]);
 
             return Http::response($data);
         });
-        $result = (new Ga4Connector($this->http()))->collect(new SourceConfiguration('ga4', ['property_id' => '123', 'days' => 1, 'period_days' => [7]]), $this->googleCredentials(), $this->now());
-        $this->assertSame(['pageviews' => 10.0, 'visitors' => 4.0, 'visits' => 6.0], $this->valuesOn($result->daily, '2026-10-22'));
-        $this->assertSame(['pageviews' => 0.0, 'visitors' => 0.0, 'visits' => 0.0], $this->valuesOn($result->daily, '2026-10-25'));
+        $result = (new Ga4Connector($this->http()))->collect(new SourceConfiguration('ga4', ['property_id' => '123', 'days' => 1, 'period_days' => [7], 'breakdowns' => false]), $this->googleCredentials(), $this->now());
+        // Two of six sessions were not engaged (bounces); 30.5 seconds on average make 183 seconds. No key events: no conversions.
+        $this->assertSame(['bounces' => 2.0, 'pageviews' => 10.0, 'visit_duration' => 183.0, 'visitors' => 4.0, 'visits' => 6.0], $this->valuesOn($result->daily, '2026-10-22'));
+        $this->assertSame(['bounces' => 0.0, 'pageviews' => 0.0, 'visit_duration' => 0.0, 'visitors' => 0.0, 'visits' => 0.0], $this->valuesOn($result->daily, '2026-10-25'));
         $this->assertSame([], $this->valuesOn($result->daily, '2026-10-24'));
         $this->assertFalse($result->daily[0]['is_partial']);
-        $this->assertTrue($result->daily[3]['is_partial']);
+        $this->assertTrue($result->daily[5]['is_partial']);
         $this->assertSame(123.0, $result->periods[0]['value']);
         Http::assertSentCount(4);
     }
@@ -401,7 +402,7 @@ final class ProviderConnectorsTest extends FixtureTestCase
 
             return Http::response($data);
         });
-        $result = (new Ga4Connector($this->http()))->collect(new SourceConfiguration('ga4', ['property_id' => '123', 'days' => 7, 'period_days' => [7]]), $this->googleCredentials(), $this->now());
+        $result = (new Ga4Connector($this->http()))->collect(new SourceConfiguration('ga4', ['property_id' => '123', 'days' => 7, 'period_days' => [7], 'breakdowns' => false]), $this->googleCredentials(), $this->now());
         $this->assertSame(11.0, $result->periods[0]['value']);
         $this->assertSame(11.0, $result->periods[1]['value']);
     }
@@ -410,7 +411,7 @@ final class ProviderConnectorsTest extends FixtureTestCase
     {
         Http::fake(['*oauth2*' => Http::response(['access_token' => 'token']),
             '*analyticsdata*' => Http::response(['metadata' => ['timeZone' => 'UTC']])]);
-        $result = (new Ga4Connector($this->http()))->collect(new SourceConfiguration('ga4', ['property_id' => 123]), $this->googleCredentials(), $this->now());
+        $result = (new Ga4Connector($this->http()))->collect(new SourceConfiguration('ga4', ['property_id' => 123, 'breakdowns' => false]), $this->googleCredentials(), $this->now());
         $this->assertSame([], $result->daily);
         $this->assertSame([], $result->periods);
     }
@@ -423,7 +424,7 @@ final class ProviderConnectorsTest extends FixtureTestCase
     #[DataProvider('badGa4Reports')]
     public function test_ga4_rejects_untrustworthy_reports(string $problem): void
     {
-        $report = $this->ga4Report(true, [['dimensionValues' => [['value' => '20261025']], 'metricValues' => [['value' => '1'], ['value' => '2'], ['value' => '3']]]]);
+        $report = $this->ga4Report(true, [['dimensionValues' => [['value' => '20261025']], 'metricValues' => [['value' => '1'], ['value' => '2'], ['value' => '3'], ['value' => '1'], ['value' => '5'], ['value' => '0']]]]);
         switch ($problem) {
             case 'timezone': $report['metadata']['timeZone'] = 'Europe/Sofia';
                 break;
@@ -616,6 +617,6 @@ final class ProviderConnectorsTest extends FixtureTestCase
     {
         return ['metadata' => ['timeZone' => 'UTC'], 'rowCount' => count($rows), 'rows' => $rows,
             'dimensionHeaders' => $daily ? [['name' => 'date']] : [],
-            'metricHeaders' => array_map(static fn (string $name): array => ['name' => $name], $daily ? ['totalUsers', 'sessions', 'screenPageViews'] : ['totalUsers'])];
+            'metricHeaders' => array_map(static fn (string $name): array => ['name' => $name], $daily ? ['totalUsers', 'sessions', 'screenPageViews', 'engagedSessions', 'averageSessionDuration', 'keyEvents'] : ['totalUsers'])];
     }
 }

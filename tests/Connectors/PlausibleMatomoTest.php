@@ -33,11 +33,11 @@ final class PlausibleMatomoTest extends FixtureTestCase
                 $this->assertSame(['2026-10-23', '2026-10-25'], $body['date_range']);
 
                 return Http::response([
-                    'query' => ['site_id' => 'example.com', 'metrics' => ['visitors', 'visits', 'pageviews']],
+                    'query' => ['site_id' => 'example.com', 'metrics' => ['visitors', 'visits', 'pageviews', 'bounce_rate', 'visit_duration']],
                     'meta' => ['metric_warnings' => []],
                     'results' => [
-                        ['dimensions' => ['2026-10-23'], 'metrics' => [0, 0, 0]],
-                        ['dimensions' => ['2026-10-25'], 'metrics' => [4, 5, 9]],
+                        ['dimensions' => ['2026-10-23'], 'metrics' => [0, 0, 0, null, null]],
+                        ['dimensions' => ['2026-10-25'], 'metrics' => [4, 5, 9, 40, 62]],
                     ],
                 ]);
             }
@@ -53,7 +53,8 @@ final class PlausibleMatomoTest extends FixtureTestCase
         $result = (new PlausibleConnector($this->http()))->collect($this->plausible(), ['base_url' => 'https://plausible.example.com/', 'api_key' => 'stats-key'], $this->now());
         $this->assertSame(['pageviews' => 0.0, 'visitors' => 0.0, 'visits' => 0.0], $this->valuesOn($result->daily, '2026-10-23'));
         $this->assertSame([], $this->valuesOn($result->daily, '2026-10-24'));
-        $this->assertSame(['pageviews' => 9.0, 'visitors' => 4.0, 'visits' => 5.0], $this->valuesOn($result->daily, '2026-10-25'));
+        // 40% of five visits bounced; five visits of 62 seconds on average last 310 seconds. A day without a rate keeps its parts unknown.
+        $this->assertSame(['bounces' => 2.0, 'pageviews' => 9.0, 'visit_duration' => 310.0, 'visitors' => 4.0, 'visits' => 5.0], $this->valuesOn($result->daily, '2026-10-25'));
         $this->assertFalse($result->daily[0]['is_partial']);
         $this->assertTrue($result->daily[array_key_last($result->daily)]['is_partial']);
         $this->assertSame([
@@ -155,7 +156,7 @@ final class PlausibleMatomoTest extends FixtureTestCase
             if ($request['method'] === 'VisitsSummary.get') {
                 return Http::response([
                     '2026-10-23' => [],
-                    '2026-10-25' => ['nb_uniq_visitors' => 3, 'nb_visits' => 4, 'sum_daily_nb_uniq_visitors' => 99],
+                    '2026-10-25' => ['nb_uniq_visitors' => 3, 'nb_visits' => 4, 'sum_daily_nb_uniq_visitors' => 99, 'bounce_count' => 1, 'sum_visit_length' => 250],
                 ]);
             }
 
@@ -165,13 +166,13 @@ final class PlausibleMatomoTest extends FixtureTestCase
             ]);
         });
         $result = (new MatomoConnector($this->http()))->collect(
-            new SourceConfiguration('matomo', ['site_id' => '4', 'days' => 3, 'period_days' => [3]], 'Europe/Berlin'),
+            new SourceConfiguration('matomo', ['site_id' => '4', 'days' => 3, 'period_days' => [3], 'breakdowns' => false], 'Europe/Berlin'),
             ['base_url' => 'https://matomo.example.com/', 'token_auth' => 'auth-token'],
             $this->now(),
         );
-        $this->assertSame(['pageviews' => 0.0, 'visitors' => 0.0, 'visits' => 0.0], $this->valuesOn($result->daily, '2026-10-23'));
+        $this->assertSame(['bounces' => 0.0, 'pageviews' => 0.0, 'visit_duration' => 0.0, 'visitors' => 0.0, 'visits' => 0.0], $this->valuesOn($result->daily, '2026-10-23'));
         $this->assertSame([], $this->valuesOn($result->daily, '2026-10-24'));
-        $this->assertSame(['pageviews' => 8.0, 'visitors' => 3.0, 'visits' => 4.0], $this->valuesOn($result->daily, '2026-10-25'));
+        $this->assertSame(['bounces' => 1.0, 'pageviews' => 8.0, 'visit_duration' => 250.0, 'visitors' => 3.0, 'visits' => 4.0], $this->valuesOn($result->daily, '2026-10-25'));
         $this->assertTrue($result->daily[array_key_last($result->daily)]['is_partial']);
         $this->assertSame([], $result->periods);
         $this->assertNotContains(99.0, array_column($result->daily, 'value'));
@@ -255,7 +256,8 @@ final class PlausibleMatomoTest extends FixtureTestCase
         $this->assertTrue(ProviderCatalog::usesSiteTimezone('plausible'));
         $this->assertTrue(ProviderCatalog::usesSiteTimezone('matomo'));
         $this->assertFalse(ProviderCatalog::usesSiteTimezone('umami'));
-        $this->assertSame(['visitors', 'visits', 'pageviews'], ProviderCatalog::metricKeys('plausible'));
+        $this->assertSame(['visitors', 'visits', 'pageviews', 'bounce_rate', 'avg_visit_duration', 'conversions'], ProviderCatalog::metricKeys('plausible'));
+        $this->assertSame(['visitors', 'visits', 'pageviews', 'bounces', 'visit_duration', 'conversions'], ProviderCatalog::storedMetricKeys('plausible'));
         foreach (['http://plausible.example.com', 'https://plausible.example.com/?key=stats-key', 'https://plausible.example.com/../secret'] as $url) {
             try {
                 ProviderCatalog::credentials('plausible', ['base_url' => $url, 'api_key' => 'stats-key']);
@@ -272,11 +274,11 @@ final class PlausibleMatomoTest extends FixtureTestCase
 
     private function plausible(): SourceConfiguration
     {
-        return new SourceConfiguration('plausible', ['site_id' => 'example.com', 'days' => 3, 'period_days' => [3]]);
+        return new SourceConfiguration('plausible', ['site_id' => 'example.com', 'days' => 3, 'period_days' => [3], 'breakdowns' => false]);
     }
 
     private function matomo(): SourceConfiguration
     {
-        return new SourceConfiguration('matomo', ['site_id' => '4', 'days' => 3, 'period_days' => [3]]);
+        return new SourceConfiguration('matomo', ['site_id' => '4', 'days' => 3, 'period_days' => [3], 'breakdowns' => false]);
     }
 }

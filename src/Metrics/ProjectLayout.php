@@ -3,6 +3,7 @@
 namespace Metribay\Core\Metrics;
 
 use Illuminate\Support\Number;
+use Metribay\Core\Services\AudienceBreakdowns;
 use Metribay\Core\Services\ProviderCatalog;
 use Metribay\Core\Services\SearchQueries;
 
@@ -15,7 +16,8 @@ final class ProjectLayout
     /** Groups in overview column order; metrics lead first. */
     public const GROUPS = [
         'revenue' => ['paddle_revenue', 'paddle_mrr', 'paddle_active_subscribers'],
-        'audience' => ['visits', 'visitors', 'pageviews'],
+        'audience' => ['visits', 'visitors', 'pageviews', 'bounce_rate', 'avg_visit_duration'],
+        'conversions' => ['conversions'],
         'product' => ['active_users', 'key_events'],
         'social' => ['followers'],
         'search' => ['clicks', 'impressions', 'indexed_pages'],
@@ -26,13 +28,19 @@ final class ProjectLayout
         'page_speed' => ['lab_score', 'lab_lcp', 'lab_cls', 'lab_tbt', 'crux_lcp', 'crux_inp', 'crux_cls', 'crux_origin_lcp', 'crux_origin_inp', 'crux_origin_cls'],
     ];
 
-    public const TITLES = ['revenue' => 'Revenue', 'audience' => 'Audience', 'product' => 'Product', 'social' => 'Social', 'search' => 'Search', 'development' => 'Development', 'distribution' => 'Distribution', 'content' => 'Content', 'reliability' => 'Reliability', 'page_speed' => 'Page speed'];
+    public const TITLES = ['revenue' => 'Revenue', 'audience' => 'Audience', 'conversions' => 'Conversions', 'product' => 'Product', 'social' => 'Social', 'search' => 'Search', 'development' => 'Development', 'distribution' => 'Distribution', 'content' => 'Content', 'reliability' => 'Reliability', 'page_speed' => 'Page speed'];
 
     /** Overview columns and the group each one summarises. */
     public const SUMMARY = ['traffic' => 'audience', 'followers' => 'social', 'search' => 'search', 'development' => 'development', 'issues' => 'development', 'downloads' => 'distribution', 'release_downloads' => 'distribution', 'content' => 'content', 'new_urls' => 'content', 'published_urls' => 'content', 'uptime' => 'reliability', 'speed' => 'page_speed'];
 
     /** A rise of these is bad. */
-    public const LOWER_IS_BETTER = ['open_issues', 'pipeline_runs_failed', 'response_time_24h', 'lab_lcp', 'lab_cls', 'lab_tbt', 'crux_lcp', 'crux_inp', 'crux_cls', 'crux_origin_lcp', 'crux_origin_inp', 'crux_origin_cls'];
+    public const LOWER_IS_BETTER = ['bounce_rate', 'open_issues', 'pipeline_runs_failed', 'response_time_24h', 'lab_lcp', 'lab_cls', 'lab_tbt', 'crux_lcp', 'crux_inp', 'crux_cls', 'crux_origin_lcp', 'crux_origin_inp', 'crux_origin_cls'];
+
+    /** Metrics not every source can report (no goals, no engagement data): without data in the period they are left out, not listed as empty. */
+    public const OPTIONAL = ['bounce_rate', 'avg_visit_duration', 'conversions'];
+
+    /** Breakdown blocks (AudienceBreakdowns::BLOCKS) shown at the end of a group. */
+    public const GROUP_BLOCKS = ['audience' => ['acquisition', 'locations'], 'conversions' => ['goals']];
 
     /** Changes of these are never coloured. */
     public const NEUTRAL = ['loc_changed'];
@@ -62,7 +70,9 @@ final class ProjectLayout
             if ($onlyKeys !== null && ! isset($onlyKeys[$key])) {
                 continue;
             }
-            $members = array_values(array_filter($sources, fn (array $source): bool => array_intersect($source['metric_keys'] ?? ProviderCatalog::metricKeys($source['kind']), $keys) !== []));
+            $blockKeys = self::GROUP_BLOCKS[$key] ?? [];
+            $members = array_values(array_filter($sources, fn (array $source): bool => ($key !== 'conversions' && array_intersect($source['metric_keys'] ?? ProviderCatalog::metricKeys($source['kind']), $keys) !== [])
+                || ($key === 'conversions' && (self::hasData($source, 'conversions') || self::blockReports($source, 'goals') !== []))));
             if ($members === []) {
                 continue;
             }
@@ -81,20 +91,33 @@ final class ProjectLayout
                     $card = ['metric' => $metric, 'source' => $source, 'label' => $multiple ? $source['label'] : null];
                     if (array_filter(array_column($metric['series'], 'value'), fn (mixed $value): bool => $value !== null) !== []) {
                         $cards[] = $card;
-                    } else {
+                    } elseif (! in_array($metricKey, self::OPTIONAL, true)) {
                         $lines[] = $card;
                     }
                 }
             }
-            $hidden = array_sum(array_map(fn (array $source): int => count(array_intersect($source['hidden_keys'] ?? [], [...$keys, SearchQueries::CHART_KEY])), $members));
+            $hidden = array_sum(array_map(fn (array $source): int => count(array_intersect($source['hidden_keys'] ?? [], [...$keys, SearchQueries::CHART_KEY, ...$blockKeys])), $members));
+            $blocks = [];
+            foreach ($blockKeys as $blockKey) {
+                $reports = [];
+                foreach ($members as $source) {
+                    if (($sourceReports = self::blockReports($source, $blockKey)) !== []) {
+                        $reports[(int) $source['id']] = $sourceReports;
+                    }
+                }
+                if ($reports !== []) {
+                    $dimensions = array_values(array_filter(AudienceBreakdowns::BLOCKS[$blockKey], fn (string $dimension): bool => collect($reports)->contains(fn (array $byDimension): bool => isset($byDimension[$dimension]))));
+                    $blocks[] = ['key' => $blockKey, 'dimensions' => $dimensions, 'reports' => $reports];
+                }
+            }
             $queries = array_values(array_filter(array_map(fn (array $source): ?array => $source['queries'] ?? null, $members)));
             // Search Console first: it reports daily and usually has the larger audience.
             usort($queries, fn (array $a, array $b): int => array_search($a['source']['kind'], ProviderCatalog::QUERY_PROVIDERS, true) <=> array_search($b['source']['kind'], ProviderCatalog::QUERY_PROVIDERS, true));
             // A group whose charts are all hidden leaves the page; the hidden-charts line at the end still counts them.
-            if ($cards === [] && $lines === [] && $queries === [] && $hidden > 0 && ! collect($members)->contains(fn (array $source): bool => ! $source['last_success_at'] || in_array($source['status'], ['failed', 'delayed'], true))) {
+            if ($cards === [] && $lines === [] && $queries === [] && $blocks === [] && ($key === 'conversions' || ($hidden > 0 && ! collect($members)->contains(fn (array $source): bool => ! $source['last_success_at'] || in_array($source['status'], ['failed', 'delayed'], true))))) {
                 continue;
             }
-            $groups[] = ['key' => $key, 'title' => self::TITLES[$key], 'sources' => $members, 'cards' => $cards, 'lines' => $lines, 'queries' => $queries, 'events' => self::events($members)];
+            $groups[] = ['key' => $key, 'title' => self::TITLES[$key], 'sources' => $members, 'cards' => $cards, 'lines' => $lines, 'queries' => $queries, 'blocks' => $blocks, 'events' => self::events($members)];
         }
 
         $rows = [];
@@ -151,29 +174,69 @@ final class ProjectLayout
             'ms' => $value >= 1000 ? [Number::format($value / 1000, 1, locale: $locale), 's'] : [Number::format($value, 0, locale: $locale), 'ms'],
             'score' => [Number::format($value, 0, locale: $locale), '/100'],
             'ratio' => [Number::format($value, $value > 0 && $value < 0.01 ? 3 : 2, locale: $locale), null],
+            'seconds' => [self::duration($value), null],
             default => [Number::format($value, fmod($value, 1) !== 0.0 ? 1 : 0, locale: $locale), null],
+        };
+    }
+
+    /** A length of time as the charts show it: "45 s", "2 min 05 s", "1 h 04 min". */
+    public static function duration(float $seconds): string
+    {
+        $total = (int) round(max(0.0, $seconds));
+
+        return match (true) {
+            $total < 60 => $total.' s',
+            $total < 3600 => intdiv($total, 60).' min '.sprintf('%02d', $total % 60).' s',
+            default => intdiv($total, 3600).' h '.sprintf('%02d', intdiv($total % 3600, 60)).' min',
         };
     }
 
     /** Name of a chart that can be hidden: a metric, or the Top queries block. */
     public static function chartLabel(string $key): string
     {
-        return $key === SearchQueries::CHART_KEY ? __('Top queries') : __(MetricRegistry::all()[$key]->label ?? $key);
+        return match (true) {
+            $key === SearchQueries::CHART_KEY => __('Top queries'),
+            isset(AudienceBreakdowns::BLOCK_LABELS[$key]) => __(AudienceBreakdowns::BLOCK_LABELS[$key]),
+            default => __(MetricRegistry::all()[$key]->label ?? $key),
+        };
     }
 
-    /** @param array{cards: list<array<string, mixed>>, queries: list<array<string, mixed>>} $group */
+    /**
+     * A source's breakdown reports for one block, keyed by dimension; hidden blocks were removed by the page.
+     *
+     * @param  array<string, mixed>  $source
+     * @return array<string, array<string, mixed>>
+     */
+    private static function blockReports(array $source, string $block): array
+    {
+        return array_intersect_key($source['breakdowns'][$block] ?? [], array_flip(AudienceBreakdowns::BLOCKS[$block]));
+    }
+
+    /** @param array<string, mixed> $source */
+    private static function hasData(array $source, string $metricKey): bool
+    {
+        foreach ($source['metrics'] ?? [] as $metric) {
+            if ($metric['key'] === $metricKey && array_filter(array_column($metric['series'], 'value'), fn (mixed $value): bool => $value !== null) !== []) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** @param array{cards: list<array<string, mixed>>, queries: list<array<string, mixed>>, blocks?: list<array<string, mixed>>} $group */
     private static function fitsHalf(array $group): bool
     {
         $lead = $group['cards'][0]['metric']['key'] ?? null;
 
-        // The Top queries table needs the full width.
-        return $group['queries'] === [] && (count($group['cards']) === 1 || ($lead === 'monitor_status' && count($group['cards']) <= 3));
+        // The Top queries table and breakdown blocks need the full width.
+        return $group['queries'] === [] && ($group['blocks'] ?? []) === [] && (count($group['cards']) === 1 || ($lead === 'monitor_status' && count($group['cards']) <= 3));
     }
 
     /**
      * Gives every card a size and its column span on a six-column grid.
      *
-     * @param  array{key: string, title: string, sources: list<array<string, mixed>>, cards: list<array<string, mixed>>, lines: list<array<string, mixed>>, queries: list<array<string, mixed>>, events: int}  $group
+     * @param  array{key: string, title: string, sources: list<array<string, mixed>>, cards: list<array<string, mixed>>, lines: list<array<string, mixed>>, queries: list<array<string, mixed>>, blocks: list<array<string, mixed>>, events: int}  $group
      * @return array<string, mixed>
      */
     private static function place(array $group, bool $half, bool $singleDay = false): array

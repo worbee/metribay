@@ -9,6 +9,10 @@ use Carbon\CarbonImmutable;
 /** Umami sessions time-series means visitors; actual visits come from /stats. */
 final class UmamiConnector extends AbstractConnector
 {
+    /** Breakdown dimensions and the Umami metrics type that answers each (Umami 2.x and 3.x names). */
+    private const DIMENSIONS = ['channel' => 'channel', 'referrer' => 'referrer', 'landing_page' => 'entry', 'campaign' => 'utmCampaign',
+        'country' => 'country', 'device' => 'device', 'goal' => 'event'];
+
     public function collect(SourceConfiguration $source, array $credentials, CarbonImmutable $now): CollectionResult
     {
         $this->utcOnly($source, 'Umami');
@@ -98,6 +102,7 @@ final class UmamiConnector extends AbstractConnector
             $day = CarbonImmutable::parse($date, 'UTC');
             $stats = $this->object($get($path.'/stats', $query($day, $day)), 'Umami');
             $values['visits'] = $this->stat($stats, 'visits');
+            $values += $this->engagement($stats);
         }
         unset($values);
         if ($created !== null) {
@@ -112,7 +117,7 @@ final class UmamiConnector extends AbstractConnector
                     foreach (['pageviews', 'visitors', 'visits'] as $metric) {
                         $counts[$metric] = $this->stat($stats, $metric);
                     }
-                    $dates[$date] = $counts;
+                    $dates[$date] = $counts + $this->engagement($stats);
                 } catch (ConnectorException) {
                     // An ambiguous omitted day remains unknown, never a fabricated zero.
                 }
@@ -132,7 +137,45 @@ final class UmamiConnector extends AbstractConnector
                 'value' => $this->stat($stats, 'visitors'), 'is_partial' => $end->equalTo($today)];
         }
 
-        return new CollectionResult(daily: $daily, periods: $periods);
+        if (($source->config['breakdowns'] ?? true) === false) {
+            return new CollectionResult(daily: $daily, periods: $periods);
+        }
+        // Umami reports channels and the other breakdowns per period, as unique visitors (custom events as event counts).
+        $fetchers = [];
+        foreach (self::DIMENSIONS as $dimension => $type) {
+            $fetchers[$dimension] = Breakdowns::perWindow(function (CarbonImmutable $from, CarbonImmutable $end) use ($get, $path, $query, $dimension, $type): array {
+                $items = [];
+                foreach ($this->list($get($path.'/metrics', ['type' => $type, 'limit' => Breakdowns::LIMIT] + $query($from, $end)), 'Umami') as $raw) {
+                    $row = $this->object($raw, 'Umami');
+                    $item = $row['x'] ?? null;
+                    if (! is_string($item) || trim($item) === '') {
+                        continue; // No referrer, campaign or country recorded.
+                    }
+                    $count = $this->number($row['y'] ?? null, 'Umami');
+                    $items[] = $dimension === 'goal' ? ['item' => $item, 'conversions' => $count] : ['item' => $item, 'visitors' => $count];
+                }
+
+                return $items;
+            });
+        }
+        $breakdowns = Breakdowns::collect($source->breakdownLists ? $fetchers : [], $today);
+
+        return new CollectionResult(daily: $daily, periods: $periods, breakdowns: $breakdowns['rows'], breakdownDimensions: $breakdowns['dimensions'], breakdownErrors: $breakdowns['errors']);
+    }
+
+    /**
+     * Bounced visits and the total length of visits in seconds, when this Umami version reports them.
+     *
+     * @param  array<string, mixed>  $stats
+     * @return array<string, float>
+     */
+    private function engagement(array $stats): array
+    {
+        try {
+            return ['bounces' => $this->stat($stats, 'bounces'), 'visit_duration' => $this->stat($stats, 'totaltime')];
+        } catch (ConnectorException) {
+            return []; // Unknown, not zero.
+        }
     }
 
     /** @param array<string, mixed> $stats */

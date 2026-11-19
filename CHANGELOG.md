@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## 1.6.0 — 2026-11-19
+
+- **Audience breakdowns** for Google Analytics 4, Plausible, Umami, Matomo and PostHog (website and product usage). The **Audience** group now ends with two blocks:
+  - **Acquisition**: visits by **Channel**, with a daily stacked chart and each channel's share and change, plus top **Referrers**, **Landing pages** and **Campaigns** (`utm_campaign`). Every provider's channels map onto one list: direct, organic and paid search, organic and paid social, email, referral, AI assistants, video, shopping, display, affiliates, other.
+  - **Locations and devices**: top **Countries** and **Devices** (desktop, mobile, tablet).
+- **Bounce rate** and **Average visit duration** charts in **Audience**. A period's rate is calculated from all its bounces and visits, never by averaging daily rates.
+- **Conversions**: completed goals and key events per day from Google Analytics, Plausible and Matomo, in a new **Conversions** group with a **Goals** list (Umami: custom events). A site without goals shows no Conversions group instead of a row of zeros.
+- Channels are stored per day and follow any period, including custom ranges. The other lists are stored for the last 7, 30 and 90 days and the period before each; Yesterday and custom ranges show the closest one and say so. Umami reports channels per period only. Lists count visits where the provider has them and visitors otherwise, and visitors in different rows are never added up.
+- Breakdowns never stop a sync: if a provider can't answer one (an older self-hosted version, a disabled Matomo plugin), the other numbers still sync and that list keeps its last values. The lists refresh about once a day per data source, spread over the day's syncs, to stay within provider rate limits; channels and conversions update with every sync. No new permissions are needed.
+- Each block can be hidden per data source like a chart.
+- The demo shows breakdowns for every sample analytics source; Alder & Finch's bot spike now shows up as Direct.
+- New migration: `channel_days` and `breakdown_rows` tables and `sources.breakdowns_collected_at`. New strings in all twelve languages. No configuration change.
+
 ## 1.5.0 — 2026-11-18
 
 - Sign in with a **passkey**: Touch ID, Face ID, Windows Hello, a phone or a security key. Add one under **Profile → Passkeys** after confirming your password, then choose **Sign in with a passkey** on the sign-in page. A passkey replaces both the password and the two-factor code, and requires the device's fingerprint, face or PIN. Your password and two-factor authentication keep working.

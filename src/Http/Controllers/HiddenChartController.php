@@ -10,6 +10,7 @@ use Metribay\Core\Metrics\MetricRegistry;
 use Metribay\Core\Metrics\ProjectLayout;
 use Metribay\Core\Models\HiddenChart;
 use Metribay\Core\Models\Project;
+use Metribay\Core\Services\AudienceBreakdowns;
 use Metribay\Core\Services\SearchQueries;
 use Metribay\Core\Services\WorkspaceContext;
 
@@ -27,7 +28,7 @@ class HiddenChartController
         $project = $this->project($request);
         $values = $request->validate([
             'source_id' => ['required', 'integer', Rule::exists('sources', 'id')->where('workspace_id', app(WorkspaceContext::class)->id())->where('project_id', $project->id)],
-            'metric_key' => ['required', 'string', Rule::in([...array_keys(MetricRegistry::all()), SearchQueries::CHART_KEY])],
+            'metric_key' => ['required', 'string', Rule::in([...array_keys(MetricRegistry::all()), SearchQueries::CHART_KEY, ...array_keys(AudienceBreakdowns::BLOCKS)])],
         ]);
         $chart = HiddenChart::query()->createOrFirst(['project_id' => $project->id, 'source_id' => (int) $values['source_id'], 'metric_key' => $values['metric_key']]);
 

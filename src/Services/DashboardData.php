@@ -47,13 +47,26 @@ class DashboardData
                 foreach ($metricKeys as $key) {
                     $definition = MetricRegistry::get($key);
                     $byDate = $rows->get($key, collect())->keyBy(fn (DailyMetric $row): string => $row->date->toDateString());
+                    $ratio = $definition->ratio;
+                    $parts = $ratio === null ? [] : [$rows->get($ratio[0], collect())->keyBy(fn (DailyMetric $row): string => $row->date->toDateString()),
+                        $rows->get($ratio[1], collect())->keyBy(fn (DailyMetric $row): string => $row->date->toDateString())];
                     $series = [];
                     $previous = [];
                     for ($i = 0; $i < $days; $i++) {
                         foreach ([['start' => $start, 'previous' => false], ['start' => $previousStart, 'previous' => true]] as $window) {
                             $date = $window['start']->addDays($i)->toDateString();
-                            $row = $byDate->get($date);
-                            $point = ['date' => $date, 'value' => $row?->value, 'partial' => ($row === null ? false : (bool) $row->is_partial), 'context' => $row->context ?? []];
+                            if ($ratio !== null) {
+                                // A ratio exists on a date only when both parts were recorded and something was counted.
+                                $numerator = $parts[0]->get($date);
+                                $denominator = $parts[1]->get($date);
+                                $known = $numerator !== null && $denominator !== null && $denominator->value > 0;
+                                $point = ['date' => $date, 'value' => $known ? $this->ratio((float) $numerator->value, (float) $denominator->value, $ratio[2], $definition->unit) : null,
+                                    'partial' => $known && ($numerator->is_partial || $denominator->is_partial), 'context' => [],
+                                    'parts' => $known ? [(float) $numerator->value, (float) $denominator->value] : null];
+                            } else {
+                                $row = $byDate->get($date);
+                                $point = ['date' => $date, 'value' => $row?->value, 'partial' => ($row === null ? false : (bool) $row->is_partial), 'context' => $row->context ?? []];
+                            }
                             if ($window['previous']) {
                                 $previous[] = $point;
                             } else {
@@ -61,8 +74,15 @@ class DashboardData
                             }
                         }
                     }
-                    $value = $this->aggregate($definition->aggregation, $series, $periodRows, $key, $start->toDateString(), $end->toDateString());
-                    $prior = $this->aggregate($definition->aggregation, $previous, $periodRows, $key, $previousStart->toDateString(), $previousEnd->toDateString());
+                    if ($ratio !== null) {
+                        $value = $this->ratioTotal($series, $ratio[2], $definition->unit);
+                        $prior = $this->ratioTotal($previous, $ratio[2], $definition->unit);
+                        $series = array_map(fn (array $point): array => array_diff_key($point, ['parts' => true]), $series);
+                        $previous = array_map(fn (array $point): array => array_diff_key($point, ['parts' => true]), $previous);
+                    } else {
+                        $value = $this->aggregate($definition->aggregation, $series, $periodRows, $key, $start->toDateString(), $end->toDateString());
+                        $prior = $this->aggregate($definition->aggregation, $previous, $periodRows, $key, $previousStart->toDateString(), $previousEnd->toDateString());
+                    }
                     $known = count(array_filter($series, fn ($point) => $point['value'] !== null));
                     $periodRow = $periodRows->first(fn ($row) => $row->metric === $key && $row->start_date->toDateString() === $start->toDateString() && $row->end_date->toDateString() === $end->toDateString());
                     $partial = $definition->aggregation === 'period' ? ($periodRow ? (bool) $periodRow->is_partial : ($days === 1 && $value !== null ? (bool) $series[0]['partial'] : true)) : (! $definition->snapshot && ($known < $days || count(array_filter($series, fn ($p) => $p['partial'])) > 0));
@@ -243,6 +263,34 @@ class DashboardData
         return $aggregation === 'latest' ? (float) end($values) : (float) array_sum($values);
     }
 
+    private function ratio(float $numerator, float $denominator, float $scale, string $unit): float
+    {
+        // Rounded past display precision, so 14 of 100 is 14, not 14.000000000000002.
+        $value = round($numerator / $denominator * $scale, 6);
+
+        // Parts come from separate provider counts; a rate never shows more than everything.
+        return $unit === 'percent' ? min(100.0, $value) : $value;
+    }
+
+    /**
+     * A ratio over a period: the sum of its numerators over the sum of its denominators, on the dates that have both.
+     *
+     * @param  list<array<string, mixed>>  $series
+     */
+    private function ratioTotal(array $series, float $scale, string $unit): ?float
+    {
+        $numerator = 0.0;
+        $denominator = 0.0;
+        foreach ($series as $point) {
+            if ($point['parts'] !== null) {
+                $numerator += $point['parts'][0];
+                $denominator += $point['parts'][1];
+            }
+        }
+
+        return $denominator > 0 ? $this->ratio($numerator, $denominator, $scale, $unit) : null;
+    }
+
     private function format(string $metric, ?float $value): string
     {
         if ($value === null) {
@@ -252,7 +300,7 @@ class DashboardData
         }
 
         return match (MetricRegistry::get($metric)->unit) {
-            'ratio' => Number::format($value, 3, locale: app()->getLocale()), 'score' => Number::format($value, 0, locale: app()->getLocale()).'/100', 'percent' => Number::format($value, 2, locale: app()->getLocale()).'%', 'ms' => Number::format($value, 1, locale: app()->getLocale()).' ms',default => Number::format($value, 0, locale: app()->getLocale())
+            'ratio' => Number::format($value, 3, locale: app()->getLocale()), 'seconds' => Number::format($value, 0, locale: app()->getLocale()).' s', 'score' => Number::format($value, 0, locale: app()->getLocale()).'/100', 'percent' => Number::format($value, 2, locale: app()->getLocale()).'%', 'ms' => Number::format($value, 1, locale: app()->getLocale()).' ms',default => Number::format($value, 0, locale: app()->getLocale())
         };
     }
 

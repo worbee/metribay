@@ -55,7 +55,8 @@ The overview (a menu) and the project page (the segmented control) share one per
 
 | Group | Metrics (lead first) | Providers |
 | --- | --- | --- |
-| Audience | **Visits**, Visitors, Page views | Umami, Plausible, Matomo, Google Analytics, PostHog |
+| Audience | **Visits**, Visitors, Page views, Bounce rate, Average visit duration; Acquisition and Locations and devices blocks | Umami, Plausible, Matomo, Google Analytics, PostHog |
+| Conversions | **Conversions**; Goals block | Google Analytics, Plausible, Matomo (Umami: Goals block of custom events) |
 | Product | **Active users**, Key events | PostHog |
 | Social | **Followers** | Bluesky, Mastodon |
 | Search | **Clicks**, Impressions, Indexed pages | Search Console, Bing Webmaster |
@@ -108,12 +109,23 @@ The archive is `search_query_months` (one row per source and calendar month: dat
 
 Built by `Services\SearchQueries`; view `partials/search-queries`. Tests: `tests/Feature/SearchQueriesTest.php` and the Search Console/Bing cases in `tests/Connectors/ProviderConnectorsTest.php`.
 
+## Audience breakdowns
+
+Website analytics sources add three full-width blocks after their charts ([providers](PROVIDERS.md#audience-breakdowns), [metric rules](METRICS.md)): **Acquisition** (tabs **Channels**, **Referrers**, **Landing pages**, **Campaigns**) and **Locations and devices** (**Countries**, **Devices**) end the Audience group; **Goals** ends the Conversions group. They reuse the Top queries behaviour: one source switch when several analytics sources report, tabs with item counts, 10 rows and **Show all :count**, and the chosen source, tab and expanded state survive the hourly refresh. A tab appears when any source of the block has stored rows for it; a source without that list says the provider has not reported it yet.
+
+- **Channels** with daily data follow the reporting period exactly: a stacked bar chart of visits per day (the five largest channels in table order, then **Other channels**; missing days stay empty, the tooltip lists the day's channels and total) and a table of visits, change against the previous period and share of the period's visits. Umami's channels are a period list of visitors without the chart.
+- Lists show the stored window closest to the period, with the note "Breakdowns are stored for the last 7, 30 and 90 days; this shows the last :days days." for Yesterday and custom ranges. Columns: item, visits (or visitors, conversions; Umami's goals are **Events**) with the change against the window before, and **Share** with a bar. Visitor lists have bars against the largest row and no share, with the note that one visitor can appear in several rows. Items missing from the previous window are **New**. Countries use their names in the interface language.
+- **Bounce rate** and **Average visit duration** join the Audience charts (bounce rate is lower-is-better; durations read "1 min 35 s"). **Conversions** gets its own group after Audience. These charts, and the Conversions group, are left out when a source has no data for them in the period, instead of listing them as empty.
+- Each block can be hidden per data source like a chart (hidden-chart keys `acquisition`, `locations`, `goals`) and restored from **Hidden charts**.
+
+Built by `Services\AudienceBreakdowns`; view `partials/breakdowns`. Tests: `tests/Feature/AudienceBreakdownsTest.php` and `tests/Connectors/AudienceBreakdownsConnectorTest.php`.
+
 ## Change indicator
 
 Matches the index (`partials/overview-change`): ↗ / ↘ / →, one decimal below 10 %, whole numbers from 10 %. Colour applies from 10 % and depends on the metric's polarity:
 
-- Higher is better: visits, visitors, page views, active users, key events, clicks, impressions, indexed pages, commits, PRs merged, pipeline runs succeeded, downloads, release downloads, followers, uptime, lab score.
-- Lower is better (a rise is red): open issues, pipeline runs failed, response time, every LCP / INP / CLS / TBT value.
+- Higher is better: visits, visitors, page views, average visit duration, conversions, active users, key events, clicks, impressions, indexed pages, commits, PRs merged, pipeline runs succeeded, downloads, release downloads, followers, uptime, lab score.
+- Lower is better (a rise is red): bounce rate, open issues, pipeline runs failed, response time, every LCP / INP / CLS / TBT value.
 - Neutral (never coloured): lines changed.
 
 Large charts also show the previous-period value in words ("468 in the previous 30 days"). No percentage is shown when the previous period is missing or zero (existing rule).
