@@ -12,6 +12,7 @@ use Metribay\Core\Models\Connection;
 use Metribay\Core\Models\Project;
 use Metribay\Core\Models\Source;
 use Metribay\Core\Models\Workspace;
+use Metribay\Core\Services\ProviderCatalog;
 use Metribay\Core\Services\WorkspaceContext;
 use Tests\TestCase;
 
@@ -42,6 +43,46 @@ class SourceSetupTest extends TestCase
         Queue::assertPushed(CollectSource::class, fn ($job) => $job->workspaceId === $workspace->id && $job->full);
         $this->post('/w/setup/sources/setup', ['action' => 'finish', 'days' => 180])->assertRedirect('/w/setup')->assertSessionHas('status');
         $this->assertDatabaseCount('sources', 1);
+    }
+
+    public function test_providers_are_grouped_with_their_purpose_and_setup_guides(): void
+    {
+        config(['metribay.marketing_url' => 'https://docs.example.test/']);
+        $owner = User::factory()->create();
+        $workspace = Workspace::create(['owner_id' => $owner->id, 'name' => 'Setup', 'slug' => 'setup']);
+        $project = $this->projectIn($workspace);
+        app(WorkspaceContext::class)->run($workspace, fn () => Source::create(['project_id' => $project->id, 'kind' => 'wporg', 'label' => 'Synthetic plugin', 'config' => ['slug' => 'synthetic-plugin'], 'reporting_timezone' => 'UTC', 'identity_hash' => str_repeat('b', 64), 'enabled' => true]));
+
+        $this->actingAs($owner)->get('/w/setup/sources/new?project='.$project->id)->assertOk()
+            ->assertSeeInOrder(['Website analytics', 'Google Analytics 4', 'Search engines', 'Google Search Console', 'Uptime and speed', 'Publishing', 'Code and releases', 'WordPress.org', 'Social followers', 'Revenue', 'Paddle Billing'])
+            ->assertSee('How often your pages appear in Google and Bing results', false)
+            ->assertSee('Clicks and impressions in Google Search')
+            ->assertSee('1 added')
+            ->assertSee('No sign-in needed')
+            ->assertSee('href="https://docs.example.test/docs/integrations/search-console/"', false)
+            ->assertSee('href="https://docs.example.test/docs/integrations/wordpress/"', false)
+            ->assertSee('data-provider-search', false);
+
+        $this->post('/w/setup/sources/setup', ['action' => 'provider', 'kind' => 'gsc']);
+        $this->get('/w/setup/sources/new')->assertOk()
+            ->assertSee('Read the Google Search Console setup guide')
+            ->assertSee('href="https://docs.example.test/docs/integrations/search-console/"', false)
+            ->assertDontSee('Website analytics');
+
+        $owner->forceFill(['locale' => 'de'])->save();
+        $this->get('/w/setup/sources/new')->assertOk()->assertSee('href="https://docs.example.test/de/docs/integrations/search-console/"', false);
+    }
+
+    public function test_provider_groups_keep_unlisted_providers_and_drop_empty_groups(): void
+    {
+        $grouped = ProviderCatalog::grouped(['gsc', 'ga4', 'future_provider']);
+        $this->assertSame(['analytics' => ['ga4'], 'search' => ['gsc'], 'other' => ['future_provider']], $grouped);
+        $this->assertSame([], array_diff(array_keys(ProviderCatalog::all()), array_merge(...array_values(ProviderCatalog::GROUPS))));
+        foreach (array_keys(ProviderCatalog::all()) as $kind) {
+            $this->assertNotNull(ProviderCatalog::docsUrl($kind, 'en'), $kind);
+        }
+        $this->assertNull(ProviderCatalog::docsUrl('future_provider'));
+        $this->assertSame('https://metribay.com/docs/integrations/umami/', ProviderCatalog::docsUrl('umami', 'xx'));
     }
 
     public function test_setup_is_never_resumed_after_leaving_and_each_click_starts_fresh(): void

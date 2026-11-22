@@ -288,6 +288,60 @@ class ProviderCatalog
     /** Website analytics providers with audience breakdowns: channels, referrers, landing pages, campaigns, countries, devices and goals. */
     public const BREAKDOWN_PROVIDERS = ['ga4', 'plausible', 'umami', 'matomo', 'posthog'];
 
+    /**
+     * Provider groups for the Add data source picker, in display order. A provider missing here is shown under "Other".
+     *
+     * @var array<string, list<string>>
+     */
+    public const GROUPS = [
+        'analytics' => ['ga4', 'plausible', 'umami', 'matomo', 'posthog'],
+        'search' => ['gsc', 'bing'],
+        'health' => ['uptimerobot', 'pagespeed'],
+        'content' => ['sitemap', 'feed'],
+        'code' => ['github', 'github_releases', 'azure_devops', 'wporg'],
+        'social' => ['bluesky', 'mastodon'],
+        'revenue' => ['paddle'],
+    ];
+
+    /** Setup guide paths under {marketing_url}/{locale}/docs/integrations/. */
+    private const DOCS_PAGES = [
+        'umami' => 'umami', 'plausible' => 'plausible', 'matomo' => 'matomo', 'posthog' => 'posthog',
+        'ga4' => 'google-analytics', 'gsc' => 'search-console', 'bing' => 'bing', 'pagespeed' => 'pagespeed',
+        'wporg' => 'wordpress', 'github' => 'github', 'github_releases' => 'github-releases', 'feed' => 'rss-atom',
+        'sitemap' => 'sitemap', 'uptimerobot' => 'uptimerobot', 'paddle' => 'paddle', 'azure_devops' => 'azure-devops',
+        'bluesky' => 'bluesky', 'mastodon' => 'mastodon',
+    ];
+
+    /**
+     * Providers grouped for display, keeping only the given kinds; unknown kinds land in "other".
+     *
+     * @param  list<string>  $kinds
+     * @return array<string, list<string>>
+     */
+    public static function grouped(array $kinds): array
+    {
+        $groups = [];
+        foreach (self::GROUPS as $group => $members) {
+            $groups[$group] = array_values(array_intersect($members, $kinds));
+        }
+        $groups['other'] = array_values(array_diff($kinds, array_merge(...array_values(self::GROUPS))));
+
+        return array_filter($groups);
+    }
+
+    /** The provider's setup guide on the Metribay site, in the interface language when the site has it. */
+    public static function docsUrl(string $kind, ?string $locale = null): ?string
+    {
+        $page = self::DOCS_PAGES[$kind] ?? null;
+        if ($page === null) {
+            return null;
+        }
+        $locale ??= app()->getLocale();
+        $prefix = $locale !== 'en' && array_key_exists($locale, (array) config('metribay.locales', [])) ? '/'.$locale : '';
+
+        return rtrim((string) config('metribay.marketing_url', 'https://metribay.com'), '/').$prefix.'/docs/integrations/'.$page.'/';
+    }
+
     private const WEBSITE_METRICS = ['visitors', 'visits', 'pageviews'];
 
     /** Shown as ratios; stored as their parts (see storedMetricKeys). */

@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 1.7.0 — 2026-11-22
+
+- **Add data source** is easier to choose from. Providers are grouped by what they measure: **Website analytics**, **Search engines**, **Uptime and speed**, **Publishing**, **Code and releases**, **Social followers** and **Revenue**. Each group says what it is for and what it needs, so a search engine group is clear even if you have never used Search Console.
+- Every provider shows one line on what you get from it, how many data sources of it the project already has (for example "1 added") and **No sign-in needed** when it works without a connected account.
+- **Find a provider** filters the list by name, what it measures or group, and ignores accents.
+- Each provider links to its **Setup guide** on metribay.com, in your language. After you choose a provider, a link to the same guide stays above every step.
+- Hosts can change the docs address with `metribay.marketing_url`. New strings in all twelve languages. No database migration or configuration change.
+
 ## 1.6.0 — 2026-11-19
 
 - **Audience breakdowns** for Google Analytics 4, Plausible, Umami, Matomo and PostHog (website and product usage). The **Audience** group now ends with two blocks:

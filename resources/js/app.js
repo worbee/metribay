@@ -5,6 +5,7 @@ import { setupHourlyRefresh } from './hourly-refresh.js';
 import { applyGroupCollapse, fragmentTarget, openCollapsedGroup, setupGroupCollapse } from './group-collapse.js';
 import { renderProjectViews, setupProjectViews } from './project-views.js';
 import { setupPasskeys } from './passkeys.js';
+import { filterProviders } from './provider-filter.js';
 
 Chart.register(LineController, LineElement, PointElement, BarController, BarElement, CategoryScale, LinearScale, Tooltip, Filler);
 
@@ -713,6 +714,10 @@ initialize();
 function setupSourceForms() {
  document.querySelectorAll('[data-resource-search]').forEach(input => {
  input.oninput = () => document.querySelectorAll('[data-resource-row]').forEach(row => { row.hidden = !row.textContent.toLowerCase().includes(input.value.toLowerCase()); });
+ });
+ document.querySelectorAll('[data-provider-search]').forEach(input => {
+ input.oninput = () => filterProviders(document, input.value);
+ if (input.value) filterProviders(document, input.value);
  });
 }
 document.addEventListener('DOMContentLoaded', setupSourceForms);
