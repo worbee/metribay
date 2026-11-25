@@ -21,7 +21,8 @@ class ProjectTransfer
 
     /**
      * Connected accounts used only by this project move along when $moveAccounts is true. Accounts shared
-     * with other projects stay; the moved data sources keep their settings and history without an account.
+     * with other projects stay; the moved data sources keep their settings and history without an account,
+     * and those that need one to collect are paused until one is chosen in the target workspace.
      *
      * @return array{project: int, accounts: int, detached: int}
      */
@@ -48,8 +49,11 @@ class ProjectTransfer
 
             foreach ($sources as $source) {
                 $row = array_diff_key((array) $source, ['id' => true]);
+                $connectionId = $movable->contains($source->connection_id) ? $source->connection_id : null;
+                // Like removing an account: a source that cannot collect without one pauses until an account is chosen.
+                $enabled = (bool) $source->enabled && ($connectionId !== null || ! ProviderCatalog::requiresConnection($source->kind));
                 $newSourceId = DB::table('sources')->insertGetId(['workspace_id' => $to->id, 'project_id' => $newProjectId,
-                    'connection_id' => $movable->contains($source->connection_id) ? $source->connection_id : null, 'version' => 1] + $row);
+                    'connection_id' => $connectionId, 'enabled' => $enabled, 'version' => 1] + $row);
                 foreach (self::SOURCE_TABLES as $table) {
                     DB::table($table)->where('workspace_id', $from->id)->where('source_id', $source->id)->update(['workspace_id' => $to->id, 'source_id' => $newSourceId]);
                 }

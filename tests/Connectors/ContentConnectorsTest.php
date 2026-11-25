@@ -88,6 +88,34 @@ final class ContentConnectorsTest extends FixtureTestCase
         Http::assertSentCount(2);
     }
 
+    public function test_a_url_listed_twice_counts_once_with_its_latest_lastmod(): void
+    {
+        Http::fake([
+            'https://example.com/sitemap.xml' => Http::response('<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><sitemap><loc>https://example.com/post-sitemap.xml</loc></sitemap><sitemap><loc>https://example.com/page-sitemap.xml</loc></sitemap></sitemapindex>'),
+            'https://example.com/post-sitemap.xml' => Http::response('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://example.com/blog/</loc><lastmod>2026-10-01T09:00:00+03:00</lastmod></url><url><loc>https://example.com/first-post/</loc></url><url><loc>https://example.com/first-post/</loc><lastmod>2026-09-01</lastmod></url></urlset>'),
+            'https://example.com/page-sitemap.xml' => Http::response('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://example.com/</loc></url><url><loc>https://example.com/blog/</loc><lastmod>2026-10-20</lastmod></url><url><loc>https://example.com/blog/</loc><lastmod>2026-10-02</lastmod></url></urlset>'),
+        ]);
+
+        $result = $this->sitemap('https://example.com/sitemap.xml');
+
+        $this->assertSame(3.0, $result->daily[0]['value']);
+        $this->assertSame([
+            ['url' => 'https://example.com/blog/', 'last_modified_at' => '2026-10-20T00:00:00+00:00'],
+            ['url' => 'https://example.com/first-post/', 'last_modified_at' => '2026-09-01T00:00:00+00:00'],
+            ['url' => 'https://example.com/', 'last_modified_at' => null],
+        ], $result->sitemapUrls);
+        $this->assertSame(array_column($result->sitemapUrls, 'url'), array_column($result->events, 'url'));
+        $this->assertCount(3, array_unique(array_column($result->events, 'external_id')));
+    }
+
+    public function test_a_repeated_url_still_rejects_a_future_lastmod(): void
+    {
+        Http::fake(['https://example.com/sitemap.xml' => Http::response('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://example.com/a</loc><lastmod>2026-10-01</lastmod></url><url><loc>https://example.com/a</loc><lastmod>2026-12-01</lastmod></url></urlset>')]);
+        $this->expectException(ConnectorException::class);
+        $this->expectExceptionMessage('future lastmod');
+        $this->sitemap('https://example.com/sitemap.xml');
+    }
+
     public function test_a_nested_sitemap_index_is_rejected(): void
     {
         Http::fake(['https://example.com/sitemap.xml' => Http::response(<<<'XML'

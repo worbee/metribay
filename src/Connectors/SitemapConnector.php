@@ -50,23 +50,28 @@ final class SitemapConnector extends ContentConnector
         } else {
             throw new ConnectorException('This URL did not return a sitemap or a sitemap index.');
         }
-        $catalog = [];
-        $events = [];
-        $seenUrls = [];
+        /*
+         * A URL can be listed more than once, most often in two files of one index (WordPress SEO plugins list the
+         * blog page with both pages and posts). It is one published URL; its latest lastmod is kept.
+         */
+        $modified = [];
         foreach ($urls as $entry) {
             $loc = $entry['loc'];
-            if (isset($seenUrls[$loc])) {
-                throw new ConnectorException('The sitemap repeated a URL. No partial totals were accepted.');
-            }
-            $seenUrls[$loc] = true;
             $occurred = null;
             if ($entry['lastmod'] !== null) {
-                $published = $this->moment($entry['lastmod']);
-                if ($published > $now) {
+                $occurred = $this->moment($entry['lastmod']);
+                if ($occurred > $now) {
                     throw new ConnectorException('The sitemap returned a future lastmod date.');
                 }
-                $occurred = $published->toIso8601String();
             }
+            $previous = $modified[$loc] ?? null;
+            $modified[$loc] = $previous === null || ($occurred !== null && $occurred > $previous) ? $occurred : $previous;
+        }
+        $catalog = [];
+        $events = [];
+        foreach ($modified as $loc => $occurred) {
+            $loc = (string) $loc;
+            $occurred = $occurred?->toIso8601String();
             $catalog[] = ['url' => $loc, 'last_modified_at' => $occurred];
             $events[] = [
                 'origin' => 'sitemap_url',
@@ -78,7 +83,7 @@ final class SitemapConnector extends ContentConnector
             ];
         }
         $daily = [];
-        $daily[] = $this->daily('published_urls', $today->toDateString(), (float) count($urls));
+        $daily[] = $this->daily('published_urls', $today->toDateString(), (float) count($catalog));
 
         // The sitemap is the current catalog, so URLs that disappeared are removed at any age.
         return new CollectionResult(daily: $daily, events: $events, authoritativeEvents: ['sitemap_url' => null],

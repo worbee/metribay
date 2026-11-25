@@ -109,6 +109,55 @@ class ProjectTransferTest extends TestCase
         $this->get('/w/client/projects/'.$moved->id.'/settings')->assertOk()->assertSee('No connected account')->assertSee('via Shop Umami 2');
     }
 
+    public function test_sources_left_without_a_required_account_arrive_paused(): void
+    {
+        $shared = $this->connection($this->from, 'Team Umami');
+        $project = $this->scoped($this->from, fn () => Project::create(['name' => 'Shop', 'slug' => 'shop']));
+        $other = $this->scoped($this->from, fn () => Project::create(['name' => 'Blog', 'slug' => 'blog']));
+        $this->source($project, $shared, 'Website', 'a');
+        $this->source($other, $shared, 'Blog stats', 'c');
+        $this->scoped($this->from, function () use ($project, $other, $shared): void {
+            $token = new Connection(['kind' => 'github_releases', 'name' => 'Team GitHub']);
+            $token->workspace_id = $this->from->id;
+            $token->storeSecrets(['token' => 'fixture-token']);
+            $token->save();
+            Source::create(['project_id' => $project->id, 'kind' => 'github_releases', 'label' => 'Releases', 'connection_id' => $token->id, 'identity_hash' => str_repeat('d', 64), 'config' => ['repository' => 'example/app', 'days' => 30], 'reporting_timezone' => 'UTC']);
+            Source::create(['project_id' => $other->id, 'kind' => 'github_releases', 'label' => 'Blog releases', 'connection_id' => $token->id, 'identity_hash' => str_repeat('e', 64), 'config' => ['repository' => 'example/blog', 'days' => 30], 'reporting_timezone' => 'UTC']);
+            Source::create(['project_id' => $project->id, 'kind' => 'sitemap', 'label' => 'Sitemap', 'identity_hash' => str_repeat('f', 64), 'config' => ['url' => 'https://shop.example.com/sitemap.xml', 'days' => 180], 'reporting_timezone' => 'UTC']);
+            Source::create(['project_id' => $project->id, 'kind' => 'umami', 'label' => 'Old website', 'connection_id' => $shared->id, 'enabled' => false, 'identity_hash' => str_repeat('g', 64), 'config' => ['website_id' => '22222222-2222-4222-8222-222222222222', 'days' => 30], 'reporting_timezone' => 'UTC']);
+        });
+
+        $this->actingAs($this->owner)->post('/w/agency/projects/'.$project->id.'/move', ['workspace_id' => $this->to->id, 'version' => 1])
+            ->assertSessionHas('status', 'Project moved to Client. Choose a connected account for 3 data sources in this workspace.');
+
+        $moved = $this->scoped($this->to, fn () => Project::query()->where('name', 'Shop')->firstOrFail());
+        $this->scoped($this->to, function () use ($moved): void {
+            $sources = Source::query()->where('project_id', $moved->id)->orderBy('label')->get()->keyBy('label');
+            $this->assertSame(['Old website' => false, 'Releases' => true, 'Sitemap' => true, 'Website' => false], $sources->map(fn (Source $source): bool => $source->enabled)->all());
+            $this->assertSame([null, null, null, null], $sources->pluck('connection_id')->values()->all());
+        });
+        $this->get('/w/client/projects/'.$moved->id)->assertOk()->assertSee('Paused: this data source has no connected account. Choose an account to resume collection.');
+        $this->scoped($this->from, fn () => $this->assertSame(2, Source::query()->whereNotNull('connection_id')->where('enabled', true)->count()));
+    }
+
+    public function test_migration_pauses_sources_an_earlier_move_left_without_a_required_account(): void
+    {
+        $account = $this->connection($this->from, 'Team Umami');
+        $project = $this->scoped($this->from, fn () => Project::create(['name' => 'Shop', 'slug' => 'shop']));
+        $this->source($project, $account, 'Connected', 'a');
+        $detached = $this->source($project, null, 'Detached', 'b');
+        $this->scoped($this->from, function () use ($project): void {
+            Source::create(['project_id' => $project->id, 'kind' => 'sitemap', 'label' => 'Sitemap', 'identity_hash' => str_repeat('c', 64), 'config' => ['url' => 'https://shop.example.com/sitemap.xml', 'days' => 180], 'reporting_timezone' => 'UTC']);
+            Source::create(['project_id' => $project->id, 'kind' => 'github_releases', 'label' => 'Releases', 'identity_hash' => str_repeat('d', 64), 'config' => ['repository' => 'example/app', 'days' => 30], 'reporting_timezone' => 'UTC']);
+        });
+
+        (require dirname(__DIR__, 2).'/database/migrations/2026_11_26_000001_pause_sources_without_required_account.php')->up();
+
+        $this->assertSame(['Connected' => true, 'Detached' => false, 'Releases' => true, 'Sitemap' => true],
+            DB::table('sources')->orderBy('label')->pluck('enabled', 'label')->map(fn ($enabled): bool => (bool) $enabled)->all());
+        $this->assertSame(2, (int) DB::table('sources')->where('id', $detached->id)->value('version'));
+    }
+
     public function test_move_requires_a_current_version_and_an_editable_target(): void
     {
         $project = $this->scoped($this->from, fn () => Project::create(['name' => 'Shop', 'slug' => 'shop']));

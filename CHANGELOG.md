@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 1.7.2 — 2026-11-26
+
+- Moving a project to another workspace pauses each data source whose connected account stays behind, as removing an account does. The project page shows **Paused** with **Choose an account** instead of failing on every run with `ConnectorException`. A GitHub releases data source keeps reading its public repository without a token.
+- A new migration pauses data sources that an earlier move left switched on without a required account. Their history stays; choose an account under **Manage data source** and turn on **Collect automatically**.
+- A sitemap that lists the same URL more than once, within one file or across files of an index, imports again. The URL counts once and keeps its latest lastmod. WordPress SEO plugins often list the blog page in both their page and post sitemaps.
+- No configuration change and no new strings.
+
 ## 1.7.1 — 2026-11-25
 
 - Security update for passkeys. The WebAuthn library moves to 5.3.17, which fixes six advisories in attestation and metadata checks, CBOR parsing and how decoy credentials are generated. Laravel Passkeys moves to 0.3, which fixes passkey sign-in on iOS Safari. A passkey that can no longer be used now asks you to remove it and register a new one. Passkeys you already added keep working.
