@@ -4,7 +4,7 @@
 
 ## 1.7.1 — 2026-11-25
 
-- Security update for passkeys. The WebAuthn library moves to 5.3.17, which fixes six advisories in attestation and metadata checks, CBOR parsing and how decoy credentials are generated. Laravel Passkeys moves to 0.3, which fixes passkey sign-in on iOS Safari. A passkey that can no longer be used now asks you to remove it and register a new one.
+- Security update for passkeys. The WebAuthn library moves to 5.3.17, which fixes six advisories in attestation and metadata checks, CBOR parsing and how decoy credentials are generated. Laravel Passkeys moves to 0.3, which fixes passkey sign-in on iOS Safari. A passkey that can no longer be used now asks you to remove it and register a new one. Passkeys you already added keep working.
 - Laravel 13.44, Fortify 1.44, Livewire 4.4.10, Symfony 8.1 components and chart.js 4.6.2. No database migration or configuration change.
 - Hosts that pin `laravel/passkeys` need `^0.3`.
 

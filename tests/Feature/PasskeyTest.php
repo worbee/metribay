@@ -42,6 +42,21 @@ class PasskeyTest extends TestCase
         $this->assertNotNull($user->passkeys()->first()->last_used_at);
     }
 
+    public function test_a_passkey_registered_before_passkeys_0_3_still_signs_in(): void
+    {
+        // Passkeys 0.2 stored a raw binary user handle; 0.3 registers hex. Existing passkeys keep their handle.
+        $user = User::factory()->create();
+        $authenticator = new SoftwarePasskey;
+        $authenticator->userHandle = hash_hmac('sha256', $user->getTable().'|'.$user->getKey(), (string) config('passkeys.user_handle_secret'), true);
+        $this->assertNotSame($authenticator->userHandle, $user->getPasskeyUserHandle());
+        $authenticator->storeFor($user);
+
+        $options = $this->getJson('/passkeys/login/options')->json('options');
+        $this->postJson('/passkeys/login', ['credential' => $authenticator->assertion($options['challenge'], $user)])
+            ->assertOk()->assertJsonPath('redirect', url('/'));
+        $this->assertAuthenticatedAs($user);
+    }
+
     public function test_an_unknown_or_forged_passkey_does_not_sign_in(): void
     {
         $user = User::factory()->create();
@@ -178,6 +193,9 @@ final class SoftwarePasskey
 {
     public readonly string $credentialId;
 
+    /** Overrides the user's current handle, as stored by an older Passkeys version. */
+    public ?string $userHandle = null;
+
     private \OpenSSLAsymmetricKey $key;
 
     public function __construct(private ?string $origin = null)
@@ -189,7 +207,7 @@ final class SoftwarePasskey
     public function storeFor(User $user): Passkey
     {
         $record = CredentialRecord::create($this->credentialId, 'public-key', [], 'none', EmptyTrustPath::create(),
-            Uuid::fromString('00000000-0000-0000-0000-000000000000'), $this->coseKey(), $user->getPasskeyUserHandle(), 0);
+            Uuid::fromString('00000000-0000-0000-0000-000000000000'), $this->coseKey(), $this->userHandle ?? $user->getPasskeyUserHandle(), 0);
 
         return $user->passkeys()->create(['name' => 'Synthetic passkey', 'credential_id' => Base64UrlSafe::encodeUnpadded($this->credentialId),
             'credential' => json_decode(WebAuthn::toJson($record), true, flags: JSON_THROW_ON_ERROR)]);
@@ -202,7 +220,7 @@ final class SoftwarePasskey
         $authenticatorData = hash('sha256', (string) config('passkeys.relying_party_id'), true).chr(0x05).pack('N', time());
         openssl_sign($authenticatorData.hash('sha256', $clientData, true), $signature, $this->key, OPENSSL_ALGO_SHA256);
 
-        return $this->credential(['clientDataJSON' => $clientData, 'authenticatorData' => $authenticatorData, 'signature' => $signature, 'userHandle' => $user->getPasskeyUserHandle()]);
+        return $this->credential(['clientDataJSON' => $clientData, 'authenticatorData' => $authenticatorData, 'signature' => $signature, 'userHandle' => $this->userHandle ?? $user->getPasskeyUserHandle()]);
     }
 
     /** @param  array<string, mixed>  $options  @return array<string, mixed> */
