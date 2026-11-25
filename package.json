@@ -9,11 +9,11 @@
     "dev": "vite build --watch"
   },
   "dependencies": {
-    "chart.js": "^4.6.1",
+    "chart.js": "^4.6.2",
     "vanilla-cookieconsent": "^3.3.0"
   },
   "devDependencies": {
-    "playwright": "1.58.2",
+    "playwright": "1.65.1",
     "vite": "^8.3.5"
   }
 }

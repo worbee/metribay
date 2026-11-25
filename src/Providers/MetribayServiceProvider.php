@@ -14,7 +14,6 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
 use Laravel\Fortify\Fortify;
 use Laravel\Passkeys\Actions\StorePasskey;
-use Laravel\Passkeys\Actions\VerifyPasskey;
 use Laravel\Passkeys\Contracts\PasskeyRegistrationResponse;
 use Livewire\Livewire;
 use Metribay\Core\Actions;
@@ -97,7 +96,6 @@ class MetribayServiceProvider extends ServiceProvider
             Limit::perMinute(120)->by('ip|'.$request->ip()),
         ]);
         $this->app->bind(ProjectFavicon::class, fn () => new ProjectFavicon);
-        $this->app->bind(VerifyPasskey::class, Actions\Passkeys\VerifyPasskey::class);
         $this->app->bind(StorePasskey::class, Actions\Passkeys\StorePasskey::class);
         $this->app->singleton(PasskeyRegistrationResponse::class, \Metribay\Core\Http\Responses\PasskeyRegistrationResponse::class);
         Livewire::component('metribay-dashboard', Dashboard::class);

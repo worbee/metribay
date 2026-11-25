@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 1.7.1 — 2026-11-25
+
+- Security update for passkeys. The WebAuthn library moves to 5.3.17, which fixes six advisories in attestation and metadata checks, CBOR parsing and how decoy credentials are generated. Laravel Passkeys moves to 0.3, which fixes passkey sign-in on iOS Safari. A passkey that can no longer be used now asks you to remove it and register a new one.
+- Laravel 13.44, Fortify 1.44, Livewire 4.4.10, Symfony 8.1 components and chart.js 4.6.2. No database migration or configuration change.
+- Hosts that pin `laravel/passkeys` need `^0.3`.
+
 ## 1.7.0 — 2026-11-22
 
 - **Add data source** is easier to choose from. Providers are grouped by what they measure: **Website analytics**, **Search engines**, **Uptime and speed**, **Publishing**, **Code and releases**, **Social followers** and **Revenue**. Each group says what it is for and what it needs, so a search engine group is clear even if you have never used Search Console.
