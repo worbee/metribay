@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 1.7.3 — 2026-11-27
+
+- **Add data source** no longer dead-ends on a property, site or monitor that a paused data source without a connected account already tracks (for example after a project move). The list marks it as already in the project and paused, with **Choose an account** linking to that data source in the project settings. Entering it manually explains the same.
+- Two new strings in all twelve languages. No migration or configuration change.
+
 ## 1.7.2 — 2026-11-26
 
 - Moving a project to another workspace pauses each data source whose connected account stays behind, as removing an account does. The project page shows **Paused** with **Choose an account** instead of failing on every run with `ConnectorException`. A GitHub releases data source keeps reading its public repository without a token.

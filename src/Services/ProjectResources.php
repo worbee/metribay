@@ -51,4 +51,20 @@ final class ProjectResources
     {
         return in_array(self::key($kind, $id), self::added($projectId, $kind), true);
     }
+
+    /**
+     * The project's data sources that track a resource but are paused without the account they need, keyed by
+     * resource, so setup can send people to choose an account instead of adding the resource again.
+     *
+     * @return array<string, int>
+     */
+    public static function pausedWithoutAccount(int $projectId, string $kind): array
+    {
+        if (! ProviderCatalog::requiresConnection($kind)) {
+            return [];
+        }
+
+        return Source::query()->where('project_id', $projectId)->where('kind', $kind)->where('enabled', false)->whereNull('connection_id')->orderBy('id')->get()
+            ->mapWithKeys(fn (Source $source): array => [self::key($kind, self::resource($kind, $source->config ?? [])) => (int) $source->id])->all();
+    }
 }

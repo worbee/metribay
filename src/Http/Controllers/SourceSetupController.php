@@ -236,8 +236,11 @@ class SourceSetupController
         }
         $request->session()->put($this->key($request), $draft);
         $added = isset($draft['kind']) ? ProjectResources::added($project->id, $draft['kind']) : [];
+        $paused = isset($draft['kind']) ? ProjectResources::pausedWithoutAccount($project->id, $draft['kind']) : [];
         foreach ($draft['resources'] ?? [] as $index => $resource) {
-            $draft['resources'][$index]['added'] = ProjectResources::once($draft['kind']) && in_array(ProjectResources::key($draft['kind'], (string) $resource['id']), $added, true);
+            $resourceKey = ProjectResources::key($draft['kind'], (string) $resource['id']);
+            $draft['resources'][$index]['added'] = ProjectResources::once($draft['kind']) && in_array($resourceKey, $added, true);
+            $draft['resources'][$index]['paused_source'] = $draft['resources'][$index]['added'] ? ($paused[$resourceKey] ?? null) : null;
         }
 
         return view('metribay::source-setup', ['providerCounts' => $project->sources()->get(['kind'])->countBy('kind'), 'draft' => $draft, 'providers' => $providers, 'project' => $project, 'googleAuthorization' => app(GoogleAuthorization::class), 'connections' => Connection::query()->where('kind', $draft['kind'] ?? '')->orderBy('name')->get()]);
@@ -439,7 +442,7 @@ class SourceSetupController
                     $hash = ProviderCatalog::identityHash($kind, $config, $draft['resource']['timezone']);
                     if (($kind !== 'pagespeed' && ProjectResources::contains($project->id, $kind, ProjectResources::resource($kind, $config)))
                         || Source::query()->where('project_id', $project->id)->where('identity_hash', $hash)->exists()) {
-                        throw ValidationException::withMessages(['resource' => __('This data source is already in this project.')]);
+                        throw ValidationException::withMessages(['resource' => $this->alreadyAdded($project->id, $kind, ProjectResources::resource($kind, $config))]);
                     }
 
                     return Source::create(['project_id' => $project->id, 'kind' => $kind, 'label' => ($values['label'] ?? '') ?: mb_substr(ProviderCatalog::all()[$kind]['label'].' · '.$draft['resource']['name'].(isset($config['event']) ? ' · '.$config['event'] : ''), 0, 120), 'connection_id' => $draft['connection_id'] ?? null, 'reporting_timezone' => $draft['resource']['timezone'], 'config' => $config, 'identity_hash' => $hash]);
@@ -519,8 +522,16 @@ class SourceSetupController
             return;
         }
         if (ProjectResources::contains((int) $draft['project_id'], $draft['kind'], (string) $draft['resource']['id'])) {
-            throw ValidationException::withMessages(['resource' => __('This data source is already in this project.')]);
+            throw ValidationException::withMessages(['resource' => $this->alreadyAdded((int) $draft['project_id'], $draft['kind'], (string) $draft['resource']['id'])]);
         }
+    }
+
+    /** Why a resource cannot be added again; a source paused without its account needs an account, not a copy. */
+    private function alreadyAdded(int $projectId, string $kind, string $resourceId): string
+    {
+        return isset(ProjectResources::pausedWithoutAccount($projectId, $kind)[ProjectResources::key($kind, $resourceId)])
+            ? __('This data source is already in this project and is paused without a connected account. Choose an account for it under Manage data source in the project settings.')
+            : __('This data source is already in this project.');
     }
 
     /**
