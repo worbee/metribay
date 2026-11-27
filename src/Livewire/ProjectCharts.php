@@ -7,6 +7,7 @@ use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
 use Livewire\Component;
+use Metribay\Core\Contracts\ManagedSources;
 use Metribay\Core\Contracts\WorkspaceAccess;
 use Metribay\Core\Metrics\Period;
 use Metribay\Core\Metrics\ProjectFindings;
@@ -18,6 +19,7 @@ use Metribay\Core\Models\ProjectEvent;
 use Metribay\Core\Models\Workspace;
 use Metribay\Core\Services\AudienceBreakdowns;
 use Metribay\Core\Services\DashboardData;
+use Metribay\Core\Services\ManagedSource;
 use Metribay\Core\Services\ProviderCatalog;
 use Metribay\Core\Services\SearchQueries;
 use Metribay\Core\Services\WorkspaceContext;
@@ -137,7 +139,10 @@ class ProjectCharts extends Component
                     $present[] = ['key' => $group['key'], 'title' => $group['title']];
                 }
             }
+            $managed = app(ManagedSources::class)->forProject($workspace, $project);
+            // The host's Search content appears once the project has a managed source that reports there.
             $searchView = config('metribay.project_search.view');
+            $searchView = is_string($searchView) && array_filter($managed, fn (ManagedSource $item): bool => $item->group === 'search') !== [] ? $searchView : null;
             if (is_string($searchView) && ! in_array('search', array_column($present, 'key'), true)) {
                 $present[] = ['key' => 'search', 'title' => ProjectLayout::TITLES['search']];
             }
@@ -207,11 +212,17 @@ class ProjectCharts extends Component
 
             [$eventsFrom, $eventsTo] = $period->window('UTC', CarbonImmutable::now('UTC'));
             $eventCount = $events->sum(fn (ProjectEvent $event): int => count($event->occurrencesBetween($eventsFrom, $eventsTo)));
-            $statuses = array_count_values(array_column($sources, 'status'));
-            $lastSync = max([0, ...array_filter(array_column($sources, 'last_success_timestamp'))]);
+            // The header counts managed sources with the project's own data sources.
+            $statusSources = array_map(fn (array $source): array => array_intersect_key($source, array_flip(['status', 'label', 'attention_anchor', 'attention_group', 'last_success_timestamp'])), $sources);
+            foreach ($managed as $item) {
+                $statusSources[] = ['status' => $item->status, 'label' => $item->label, 'attention_anchor' => $item->anchor !== '' ? $item->anchor : 'managed-source-'.$item->key,
+                    'attention_group' => $item->group, 'last_success_timestamp' => $item->lastSuccess?->getTimestamp()];
+            }
+            $statuses = array_count_values(array_column($statusSources, 'status'));
+            $lastSync = max([0, ...array_filter(array_column($statusSources, 'last_success_timestamp'))]);
 
             return view('metribay::components.project-charts', [
-                'workspace' => $workspace, 'project' => $project, 'sources' => $sources, 'rows' => $rows, 'summary' => $projectData['summary'], 'statuses' => $statuses, 'lastSync' => $lastSync ? CarbonImmutable::createFromTimestampUTC($lastSync) : null, 'days' => $period->days, 'period' => $period, 'projectView' => $projectView,
+                'workspace' => $workspace, 'project' => $project, 'sources' => $sources, 'statusSources' => $statusSources, 'rows' => $rows, 'summary' => $projectData['summary'], 'statuses' => $statuses, 'lastSync' => $lastSync ? CarbonImmutable::createFromTimestampUTC($lastSync) : null, 'days' => $period->days, 'period' => $period, 'projectView' => $projectView,
                 'queryMonths' => $months, 'queryMonth' => $month, 'queryCompare' => $compare, 'hiddenCount' => $hidden->count(), 'justHidden' => $hidden->firstWhere('id', (int) session('chart_hidden')), 'eventCount' => $eventCount,
                 'findings' => $report['findings'], 'findingsChecked' => $report['checked'], 'findingNotes' => $report['notes'], 'unlinkedGroups' => $unlinkedGroups,
                 'presets' => $presets, 'availableGroups' => $present, 'activePreset' => $resolved['preset'], 'checkedGroups' => $projectView === 'preset' || $projectView === 'custom' ? $resolved['groups'] : [],

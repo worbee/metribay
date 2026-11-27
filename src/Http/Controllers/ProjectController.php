@@ -12,6 +12,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Metribay\Core\Contracts\Entitlements;
+use Metribay\Core\Contracts\ManagedSources;
 use Metribay\Core\Contracts\WorkspaceAccess;
 use Metribay\Core\Models\Connection;
 use Metribay\Core\Models\HiddenChart;
@@ -60,7 +61,8 @@ class ProjectController
 
         $hiddenCharts = HiddenChart::query()->with('source')->where('project_id', $project->id)->orderBy('id')->get();
 
-        return view('metribay::project-settings', ['project' => $project, 'connections' => Connection::query()->orderBy('name')->get(), 'providers' => ProviderCatalog::all(), 'hiddenCharts' => $hiddenCharts]
+        return view('metribay::project-settings', ['project' => $project, 'connections' => Connection::query()->orderBy('name')->get(), 'providers' => ProviderCatalog::all(), 'hiddenCharts' => $hiddenCharts,
+            'managedSources' => app(ManagedSources::class)->forProject(app(WorkspaceContext::class)->current(), $project)]
             + $this->workspaceOptions($request));
     }
 

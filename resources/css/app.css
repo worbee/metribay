@@ -910,6 +910,7 @@
 .provider-card > form { display: flex; width: 100%; }
 .provider-choice { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 1rem; text-align: left; padding: 1rem; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); font: inherit; cursor: pointer; transition: border-color .15s ease, background .15s ease; overflow-wrap: anywhere; }
 .provider-card .provider-choice { align-items: flex-start; }
+a.provider-choice { box-sizing: border-box; text-decoration: none; }
 .provider-card.has-docs .provider-choice { padding-bottom: 2.6rem; }
 .provider-choice-text { display: grid; gap: .3rem; min-width: 0; }
 .provider-name { font-weight: 600; }

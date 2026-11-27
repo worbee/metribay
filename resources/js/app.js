@@ -74,6 +74,11 @@ function formatDate(value, full = false) {
     if (Number.isNaN(date.getTime())) return value;
     return new Intl.DateTimeFormat(document.documentElement.lang || 'en', { day: 'numeric', month: 'short', ...(full ? { year: 'numeric' } : {}), timeZone: 'UTC' }).format(date);
 }
+function formatMonth(value) {
+    const date = new Date(`${String(value).slice(0, 7)}-15T12:00:00Z`);
+    if (Number.isNaN(date.getTime())) return value;
+    return new Intl.DateTimeFormat(document.documentElement.lang || 'en', { month: 'short', year: 'numeric', timeZone: 'UTC' }).format(date);
+}
 function syncNumbers() {
     const compact = storage.get('numbers', 'full') === 'compact';
     document.querySelectorAll('[data-metric-number]').forEach(element => {
@@ -353,14 +358,18 @@ function makeChart(canvas, config, signature) {
     return chart;
 }
 // Visits by channel per day, stacked; the largest channels in order, then the rest combined. Missing dates stay empty.
+// Options: period "month" labels calendar months; gaps keeps a missing value unknown instead of zero; totalLabel names the total.
 function makeChannelChart(canvas, config, signature) {
     const colors = chartColors();
     const style = getComputedStyle(root);
     const series = Array.isArray(config.series) ? config.series : [];
     const labels = series.map(point => point.date);
+    const monthly = config.period === 'month';
+    const gaps = config.gaps === true;
+    const label = (value, full = false) => (monthly ? formatMonth(value) : formatDate(value, full));
     const datasets = (config.datasets ?? []).map((dataset, index) => ({
         label: dataset.label,
-        data: series.map(point => (point.values ? finite(point.values[dataset.key]) ?? 0 : null)),
+        data: series.map(point => (point.values ? (gaps ? finite(point.values[dataset.key]) : finite(point.values[dataset.key]) ?? 0) : null)),
         backgroundColor: style.getPropertyValue(`--channel-${index + 1}`).trim() || colors['chart-previous'],
         borderWidth: 0,
         stack: 'visits',
@@ -390,21 +399,24 @@ function makeChannelChart(canvas, config, signature) {
                     itemSort: (a, b) => b.datasetIndex - a.datasetIndex,
                     filter: item => finite(item.raw) !== null && finite(item.raw) > 0,
                     callbacks: {
-                        title(items) { return items.length ? formatDate(labels[items[0].dataIndex] ?? '', true) : ''; },
+                        title(items) { return items.length ? label(labels[items[0].dataIndex] ?? '', true) : ''; },
                         label(context) { return `${context.dataset.label}: ${formatNumber(finite(context.raw))}`; },
                         footer(items) {
                             if (!items.length) return '';
                             const point = series[items[0].dataIndex];
                             if (!point?.values) return t('No data');
+                            const values = (config.datasets ?? []).map(dataset => finite(point.values[dataset.key]));
+                            // An unknown part leaves the total unknown.
+                            if (gaps && values.some(value => value === null)) return '';
                             const total = Object.values(point.values).reduce((sum, value) => sum + (finite(value) ?? 0), 0);
-                            return `${t('Visits')}: ${formatNumber(total)}${point.partial ? ` · ${t('partial')}` : ''}`;
+                            return `${config.totalLabel ?? t('Visits')}: ${formatNumber(total)}${point.partial ? ` · ${t('partial')}` : ''}`;
                         },
                     },
                 },
             },
             scales: {
                 x: { stacked: true, grid: { display: false, drawTicks: false }, border: { display: false },
-                    ticks: { color: colors['text-muted'], maxTicksLimit: 6, maxRotation: 0, padding: 6, font: tickFont, callback(value) { return formatDate(labels[value] ?? ''); } } },
+                    ticks: { color: colors['text-muted'], maxTicksLimit: 6, maxRotation: 0, padding: 6, font: tickFont, callback(value) { return label(labels[value] ?? ''); } } },
                 y: { stacked: true, beginAtZero: true, grid: { color: colors['chart-grid'], drawTicks: false }, border: { display: false },
                     ticks: { color: colors['text-muted'], maxTicksLimit: 4, padding: 8, font: tickFont, callback(value) { return formatNumber(value, 'count', true); } } },
             },

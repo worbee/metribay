@@ -8351,7 +8351,7 @@ function Ff(e = Pf(), t = !1) {
 			next: r[n]
 		});
 		t.title = i, t.setAttribute("aria-label", i), t.dataset.currentTheme = e;
-	}), rp());
+	}), ip());
 }
 jf.addEventListener("change", () => {
 	Pf() === "system" && Ff();
@@ -8397,7 +8397,15 @@ function Rf(e, t = !1) {
 		timeZone: "UTC"
 	}).format(n);
 }
-function zf() {
+function zf(e) {
+	let t = /* @__PURE__ */ new Date(`${String(e).slice(0, 7)}-15T12:00:00Z`);
+	return Number.isNaN(t.getTime()) ? e : new Intl.DateTimeFormat(document.documentElement.lang || "en", {
+		month: "short",
+		year: "numeric",
+		timeZone: "UTC"
+	}).format(t);
+}
+function Bf() {
 	let e = Af.get("numbers", "full") === "compact";
 	document.querySelectorAll("[data-metric-number]").forEach((t) => {
 		let n = $(t.dataset.metricNumber);
@@ -8406,7 +8414,7 @@ function zf() {
 		t.textContent !== r && (t.textContent = r), t.title = If(n, t.dataset.unit, !1);
 	});
 }
-function Bf() {
+function Vf() {
 	let e = getComputedStyle(Of);
 	return Object.fromEntries([
 		"chart-line",
@@ -8423,7 +8431,7 @@ function Bf() {
 		"event-automatic"
 	].map((t) => [t, e.getPropertyValue(`--${t}`).trim()]));
 }
-var Vf = {
+var Hf = {
 	id: "metribayEvents",
 	afterDatasetsDraw(e, t, n) {
 		let r = n.events ?? [];
@@ -8438,19 +8446,19 @@ var Vf = {
 		}
 		i.restore();
 	}
-}, Hf = null;
-function Uf(e, t) {
-	if (e !== Hf) {
-		Hf = e;
+}, Uf = null;
+function Wf(e, t) {
+	if (e !== Uf) {
+		Uf = e;
 		for (let n of kf) n.metribayCrossDate = e, n !== t && n.draw();
 	}
 }
-var Wf = {
+var Gf = {
 	id: "metribayCrosshair",
 	afterEvent(e, t) {
 		let { event: n } = t;
 		if (n.type === "mouseout" || !t.inChartArea) {
-			Hf !== null && (Uf(null, e), t.changed = !0);
+			Uf !== null && (Wf(null, e), t.changed = !0);
 			return;
 		}
 		if (![
@@ -8459,10 +8467,10 @@ var Wf = {
 			"touchmove"
 		].includes(n.type)) return;
 		let r = Math.round(e.scales.x.getValueForPixel(n.x)), i = e.data.labels[Math.max(0, Math.min(e.data.labels.length - 1, r))] ?? null;
-		i !== Hf && (Uf(i, e), t.changed = !0);
+		i !== Uf && (Wf(i, e), t.changed = !0);
 	},
 	afterDatasetsDraw(e) {
-		let t = Hf === null ? -1 : e.data.labels.indexOf(Hf);
+		let t = Uf === null ? -1 : e.data.labels.indexOf(Uf);
 		if (t < 0) return;
 		let { ctx: n, chartArea: { top: r, bottom: i }, scales: { x: a, y: o } } = e, s = e.metribayColors, c = a.getPixelForValue(t);
 		n.save(), n.strokeStyle = s["text-muted"], n.globalAlpha = .55, n.lineWidth = 1, n.beginPath(), n.moveTo(c, r), n.lineTo(c, i), n.stroke();
@@ -8470,8 +8478,8 @@ var Wf = {
 		l !== null && !e.tooltip?.getActiveElements().length && (n.globalAlpha = 1, n.fillStyle = s["chart-line"], n.strokeStyle = s.surface, n.lineWidth = 2, n.beginPath(), n.arc(c, o.getPixelForValue(l), 3.5, 0, Math.PI * 2), n.fill(), n.stroke()), n.restore();
 	}
 };
-function Gf(e, t, n) {
-	let r = Bf(), i = [
+function Kf(e, t, n) {
+	let r = Vf(), i = [
 		"l",
 		"s",
 		"n"
@@ -8537,7 +8545,7 @@ function Gf(e, t, n) {
 			labels: l,
 			datasets: v
 		},
-		plugins: [Vf, Wf],
+		plugins: [Hf, Gf],
 		options: {
 			responsive: !0,
 			maintainAspectRatio: !1,
@@ -8655,7 +8663,7 @@ function Gf(e, t, n) {
 			}
 		}
 	});
-	return x.metribaySignature = n, x.metribayColors = r, x.metribayCrossDate = Hf, kf.add(x), o || (e.tabIndex = 0, e.setAttribute("aria-keyshortcuts", "ArrowLeft ArrowRight"), e.addEventListener("keydown", (n) => {
+	return x.metribaySignature = n, x.metribayColors = r, x.metribayCrossDate = Uf, kf.add(x), o || (e.tabIndex = 0, e.setAttribute("aria-keyshortcuts", "ArrowLeft ArrowRight"), e.addEventListener("keydown", (n) => {
 		if (![
 			"ArrowLeft",
 			"ArrowRight",
@@ -8695,25 +8703,25 @@ function Gf(e, t, n) {
 				r.update("none");
 			}
 		}
-	}, { signal: Jf(x) })), x;
+	}, { signal: Yf(x) })), x;
 }
-function Kf(e, t, n) {
-	let r = Bf(), i = getComputedStyle(Of), a = Array.isArray(t.series) ? t.series : [], o = a.map((e) => e.date), s = (t.datasets ?? []).map((e, t) => ({
+function qf(e, t, n) {
+	let r = Vf(), i = getComputedStyle(Of), a = Array.isArray(t.series) ? t.series : [], o = a.map((e) => e.date), s = t.period === "month", c = t.gaps === !0, l = (e, t = !1) => s ? zf(e) : Rf(e, t), u = (t.datasets ?? []).map((e, t) => ({
 		label: e.label,
-		data: a.map((t) => t.values ? $(t.values[e.key]) ?? 0 : null),
+		data: a.map((t) => t.values ? c ? $(t.values[e.key]) : $(t.values[e.key]) ?? 0 : null),
 		backgroundColor: i.getPropertyValue(`--channel-${t + 1}`).trim() || r["chart-previous"],
 		borderWidth: 0,
 		stack: "visits",
 		categoryPercentage: .92,
 		barPercentage: .92
-	})), c = {
+	})), d = {
 		family: "system-ui",
 		size: 10
-	}, l = new nl(e, {
+	}, f = new nl(e, {
 		type: "bar",
 		data: {
 			labels: o,
-			datasets: s
+			datasets: u
 		},
 		options: {
 			responsive: !0,
@@ -8749,17 +8757,19 @@ function Kf(e, t, n) {
 					filter: (e) => $(e.raw) !== null && $(e.raw) > 0,
 					callbacks: {
 						title(e) {
-							return e.length ? Rf(o[e[0].dataIndex] ?? "", !0) : "";
+							return e.length ? l(o[e[0].dataIndex] ?? "", !0) : "";
 						},
 						label(e) {
 							return `${e.dataset.label}: ${If($(e.raw))}`;
 						},
 						footer(e) {
 							if (!e.length) return "";
-							let t = a[e[0].dataIndex];
-							if (!t?.values) return Q("No data");
-							let n = Object.values(t.values).reduce((e, t) => e + ($(t) ?? 0), 0);
-							return `${Q("Visits")}: ${If(n)}${t.partial ? ` · ${Q("partial")}` : ""}`;
+							let n = a[e[0].dataIndex];
+							if (!n?.values) return Q("No data");
+							let r = (t.datasets ?? []).map((e) => $(n.values[e.key]));
+							if (c && r.some((e) => e === null)) return "";
+							let i = Object.values(n.values).reduce((e, t) => e + ($(t) ?? 0), 0);
+							return `${t.totalLabel ?? Q("Visits")}: ${If(i)}${n.partial ? ` · ${Q("partial")}` : ""}`;
 						}
 					}
 				}
@@ -8777,9 +8787,9 @@ function Kf(e, t, n) {
 						maxTicksLimit: 6,
 						maxRotation: 0,
 						padding: 6,
-						font: c,
+						font: d,
 						callback(e) {
-							return Rf(o[e] ?? "");
+							return l(o[e] ?? "");
 						}
 					}
 				},
@@ -8795,7 +8805,7 @@ function Kf(e, t, n) {
 						color: r["text-muted"],
 						maxTicksLimit: 4,
 						padding: 8,
-						font: c,
+						font: d,
 						callback(e) {
 							return If(e, "count", !0);
 						}
@@ -8804,40 +8814,40 @@ function Kf(e, t, n) {
 			}
 		}
 	});
-	return l.metribaySignature = n, kf.add(l), l;
+	return f.metribaySignature = n, kf.add(f), f;
 }
-function qf() {
+function Jf() {
 	document.querySelectorAll("[data-channel-chart]").forEach((e) => {
 		if (e.closest("[hidden]")) return;
 		let t = e.querySelector("canvas");
 		if (!t) return;
 		let n = `${e.dataset.channelChart}|${Of.dataset.theme}`, r = nl.getChart(t);
 		if (r?.metribaySignature !== n) {
-			r && Yf(r);
+			r && Xf(r);
 			try {
-				Kf(t, JSON.parse(e.dataset.channelChart), n);
+				qf(t, JSON.parse(e.dataset.channelChart), n);
 			} catch (e) {
 				console.error("The channel chart could not be rendered.", e);
 			}
 		}
 	});
 }
-function Jf(e) {
+function Yf(e) {
 	return e.metribayAbort = new AbortController(), e.metribayAbort.signal;
 }
-function Yf(e) {
+function Xf(e) {
 	e.metribayAbort?.abort(), e.destroy(), kf.delete(e);
 }
-function Xf() {
-	for (let e of kf) e.canvas?.isConnected || Yf(e);
+function Zf() {
+	for (let e of kf) e.canvas?.isConnected || Xf(e);
 	document.querySelectorAll("canvas[data-metric-chart]").forEach((e) => {
 		if (e.closest("[data-group-body][hidden]")) return;
 		let t = e.closest("[data-chart-container]").dataset.chartConfig, n = `${t}|${Of.dataset.theme}|${Of.dataset.density}`, r = nl.getChart(e);
 		if (r?.metribaySignature !== n) {
-			r && Yf(r);
+			r && Xf(r);
 			try {
 				let r = JSON.parse(t);
-				e.setAttribute("aria-label", r.ariaLabel), Gf(e, r, n);
+				e.setAttribute("aria-label", r.ariaLabel), Kf(e, r, n);
 			} catch (t) {
 				console.error("A metric chart could not be rendered.", t);
 				let n = document.createElement("p");
@@ -8846,9 +8856,9 @@ function Xf() {
 		}
 	});
 }
-var Zf = /* @__PURE__ */ new Map();
-function Qf(e) {
-	let t = Zf.get(e.id) ?? {}, n = [...e.querySelectorAll("[data-query-source-panel]")], r = n.find((e) => e.dataset.querySourcePanel === t.source) ?? n[0];
+var Qf = /* @__PURE__ */ new Map();
+function $f(e) {
+	let t = Qf.get(e.id) ?? {}, n = [...e.querySelectorAll("[data-query-source-panel]")], r = n.find((e) => e.dataset.querySourcePanel === t.source) ?? n[0];
 	if (!r) return;
 	let i = [...e.querySelectorAll("[data-query-view]")], a = i.some((e) => e.dataset.queryView === t.view) ? t.view : i.find((e) => e.getAttribute("aria-selected") === "true")?.dataset.queryView, o = (r.dataset.queryCounts || "").split(",");
 	n.forEach((e) => {
@@ -8875,19 +8885,19 @@ function Qf(e) {
 		}
 	});
 }
-function $f() {
+function ep() {
 	document.querySelectorAll("[data-query-block]").forEach((e) => {
-		Zf.has(e.id) && Qf(e);
+		Qf.has(e.id) && $f(e);
 	});
 }
-function ep(e, t) {
+function tp(e, t) {
 	let n = {
 		expanded: [],
-		...Zf.get(e.id) ?? {}
+		...Qf.get(e.id) ?? {}
 	};
-	t(n), Zf.set(e.id, n), Qf(e), qf();
+	t(n), Qf.set(e.id, n), $f(e), Jf();
 }
-function tp() {
+function np() {
 	let e = document.querySelector("[data-project-search]");
 	if (!e) return;
 	let t = e.value.trim().toLocaleLowerCase(), n = 0;
@@ -8897,18 +8907,18 @@ function tp() {
 	let r = document.querySelector("[data-search-empty]");
 	r && (r.hidden = !t || n > 0);
 }
-function np() {
+function rp() {
 	let e = document.querySelector("[data-number-preference]"), t = document.querySelector("[data-density-preference]");
 	e && (e.value = Af.get("numbers", "full")), t && (t.value = Af.get("density", "comfortable")), document.querySelectorAll("[data-theme-input]").forEach((e) => {
 		e.checked = e.value === Pf();
 	});
 }
-function rp() {
+function ip() {
 	Mf || (Mf = !0, requestAnimationFrame(() => {
-		Mf = !1, Pd(), uf(), Xf(), qf(), zf(), $f(), tp();
+		Mf = !1, Pd(), uf(), Zf(), Jf(), Bf(), ep(), np();
 	}));
 }
-function ip(e, t = !1) {
+function ap(e, t = !1) {
 	let n = e.querySelector("[data-provider-switch]")?.value;
 	if (!n) return;
 	e.querySelectorAll("[data-provider-panel]").forEach((e) => {
@@ -8926,11 +8936,11 @@ function ip(e, t = !1) {
 	let i = e.querySelector("[data-provider-timezone]"), a = [...e.querySelectorAll("[data-provider-panel]")].find((e) => e.dataset.providerPanel === n);
 	i && t && a?.dataset.defaultTimezone && (i.value = a.dataset.defaultTimezone);
 }
-function ap() {
+function op() {
 	let e = document.querySelector("[data-preference-status]");
 	e && (e.textContent = Q("Preference saved in this browser."));
 }
-function op() {
+function sp() {
 	let e = _d(window.location.hash);
 	if (!e || e.tagName === "DIALOG") return;
 	let t = e.closest("details");
@@ -8938,7 +8948,7 @@ function op() {
 	let n = Fd(e);
 	if (e.matches("[data-query-panel]")) {
 		let t = e.closest("[data-query-block]"), n = e.closest("[data-query-source-panel]");
-		t && n && ep(t, (t) => {
+		t && n && tp(t, (t) => {
 			t.source = n.dataset.querySourcePanel, t.view = e.dataset.queryPanel;
 		});
 	}
@@ -8951,11 +8961,11 @@ function op() {
 	};
 	n || e.closest("[data-group-body]") ? requestAnimationFrame(() => requestAnimationFrame(r)) : r();
 }
-window.addEventListener("hashchange", op);
-function sp() {
-	Ff(), np(), Pd(), mf(), document.querySelectorAll("dialog[data-open-on-load]").forEach((e) => {
+window.addEventListener("hashchange", sp);
+function cp() {
+	Ff(), rp(), Pd(), mf(), document.querySelectorAll("dialog[data-open-on-load]").forEach((e) => {
 		e.open || e.showModal();
-	}), op(), document.querySelector("[data-validation-errors]")?.focus(), document.querySelectorAll("[data-provider-form]").forEach((e) => ip(e)), rp();
+	}), sp(), document.querySelector("[data-validation-errors]")?.focus(), document.querySelectorAll("[data-provider-form]").forEach((e) => ap(e)), ip();
 }
 document.addEventListener("click", (e) => {
 	let t = e.target.closest("[data-dialog-open]");
@@ -8977,13 +8987,13 @@ document.addEventListener("click", (e) => {
 		});
 	}
 	let i = e.target.closest("[data-query-block]"), a = e.target.closest("[data-query-view]"), o = e.target.closest("[data-query-source]"), s = e.target.closest("[data-query-more]");
-	if (i && a && ep(i, (e) => {
+	if (i && a && tp(i, (e) => {
 		e.view = a.dataset.queryView;
-	}), i && o && ep(i, (e) => {
+	}), i && o && tp(i, (e) => {
 		e.source = o.dataset.querySource;
 	}), i && s) {
 		let e = s.closest("[data-query-panel]");
-		ep(i, (t) => {
+		tp(i, (t) => {
 			t.expanded = t.expanded.includes(e.id) ? t.expanded.filter((t) => t !== e.id) : [...t.expanded, e.id];
 		}), s.getAttribute("aria-expanded") === "false" && s.scrollIntoView({ block: "nearest" });
 	}
@@ -8999,9 +9009,9 @@ document.addEventListener("click", (e) => {
 	});
 }), document.addEventListener("change", (e) => {
 	let t = e.target;
-	t.matches("[data-theme-input]") && (Ff(t.value, !0), ap()), t.matches("[data-number-preference]") && (Af.set("numbers", t.value), zf(), ap()), t.matches("[data-density-preference]") && (Af.set("density", t.value), Of.dataset.density = t.value, rp(), ap()), t.matches("[data-provider-switch]") && ip(t.closest("form"), !0), t.matches("[data-auto-submit]") && t.form.requestSubmit();
+	t.matches("[data-theme-input]") && (Ff(t.value, !0), op()), t.matches("[data-number-preference]") && (Af.set("numbers", t.value), Bf(), op()), t.matches("[data-density-preference]") && (Af.set("density", t.value), Of.dataset.density = t.value, ip(), op()), t.matches("[data-provider-switch]") && ap(t.closest("form"), !0), t.matches("[data-auto-submit]") && t.form.requestSubmit();
 }), document.addEventListener("input", (e) => {
-	e.target.matches("[data-project-search]") && tp();
+	e.target.matches("[data-project-search]") && np();
 }), document.addEventListener("submit", (e) => {
 	let t = e.target;
 	if (t.dataset.confirm && !window.confirm(t.dataset.confirm)) {
@@ -9039,15 +9049,15 @@ document.addEventListener("click", (e) => {
 	document.querySelectorAll("button[aria-busy=\"true\"]").forEach((e) => {
 		e.disabled = !1, e.removeAttribute("aria-busy");
 	});
-}), new MutationObserver(rp).observe(document.body, {
+}), new MutationObserver(ip).observe(document.body, {
 	childList: !0,
 	subtree: !0,
 	attributes: !0,
 	attributeFilter: ["data-chart-config"]
-}), document.addEventListener("livewire:navigated", sp), document.addEventListener("livewire:init", () => {
-	window.Livewire.hook("morphed", rp);
-}), Rd(rp), sp();
-function cp() {
+}), document.addEventListener("livewire:navigated", cp), document.addEventListener("livewire:init", () => {
+	window.Livewire.hook("morphed", ip);
+}), Rd(ip), cp();
+function lp() {
 	document.querySelectorAll("[data-resource-search]").forEach((e) => {
 		e.oninput = () => document.querySelectorAll("[data-resource-row]").forEach((t) => {
 			t.hidden = !t.textContent.toLowerCase().includes(e.value.toLowerCase());
@@ -9056,4 +9066,4 @@ function cp() {
 		e.oninput = () => Df(document, e.value), e.value && Df(document, e.value);
 	});
 }
-document.addEventListener("DOMContentLoaded", cp), document.addEventListener("livewire:navigated", cp), md(), Tf(Q);
+document.addEventListener("DOMContentLoaded", lp), document.addEventListener("livewire:navigated", lp), md(), Tf(Q);

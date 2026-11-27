@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 1.9.0 — 2026-11-28
+
+- Hosts can list data sources they run for a project themselves, without a connected account, through the new `ManagedSources` contract. The project header counts them with the other data sources, and their problems link to where they show on the page. **Project settings** lists them under **Data sources** with their status and a link to their own settings. **Add data source** offers them in their provider group. Standalone Core has none.
+- The host's Search content (`metribay.project_search.view`) appears only when the project has a managed source that reports to Search, so a project without one shows no empty section. The `metribay.project_search.settings_view` hook is removed; hosts list the source through `ManagedSources` instead.
+- The stacked bar chart can show calendar months, keep a missing value unknown instead of zero and name its total.
+- Two new strings in all twelve languages. No migration or configuration change.
+
 ## 1.8.0 — 2026-11-27
 
 - New data source: **PrestaShop** (1.7, 8 and 9), in the **Revenue** group. It records **Orders** (valid orders) and **Store revenue** (order totals without tax, converted to the shop's default currency) per day in the shop's timezone. Connect it with the shop's address and a webservice key that may only view orders, currencies and shops; Metribay reads no customer records. Choose the shop from the list or enter its ID, then enter the shop's timezone. Refunds are not subtracted. See [docs/PRESTASHOP.md](docs/PRESTASHOP.md).
@@ -225,6 +232,8 @@ First public release.
 - Import only deployments from the repository's default branch or a tag. Deployments from other branches, or whose branch was deleted, are skipped: for example, jobs that only use the production environment's secrets on pull requests. Existing deployment events are replaced at the next sync. No migration or new strings.
 
 ## Unreleased
+
+## 1.9.0 — 2026-11-28
 
 - Sitemap sources now track **New URLs detected** internally after an initial baseline. Missing or changing `lastmod` values no longer hide or inflate new-page counts. Tracking survives optional event settings, removed/returning URLs and project moves. Feed **Items published** stays separate. Both sitemap metrics appear in the overview and each project’s **Content** section. Existing sources establish their baseline on their first successful collection after upgrading; earlier detections stay unknown. Adds a URL-history table and a nullable source baseline timestamp. Run migrations and keep the additive schema when rolling back.
 

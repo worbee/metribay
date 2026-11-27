@@ -23,6 +23,7 @@ use Metribay\Core\Connectors\ResourceDiscovery;
 use Metribay\Core\Connectors\SafeHttpClient;
 use Metribay\Core\Contracts\ConnectionCredentials;
 use Metribay\Core\Contracts\GoogleAuthorization;
+use Metribay\Core\Contracts\ManagedSources;
 use Metribay\Core\Contracts\PageSpeedCredentials;
 use Metribay\Core\Contracts\WorkspaceAccess;
 use Metribay\Core\Jobs\CollectSource;
@@ -243,7 +244,8 @@ class SourceSetupController
             $draft['resources'][$index]['paused_source'] = $draft['resources'][$index]['added'] ? ($paused[$resourceKey] ?? null) : null;
         }
 
-        return view('metribay::source-setup', ['providerCounts' => $project->sources()->get(['kind'])->countBy('kind'), 'draft' => $draft, 'providers' => $providers, 'project' => $project, 'googleAuthorization' => app(GoogleAuthorization::class), 'connections' => Connection::query()->where('kind', $draft['kind'] ?? '')->orderBy('name')->get()]);
+        return view('metribay::source-setup', ['providerCounts' => $project->sources()->get(['kind'])->countBy('kind'), 'draft' => $draft, 'providers' => $providers, 'project' => $project, 'googleAuthorization' => app(GoogleAuthorization::class), 'connections' => Connection::query()->where('kind', $draft['kind'] ?? '')->orderBy('name')->get(),
+            'managedOffers' => ($draft['step'] ?? 'provider') === 'provider' ? app(ManagedSources::class)->offers(app(WorkspaceContext::class)->current(), $project) : []]);
     }
 
     public function update(Request $request, ResourceDiscovery $discovery): RedirectResponse

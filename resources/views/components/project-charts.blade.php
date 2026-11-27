@@ -2,6 +2,7 @@
 @php
     $hideAction = ($canEdit ?? false) ? route('metribay.charts.hide', ['workspace'=>$workspace->slug,'project'=>$project->id]) : null;
     $settingsUrl = route('metribay.projects.edit',['workspace'=>$workspace->slug,'project'=>$project->id]);
+    $statusSources = $statusSources ?? $sources;
     $attention = $statuses['failed'] ?? 0;
     $states = array_filter([
         'failed' => $attention ? trans_choice('{1} :count needs attention|[2,*] :count need attention', $attention, ['count' => $attention]) : null,
@@ -43,8 +44,8 @@
     <div class="project-head-main">
         <a class="breadcrumb" href="{{ route('metribay.dashboard', ['workspace'=>$workspace->slug, ...$period->query()]) }}">@include('metribay::partials/icon',['name'=>'arrow-left']) {{ __('All projects') }}</a>
         <div class="project-title">@if($project->domain)<img class="project-favicon" src="{{ route('metribay.projects.favicon', ['workspace'=>$workspace->slug, 'project'=>$project->id, 'v'=>substr(hash('sha256', $project->domain), 0, 12)]) }}" width="22" height="22" alt="" decoding="async">@endif<h1>{{ $project->name }}</h1>@if($domainUrl)<a class="project-domain" href="{{ $domainUrl }}" target="_blank" rel="noopener noreferrer">{{ $project->domain }} @include('metribay::partials/icon',['name'=>'arrow-up-right'])</a>@elseif($project->domain)<span class="project-domain">{{ $project->domain }}</span>@endif</div>
-        @if($sources)
-        <p class="project-status"><span @class(['status-dot', 'is-bad' => $attention, 'is-warn' => !$attention && ($statuses['delayed'] ?? 0) + ($statuses['pending'] ?? 0), 'dot-neutral' => count($sources) === ($statuses['disabled'] ?? 0)]) aria-hidden="true"></span><span>{{ trans_choice('{1} :count data source|[2,*] :count data sources', count($sources), ['count' => count($sources)]) }} · @forelse($states as $state => $label)@if(!$loop->first) · @endif@if(in_array($state, ['failed', 'delayed'], true))@php($affected = collect($sources)->where('status', $state)->values())<a class="text-link" href="{{ $jump($affected[0]['attention_anchor'], $affected[0]['attention_group'] ?? null) }}">{{ $label }}</a>@if($affected->count() > 1) <span class="project-attention-sources">(@foreach($affected as $source)@if(!$loop->first), @endif<a class="text-link" href="{{ $jump($source['attention_anchor'], $source['attention_group'] ?? null) }}">{{ $source['label'] }}</a>@endforeach)</span>@endif @else{{ $label }}@endif @empty{{ __('all healthy') }}@endforelse</span>@if($lastSync)<span aria-hidden="true">·</span><span>{{ __('Last sync :time', ['time' => $lastSync->translatedFormat('j M, H:i').' UTC']) }}</span>@endif @if($attention && ($canEdit ?? false))<a class="text-link" href="{{ $settingsUrl }}">{{ __('Review in settings') }}</a>@endif</p>
+        @if($statusSources)
+        <p class="project-status"><span @class(['status-dot', 'is-bad' => $attention, 'is-warn' => !$attention && ($statuses['delayed'] ?? 0) + ($statuses['pending'] ?? 0), 'dot-neutral' => count($statusSources) === ($statuses['disabled'] ?? 0)]) aria-hidden="true"></span><span>{{ trans_choice('{1} :count data source|[2,*] :count data sources', count($statusSources), ['count' => count($statusSources)]) }} · @forelse($states as $state => $label)@if(!$loop->first) · @endif@if(in_array($state, ['failed', 'delayed'], true))@php($affected = collect($statusSources)->where('status', $state)->values())<a class="text-link" href="{{ $jump($affected[0]['attention_anchor'], $affected[0]['attention_group'] ?? null) }}">{{ $label }}</a>@if($affected->count() > 1) <span class="project-attention-sources">(@foreach($affected as $source)@if(!$loop->first), @endif<a class="text-link" href="{{ $jump($source['attention_anchor'], $source['attention_group'] ?? null) }}">{{ $source['label'] }}</a>@endforeach)</span>@endif @else{{ $label }}@endif @empty{{ __('all healthy') }}@endforelse</span>@if($lastSync)<span aria-hidden="true">·</span><span>{{ __('Last sync :time', ['time' => $lastSync->translatedFormat('j M, H:i').' UTC']) }}</span>@endif @if($attention && ($canEdit ?? false))<a class="text-link" href="{{ $settingsUrl }}">{{ __('Review in settings') }}</a>@endif</p>
         @endif
     </div>
     <div class="project-actions">
@@ -80,7 +81,7 @@
 @endif
 @if($sources)
 @include('metribay::partials/project-findings')
-@else
+@elseif(!$statusSources)
 <div class="empty-state">@include('metribay::partials/icon',['name'=>'link'])<h2>{{ __('Add your first data source') }}</h2><p>{{ __('Choose a provider, sign in with a connected account and pick what to track for :project.', ['project' => $project->name]) }}</p>@if(($canEdit ?? false) && !$project->archived)<a class="button button-primary" href="{{ route('metribay.sources.create',['workspace'=>$workspace->slug,'project'=>$project->id]) }}">@include('metribay::partials/icon',['name'=>'plus']) {{ __('Add data source') }}</a>@endif</div>
 @endif
 @else
@@ -102,7 +103,7 @@
 <div class="inline-empty"><span>{{ __('This project has no charts in this view.') }}</span></div>
 @elseif($sources)
 <div class="inline-empty">@include('metribay::partials/icon',['name'=>'eye-off'])<span>{{ __('All charts from this data source are hidden.') }}</span></div>
-@else
+@elseif(!$statusSources)
 <div class="empty-state">@include('metribay::partials/icon',['name'=>'link'])<h2>{{ __('Add your first data source') }}</h2><p>{{ __('Choose a provider, sign in with a connected account and pick what to track for :project.', ['project' => $project->name]) }}</p>@if(($canEdit ?? false) && !$project->archived)<a class="button button-primary" href="{{ route('metribay.sources.create',['workspace'=>$workspace->slug,'project'=>$project->id]) }}">@include('metribay::partials/icon',['name'=>'plus']) {{ __('Add data source') }}</a>@endif</div>
 @endif
 @endforelse

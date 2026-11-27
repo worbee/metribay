@@ -33,7 +33,14 @@
 <p class="muted">{{ __('Choose the tool that already has the numbers. You can add more data sources to this project later.') }} {{ __('Not sure where to start? Most websites begin with their analytics tool and Google Search Console.') }}</p>
 <div class="field provider-filter"><label for="provider-search">{{ __('Find a provider') }}</label><input id="provider-search" type="search" autocomplete="off" placeholder="{{ __('Name or what it measures…') }}" data-provider-search></div>
 <p class="notice" data-provider-empty hidden>{{ __('No provider matches. Clear the search to see them all.') }}</p>
-@foreach(\Metribay\Core\Services\ProviderCatalog::grouped(array_keys($providers)) as $group => $kinds)
+@php($pickerGroups = \Metribay\Core\Services\ProviderCatalog::grouped(array_keys($providers)))
+@php($offersByGroup = [])
+@foreach($managedOffers ?? [] as $offer)
+@php($offerGroup = isset($groupCopy[$offer->group]) ? $offer->group : 'other')
+@php($offersByGroup[$offerGroup][] = $offer)
+@php($pickerGroups[$offerGroup] ??= [])
+@endforeach
+@foreach($pickerGroups as $group => $kinds)
 <section class="provider-group" data-provider-group aria-labelledby="provider-group-{{ $group }}">
 <h3 id="provider-group-{{ $group }}">{{ $groupCopy[$group][0] }}</h3>
 @if($groupCopy[$group][1])<p class="provider-group-description">{{ $groupCopy[$group][1] }}</p>@endif
@@ -47,6 +54,11 @@
 <button class="provider-choice" type="submit"><span class="provider-choice-text"><span class="provider-name">{{ $provider['label'] }}@if($added > 0) <span class="provider-count">{{ trans_choice('{1} :count added|[2,*] :count added', $added, ['count' => $added]) }}</span>@endif</span>@isset($providerSummaries[$kind])<small>{{ $providerSummaries[$kind] }}</small>@endisset @unless(\Metribay\Core\Services\ProviderCatalog::requiresConnection($kind))<small class="provider-tag">@include('metribay::partials/icon', ['name' => 'check']) {{ __('No sign-in needed') }}</small>@endunless</span><span class="provider-choice-arrow" aria-hidden="true">→</span></button>
 </form>
 @if($docsUrl)<a class="provider-docs" href="{{ $docsUrl }}" target="_blank" rel="noopener" aria-label="{{ __('Setup guide') }}: {{ $provider['label'] }} ({{ __('opens in a new tab') }})">{{ __('Setup guide') }} @include('metribay::partials/icon', ['name' => 'arrow-up-right'])</a>@endif
+</li>
+@endforeach
+@foreach($offersByGroup[$group] ?? [] as $offer)
+<li class="provider-card" data-provider-row>
+<a class="provider-choice" href="{{ $offer->url }}"><span class="provider-choice-text"><span class="provider-name">{{ $offer->label }} <span class="quiet-tag">{{ __('Managed') }}</span>@if($offer->added) <span class="provider-count">{{ trans_choice('{1} :count added|[2,*] :count added', 1, ['count' => 1]) }}</span>@endif</span><small>{{ $offer->summary }}</small><small class="provider-tag">@include('metribay::partials/icon', ['name' => 'check']) {{ __('No sign-in needed') }}</small></span><span class="provider-choice-arrow" aria-hidden="true">→</span></a>
 </li>
 @endforeach
 </ul>
