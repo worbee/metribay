@@ -2,8 +2,9 @@
     @php
         $visibleProjects = collect($projects);
         $sourceList = $visibleProjects->flatMap(fn($item) => $item['sources'] ?? []);
-        $attentionCount = $sourceList->filter(fn($source) => in_array($source['status'], ['failed','delayed']))->count();
-        $activeSources = $sourceList->filter(fn($source) => $source['enabled'] ?? false)->count();
+        $managedList = $visibleProjects->flatMap(fn($item) => $item['managed'] ?? []);
+        $attentionCount = $sourceList->concat($managedList)->filter(fn($source) => in_array($source['status'], ['failed','delayed']))->count();
+        $activeSources = $sourceList->filter(fn($source) => $source['enabled'] ?? false)->count() + $managedList->where('status', '!=', 'disabled')->count();
         $columnLabels = ['traffic'=>__('Visits'),'followers'=>__('Followers'),'search'=>__('Search clicks'),'development'=>__('Commits · PRs'),'issues'=>__('Open issues'),'downloads'=>__('Downloads'),'release_downloads'=>__('Release downloads'),'content'=>__('Items published'),'new_urls'=>__('New URLs detected'),'published_urls'=>__('Published URLs'),'uptime'=>__('Uptime · 24h'),'speed'=>__('Page speed · lowest')];
         $columns = array_values(array_filter(array_keys(\Metribay\Core\Services\DashboardData::CATEGORIES), fn ($column) => $visibleProjects->contains(fn ($project) => isset($project['summary'][$column]))));
         $statusLabels = ['healthy'=>__('Up to date'),'delayed'=>__('Delayed'),'failed'=>__('Needs attention'),'pending'=>__('Awaiting first sync'),'disabled'=>__('Paused'),'empty'=>__('No data sources yet.')];
@@ -33,7 +34,7 @@
         @error('range')<p class="notice notice-error" role="alert">{{ $message }}</p>@enderror
     </form>
     @endif
-    @if(($canEdit ?? false) && $activeSources && !collect($projects)->flatMap(fn($project) => $project['sources'])->contains(fn($source) => $source['last_success_at']))
+    @if(($canEdit ?? false) && $sourceList->contains(fn($source) => $source['enabled'] ?? false) && !collect($projects)->flatMap(fn($project) => $project['sources'])->contains(fn($source) => $source['last_success_at']))
     <section class="setup-checklist" aria-label="{{ __('Dashboard setup') }}"><h2>{{ __('Your first dashboard') }}</h2><ol><li>✓ {{ __('Project created and data source added') }}</li><li>{{ $attentionCount ? __('First import needs attention — review the data source below') : __('First import queued or running') }}</li><li>{{ __('View your metrics when the import finishes') }}</li></ol><p class="field-hint">{{ __('You can leave this page. Importing continues in the background.') }}</p></section>
     @endif
     @if(count($projects))
@@ -73,7 +74,7 @@
         @foreach ($projects as $item)
         @php
             $projectUrl = route('metribay.projects.show', ['workspace'=>$workspace->slug,'project'=>$item['id'], ...$period->query()]);
-            $attention = collect($item['sources'])->whereIn('status', ['failed','delayed'])->count();
+            $attention = collect($item['sources'])->concat($item['managed'] ?? [])->whereIn('status', ['failed','delayed'])->count();
         @endphp
         <tr @class(['project-row', 'needs-attention' => $attention]) data-project-name="{{ mb_strtolower($item['name'].' '.($item['domain'] ?? '')) }}" data-row-href="{{ $projectUrl }}" wire:key="project-{{ $item['id'] }}">
             <th scope="row" class="project-cell">
@@ -83,7 +84,9 @@
                     <span class="project-meta">@if($attention)@php($attentionText = trans_choice('{1} :count data source needs attention|[2,*] :count data sources need attention', $attention, ['count' => $attention]))<span class="project-attention" title="{{ $attentionText }}">{{ $attentionText }}</span>@else<span class="project-domain">{{ $item['domain'] ?: __('No domain') }}</span>@endif<span class="project-details-link" aria-hidden="true">{{ __('View project details') }}</span></span>
                 </span>
             </th>
-            @if(!count($item['sources']))
+            @if(!count($item['sources']) && !empty($item['managed']))
+            <td class="row-empty" colspan="{{ max(1, count($columns)) }}"><span>{{ trans_choice('{0} No data sources|{1} :count data source|[2,*] :count data sources', count($item['managed']), ['count' => count($item['managed'])]) }} · {{ implode(', ', array_column($item['managed'], 'label')) }}</span></td>
+            @elseif(!count($item['sources']))
             <td class="row-empty" colspan="{{ max(1, count($columns)) }}"><span>{{ trans_choice('{0} No data sources|{1} :count data source|[2,*] :count data sources', 0) }}</span>@if($canEdit ?? false)<a class="text-link" href="{{ route('metribay.sources.create',['workspace'=>$workspace->slug,'project'=>$item['id']]) }}">{{ __('Add data source') }}</a>@endif</td>
             @else
             @foreach($columns as $column)

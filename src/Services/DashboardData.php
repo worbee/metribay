@@ -225,7 +225,16 @@ class DashboardData
     /** @param list<array{label: string, kind: string, enabled: bool, status: string, metrics: list<array<string, mixed>>}> $sources */
     private function projectStatus(array $sources): string
     {
-        $statuses = array_column($sources, 'status');
+        return self::worstStatus(array_column($sources, 'status'));
+    }
+
+    /**
+     * The project status from its sources' statuses: a problem first, then importing, then healthy.
+     *
+     * @param  list<string>  $statuses
+     */
+    public static function worstStatus(array $statuses): string
+    {
         foreach (['failed', 'delayed', 'pending', 'healthy'] as $status) {
             if (in_array($status, $statuses, true)) {
                 return $status;

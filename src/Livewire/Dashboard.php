@@ -7,11 +7,14 @@ use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
 use Livewire\Component;
+use Metribay\Core\Contracts\ManagedSources;
 use Metribay\Core\Contracts\WorkspaceAccess;
 use Metribay\Core\Metrics\Period;
+use Metribay\Core\Models\Project;
 use Metribay\Core\Models\ProjectGroup;
 use Metribay\Core\Models\Workspace;
 use Metribay\Core\Services\DashboardData;
+use Metribay\Core\Services\ManagedSource;
 use Metribay\Core\Services\WorkspaceContext;
 
 class Dashboard extends Component
@@ -98,7 +101,19 @@ class Dashboard extends Component
         request()->attributes->set('metribay.workspace', $workspace);
 
         return app(WorkspaceContext::class)->run($workspace, function () use ($workspace, $period) {
-            $projects = $this->sorted(app(DashboardData::class)->projects($period));
+            $projects = app(DashboardData::class)->projects($period);
+            // Host-run sources (such as managed SEO tracking) count with each project's own data sources.
+            $models = Project::query()->whereIn('id', array_column($projects, 'id'))->get()->keyBy('id');
+            foreach ($projects as &$project) {
+                $model = $models->get($project['id']);
+                $project['managed'] = $model ? array_map(fn (ManagedSource $item): array => ['label' => $item->label, 'status' => $item->status],
+                    app(ManagedSources::class)->forProject($workspace, $model)) : [];
+                if ($project['managed'] !== []) {
+                    $project['status'] = DashboardData::worstStatus([...array_column($project['sources'], 'status'), ...array_column($project['managed'], 'status')]);
+                }
+            }
+            unset($project);
+            $projects = $this->sorted($projects);
 
             return view('metribay::components.overview', ['workspace' => $workspace, 'projects' => $projects, 'groups' => ProjectGroup::query()->orderBy('name')->pluck('name')->all(), 'days' => $period->days, 'period' => $period, 'selectedGroup' => $this->selectedGroup, 'sort' => $this->sort, 'direction' => $this->direction, 'now' => CarbonImmutable::now('UTC')]);
         });

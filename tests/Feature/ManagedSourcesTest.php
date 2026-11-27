@@ -133,6 +133,20 @@ class ManagedSourcesTest extends TestCase
         $this->assertStringContainsString('href="https://host.example.test/odd"', $other);
     }
 
+    public function test_overview_counts_managed_sources_and_their_problems(): void
+    {
+        $this->fake([new ManagedSource('seo', 'SEO tracking', 'Vendor', 'failed', group: 'search', anchor: 'host-search')]);
+
+        $this->actingAs($this->owner)->get('/w/managed')->assertOk()
+            ->assertSee('1 data source needs attention')
+            ->assertSee('1 data source · SEO tracking')
+            ->assertSee('status-failed', false)
+            ->assertDontSee('Your first dashboard');
+
+        $this->fake([new ManagedSource('seo', 'SEO tracking', 'Vendor', 'healthy', group: 'search')]);
+        $this->get('/w/managed')->assertOk()->assertDontSee('needs attention')->assertSee('Data source health looks clear')->assertSee('status-healthy', false);
+    }
+
     public function test_unknown_status_is_refused(): void
     {
         $this->expectException(\InvalidArgumentException::class);

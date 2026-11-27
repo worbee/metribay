@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 1.10.0 — 2026-11-28
+
+- The all-projects overview counts host-managed data sources (`ManagedSources`) with each project's own: the project status dot, its "needs attention" note, the workspace attention count and the data-source summary of a project that has only managed sources. The first-dashboard checklist still follows connected sources only.
+- `DashboardData::worstStatus()` is public, so hosts and views combine statuses the same way.
+- No new strings, migration or configuration change.
+
 ## 1.9.0 — 2026-11-28
 
 - Hosts can list data sources they run for a project themselves, without a connected account, through the new `ManagedSources` contract. The project header counts them with the other data sources, and their problems link to where they show on the page. **Project settings** lists them under **Data sources** with their status and a link to their own settings. **Add data source** offers them in their provider group. Standalone Core has none.
