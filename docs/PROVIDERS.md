@@ -67,6 +67,10 @@ Each collection reads `GET /api/projects/{id}/` first: the project must match, a
 
 The connected account is the app host and a personal API key (`phx_…`). A project API key (`phc_…`) can only send events and is rejected when saving. The ingestion hosts `us.i.posthog.com` / `eu.i.posthog.com` and the legacy `app.posthog.com` are stored as the regional app host. Discovery lists `GET /api/projects/` for the key's current organization, 100 per page and at most 2,000; choosing a project reads its timezone. Manual entry takes the number from the project's address and its timezone.
 
+## PrestaShop
+
+**PrestaShop** (`prestashop`) records valid orders and their revenue without tax per day in the shop's default currency and timezone, through the read-only Webservice. The key needs View on `orders`, `currencies` and `shops` only. Listed shops carry no timezone, so it is entered on the confirm step. Like Paddle it is a revenue provider: only people who manage workspace access add it, and sharing is confirmed. Details: [PRESTASHOP.md](PRESTASHOP.md).
+
 ## Followers
 
 **Bluesky** (`bluesky`) and **Mastodon** (`mastodon`) record **Followers**, the current follower count of one public account: each sync replaces today's UTC value, so one count per day is kept. Neither network publishes earlier counts, so dates before the source was added stay empty and each collection replaces only today's snapshot. Neither needs a connected account or a key.

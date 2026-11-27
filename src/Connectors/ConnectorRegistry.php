@@ -11,7 +11,7 @@ final readonly class ConnectorRegistry
     /** @return list<string> */
     public function kinds(): array
     {
-        return ['umami', 'plausible', 'matomo', 'ga4', 'gsc', 'bing', 'wporg', 'github', 'github_releases', 'feed', 'sitemap', 'uptimerobot', 'pagespeed', 'azure_devops', 'paddle', 'bluesky', 'mastodon', 'posthog'];
+        return ['umami', 'plausible', 'matomo', 'ga4', 'gsc', 'bing', 'wporg', 'github', 'github_releases', 'feed', 'sitemap', 'uptimerobot', 'pagespeed', 'azure_devops', 'paddle', 'bluesky', 'mastodon', 'posthog', 'prestashop'];
     }
 
     /** The GitHub connector, which also lists deployment environments. */
@@ -47,6 +47,7 @@ final readonly class ConnectorRegistry
             'uptimerobot' => new UptimeRobotConnector($this->http),
             'pagespeed' => new PageSpeedConnector($this->http),
             'paddle' => new PaddleConnector($this->http),
+            'prestashop' => new PrestaShopConnector($this->http),
             'azure_devops' => new AzureDevOpsConnector($this->http),
             'bluesky' => new BlueskyConnector($this->http),
             'mastodon' => new MastodonConnector($this->http),

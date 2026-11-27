@@ -16,7 +16,7 @@
     [$rangeFrom, $rangeTo] = array_map(fn ($date) => $date->toDateString(), $period->window('UTC', \Carbon\CarbonImmutable::now('UTC')));
     $rangeMax = \Carbon\CarbonImmutable::now('UTC')->addDay()->toDateString();
     $summaryLabels = ['traffic'=>__('Visits'),'followers'=>__('Followers'),'search'=>__('Search clicks'),'development'=>__('Commits · PRs'),'issues'=>__('Open issues'),'downloads'=>__('Downloads'),'release_downloads'=>__('Release downloads'),'content'=>__('Items published'),'new_urls'=>__('New URLs detected'),'published_urls'=>__('Published URLs'),'uptime'=>__('Uptime · 24h'),'speed'=>__('Page speed · lowest')];
-    $providerNames = ['ga4'=>'Google Analytics','gsc'=>'Google Search Console','bing'=>'Bing Webmaster','umami'=>'Umami Analytics','plausible'=>'Plausible','matomo'=>'Matomo','github'=>'GitHub','github_releases'=>'GitHub releases','feed'=>'RSS / Atom','sitemap'=>'Sitemap','azure_devops'=>'Azure DevOps','wporg'=>'WordPress.org','uptimerobot'=>'UptimeRobot','pagespeed'=>'PageSpeed Insights','paddle'=>'Paddle Billing','bluesky'=>'Bluesky','mastodon'=>'Mastodon','posthog'=>'PostHog'];
+    $providerNames = ['ga4'=>'Google Analytics','gsc'=>'Google Search Console','bing'=>'Bing Webmaster','umami'=>'Umami Analytics','plausible'=>'Plausible','matomo'=>'Matomo','github'=>'GitHub','github_releases'=>'GitHub releases','feed'=>'RSS / Atom','sitemap'=>'Sitemap','azure_devops'=>'Azure DevOps','wporg'=>'WordPress.org','uptimerobot'=>'UptimeRobot','pagespeed'=>'PageSpeed Insights','paddle'=>'Paddle Billing','bluesky'=>'Bluesky','mastodon'=>'Mastodon','posthog'=>'PostHog','prestashop'=>'PrestaShop'];
     $projectView = $projectView ?? 'metrics';
     $presets = $presets ?? [];
     $availableGroups = $availableGroups ?? [];

@@ -5,7 +5,7 @@
     'content' => [__('Publishing'), __('New pages and posts as you publish them. Each one appears as an event on your charts, so you can see what changed afterwards.')],
     'code' => [__('Code and releases'), __('Development activity and downloads: commits, pull requests, releases and plugin downloads.')],
     'social' => [__('Social followers'), __('Follower counts of public social accounts, recorded once a day.')],
-    'revenue' => [__('Revenue'), __('Revenue, recurring revenue and paying subscribers from your billing system.')],
+    'revenue' => [__('Revenue'), __('Revenue and sales from your billing system or online shop.')],
     'other' => [__('Other'), null],
 ])
 @php($providerSummaries = [
@@ -27,6 +27,7 @@
     'bluesky' => __('Followers of a Bluesky account'),
     'mastodon' => __('Followers of a Mastodon account'),
     'paddle' => __('Revenue, MRR and paying subscribers'),
+    'prestashop' => __('Orders and revenue of a PrestaShop shop'),
 ])
 <h2>{{ __('Where is the data?') }}</h2>
 <p class="muted">{{ __('Choose the tool that already has the numbers. You can add more data sources to this project later.') }} {{ __('Not sure where to start? Most websites begin with their analytics tool and Google Search Console.') }}</p>

@@ -37,6 +37,31 @@ final class SampleSources
     }
 
     /**
+     * A small PrestaShop print shop: valid orders and their revenue without tax in the shop's timezone, including today
+     * so far. Order values vary around $average.
+     *
+     * @param  callable(int, CarbonImmutable): float  $orders  Expected orders per day.
+     */
+    public function prestaShop(string $label, string $shop, callable $orders, float $average, string $currency, string $timezone): SampleSource
+    {
+        $today = $this->today($timezone);
+        $noise = $this->noise->fork('prestashop');
+        $daily = [];
+        for ($ago = $this->first(null); $ago >= 0; $ago--) {
+            $date = $today->subDays($ago);
+            $count = $noise->poisson($orders($ago, $date) * ($ago === 0 ? $this->elapsed($timezone) : 1.0));
+            $revenue = 0.0;
+            for ($order = 0; $order < $count; $order++) {
+                $revenue += $noise->lognormal($average, 0.45);
+            }
+            $daily[] = $this->row('store_orders', $date, $count, $ago === 0);
+            $daily[] = $this->row('store_revenue', $date, round($revenue, 2), $ago === 0) + ['context' => ['currency' => $currency]];
+        }
+
+        return $this->source('prestashop', $label, ['shop_id' => $shop, 'days' => 180], $timezone, [new CollectionResult(daily: $daily)], 25);
+    }
+
+    /**
      * GA4, Umami, Plausible or Matomo traffic. Visits come from $visits; visitors and page views follow from per-day ratios,
      * so a day always has visits >= visitors and page views >= visits. Unique visitors over 7, 30 and 90 days
      * are stored as periods and are never the sum of daily visitors. Matomo cannot return those period totals, so it sets periods to false.

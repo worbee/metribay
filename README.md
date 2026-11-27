@@ -46,10 +46,11 @@ The app speaks twelve languages: English, German, Bulgarian, Czech, Spanish, Fre
 | PageSpeed Insights | Lighthouse scores and real-user Core Web Vitals | Your own Google API key |
 | UptimeRobot | Monitor status, uptime, response time | A read-only API key |
 | Paddle Billing | Net revenue, monthly recurring revenue, active paying subscribers | An API key with only `metrics.read`. Customer records stay at Paddle ([details](docs/PADDLE_BILLING.md)) |
+| PrestaShop | Valid orders and revenue without tax per day, in the shop's default currency | A webservice key that may only view orders, currencies and shops, the shop address and its timezone. Customer records stay in the shop ([details](docs/PRESTASHOP.md)) |
 
 Everything uses your own credentials. Nothing goes through a Metribay server. Credentials are encrypted with your `APP_KEY` and bound to their provider. Details per provider: [docs/PROVIDERS.md](docs/PROVIDERS.md).
 
-One limit to know about: Metribay only connects to public HTTPS endpoints. An Umami, Plausible, Matomo or PostHog instance on your private network won't work.
+One limit to know about: Metribay only connects to public HTTPS endpoints. An Umami, Plausible, Matomo or PostHog instance or a PrestaShop shop on your private network won't work.
 
 ## Try it in a minute
 

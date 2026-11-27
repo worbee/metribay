@@ -30,8 +30,8 @@ class ConfigurationTransfer
                 $project = Project::query()->firstOrNew(['slug' => $item['slug']]);
                 $project->fill(['name' => $item['name'], 'domain' => ProjectConfiguration::domain($item['domain'] ?? null), 'group_id' => $group?->id, 'archived' => $item['archived'], 'version' => ($project->version ?? 0) + 1])->save();
                 foreach ($item['sources'] as $entry) {
-                    if ($entry['kind'] === 'paddle' && ! $shareRevenue) {
-                        throw ValidationException::withMessages(['file' => __('A workspace owner must confirm sharing before importing Paddle sources.')]);
+                    if (ProviderCatalog::revenue($entry['kind']) && ! $shareRevenue) {
+                        throw ValidationException::withMessages(['file' => __('A workspace owner must confirm sharing before importing revenue sources such as Paddle or PrestaShop.')]);
                     }
                     $config = ProviderCatalog::source($entry['kind'], $entry['config'], $entry['reporting_timezone']);
                     $hash = ProviderCatalog::identityHash($entry['kind'], $config, $entry['reporting_timezone']);

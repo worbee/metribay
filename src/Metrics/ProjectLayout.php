@@ -15,7 +15,7 @@ final class ProjectLayout
 {
     /** Groups in overview column order; metrics lead first. */
     public const GROUPS = [
-        'revenue' => ['paddle_revenue', 'paddle_mrr', 'paddle_active_subscribers'],
+        'revenue' => ['paddle_revenue', 'paddle_mrr', 'paddle_active_subscribers', 'store_revenue', 'store_orders'],
         'audience' => ['visits', 'visitors', 'pageviews', 'bounce_rate', 'avg_visit_duration'],
         'conversions' => ['conversions'],
         'product' => ['active_users', 'key_events'],

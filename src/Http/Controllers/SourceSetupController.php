@@ -229,9 +229,9 @@ class SourceSetupController
         }
         $providers = ProviderCatalog::all();
         if (! app(WorkspaceAccess::class)->allows($request->user(), app(WorkspaceContext::class)->current(), 'manage_access')) {
-            unset($providers['paddle']);
+            $providers = array_diff_key($providers, array_flip(ProviderCatalog::REVENUE_PROVIDERS));
         }
-        if (($draft['kind'] ?? null) === 'paddle') {
+        if (ProviderCatalog::revenue($draft['kind'] ?? '')) {
             $this->authorize($request, 'manage_access');
         }
         $request->session()->put($this->key($request), $draft);
@@ -263,7 +263,7 @@ class SourceSetupController
                 return $this->restart($request);
             }
             $values = $request->validate(['kind' => ['required', Rule::in(array_keys(ProviderCatalog::all()))]]);
-            if ($values['kind'] === 'paddle') {
+            if (ProviderCatalog::revenue($values['kind'])) {
                 $this->authorize($request, 'manage_access');
             }
             $draft = array_intersect_key($draft, ['project_id' => true]) + ['kind' => $values['kind'], 'step' => ProviderCatalog::requiresConnection($values['kind']) || ProviderCatalog::connectionOptional($values['kind']) ? 'account' : 'resources'];
@@ -273,7 +273,7 @@ class SourceSetupController
                 return $this->restart($request);
             }
             $kind = $draft['kind'];
-            if ($kind === 'paddle') {
+            if (ProviderCatalog::revenue($kind)) {
                 $this->authorize($request, 'manage_access');
             }
             if ($action === 'account') {
@@ -404,8 +404,12 @@ class SourceSetupController
                 if (! isset($draft['resource'])) {
                     return redirect()->route('metribay.sources.create', app(WorkspaceContext::class)->current()->slug);
                 }
-                if ($kind === 'paddle') {
+                if (ProviderCatalog::revenue($kind)) {
                     $request->validate(['share_revenue' => ['accepted']]);
+                }
+                if (($draft['resource']['timezone'] ?? '') === '') {
+                    // Listed PrestaShop shops do not report their timezone; the person adding the source enters it.
+                    $draft['resource']['timezone'] = $request->validate(['timezone' => ['required', 'timezone']])['timezone'];
                 }
                 $values = $request->validate(['label' => ['nullable', 'string', 'max:120'], 'days' => ['required', 'integer', 'min:1', 'max:366'], 'environments' => ['nullable', 'string', 'max:3000'], 'convert_to_events' => ['sometimes', 'boolean'],
                     'track' => [Rule::requiredIf($kind === 'posthog'), 'nullable', 'in:usage,event'], 'event' => ['nullable', 'required_if:track,event', 'string', 'max:500']]);
@@ -491,7 +495,7 @@ class SourceSetupController
         $kind = $request->string('setup_kind')->toString();
         if (isset($draft['project_id']) && ! isset($draft['kind']) && $action === 'account' && array_key_exists($kind, ProviderCatalog::all())
             && (ProviderCatalog::requiresConnection($kind) || ProviderCatalog::connectionOptional($kind))) {
-            if ($kind === 'paddle') {
+            if (ProviderCatalog::revenue($kind)) {
                 $this->authorize($request, 'manage_access');
             }
             $draft['kind'] = $kind;

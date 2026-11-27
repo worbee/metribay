@@ -136,8 +136,8 @@ class SettingsController
     {
         $this->authorize($request);
         $values = $request->validate(['project_id' => ['required', 'integer'], 'kind' => ['required', Rule::in(array_keys(ProviderCatalog::all()))], 'label' => ['required', 'string', 'max:120'], 'connection_id' => ['nullable', 'integer'], 'reporting_timezone' => ['required', 'timezone'], 'config' => ['required', 'array']]);
-        if ($values['kind'] === 'paddle') {
-            throw ValidationException::withMessages(['kind' => __('Add Paddle from the project’s data source setup.')]);
+        if (ProviderCatalog::revenue($values['kind'])) {
+            throw ValidationException::withMessages(['kind' => __('Add :provider from the project’s data source setup.', ['provider' => ProviderCatalog::all()[$values['kind']]['label']])]);
         }
         Project::query()->findOrFail($values['project_id']);
         $config = ProviderCatalog::source($values['kind'], $values['config'], $values['reporting_timezone']);
@@ -165,7 +165,7 @@ class SettingsController
         $changed = DB::transaction(function () use ($request, $values): array {
             $source = Source::query()->lockForUpdate()->whereKey($request->route('source'))->firstOrFail();
             $this->version($request, $source);
-            if ($source->kind === 'paddle') {
+            if (ProviderCatalog::revenue($source->kind)) {
                 $this->authorize($request, 'manage_access');
             }
             $connectionId = $source->connection_id;

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 1.8.0 — 2026-11-27
+
+- New data source: **PrestaShop** (1.7, 8 and 9), in the **Revenue** group. It records **Orders** (valid orders) and **Store revenue** (order totals without tax, converted to the shop's default currency) per day in the shop's timezone. Connect it with the shop's address and a webservice key that may only view orders, currencies and shops; Metribay reads no customer records. Choose the shop from the list or enter its ID, then enter the shop's timezone. Refunds are not subtracted. See [docs/PRESTASHOP.md](docs/PRESTASHOP.md).
+- PrestaShop is handled like Paddle: only people who can manage workspace access can add, change or import it, and they confirm that project viewers and exports include its figures. The configuration import and its checkbox now speak of revenue sources rather than only Paddle.
+- The Kestrel Photo sample project gains a PrestaShop print shop.
+- New strings in all twelve languages. No migration or configuration change.
+
 ## 1.7.3 — 2026-11-27
 
 - **Add data source** no longer dead-ends on a property, site or monitor that a paused data source without a connected account already tracks (for example after a project move). The list marks it as already in the project and paused, with **Choose an account** linking to that data source in the project settings. Entering it manually explains the same.

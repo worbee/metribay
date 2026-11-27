@@ -286,7 +286,7 @@ final class SamplePortfolio
         ]);
     }
 
-    /** Self-hoster: a photographer's site with self-hosted Umami and a tracker outage during a server upgrade. */
+    /** Self-hoster: a photographer's site and print shop with self-hosted Umami, PrestaShop and a tracker outage during a server upgrade. */
     private function kestrel(): SampleProject
     {
         $sources = $this->sources('kestrel');
@@ -296,6 +296,8 @@ final class SamplePortfolio
                 fn (int $ago, CarbonImmutable $date): float => 82 * Shape::growth($ago, [[400, 0.7], [0, 1.1]]) * Calendar::weekday($date, 1.2) * Calendar::holiday($date, 0.2)
                     * Calendar::season($date, 0.15, 200) * Shape::spike($ago, 140, 3.0, 1.2),
                 ['pages' => 2.8, 'returning' => 1.1, 'loyalty' => 0.1, 'gaps' => [64, 63], 'sigma' => 0.14]),
+            $sources->prestaShop('Kestrel print shop', '1', fn (int $ago, CarbonImmutable $date): float => 1.6 * Shape::growth($ago, [[400, 0.6], [0, 1.1]])
+                * Calendar::weekday($date, 1.1) * Calendar::season($date, 0.35, 330) * Shape::spike($ago, 140, 4.0, 1.5), 38.0, 'EUR', 'Europe/Vienna'),
             $sources->uptime('https://kestrelphoto.example', ['monitor' => '790038215', 'connected' => 380, 'response' => 420,
                 'steps' => fn (int $ago): float => Shape::step($ago, 35, 0.45), 'incidents' => [158 => 14, 64 => 190, 63 => 75]]),
             $sources->pageSpeed(fn (int $ago): array => ['lcp' => $ago <= 35 ? 3500 : 4100, 'tbt' => 150, 'cls' => 0.01],

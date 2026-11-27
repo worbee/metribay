@@ -27,6 +27,8 @@ final class MetricRegistry
             ['pipeline_runs_succeeded', 'Pipeline runs succeeded', 'count', 'sum'], ['pipeline_runs_failed', 'Pipeline runs failed', 'count', 'sum'], ['open_issues', 'Open issues', 'count', 'latest', true],
             ['paddle_revenue', 'Paddle net revenue', 'currency', 'sum'], ['paddle_mrr', 'Monthly recurring revenue', 'currency', 'latest', true],
             ['paddle_active_subscribers', 'Active paying subscribers', 'count', 'latest', true],
+            // Shop sales: valid orders and their revenue without tax, in the shop's default currency.
+            ['store_revenue', 'Store revenue', 'currency', 'sum'], ['store_orders', 'Orders', 'count', 'sum'],
             ['monitor_status', 'Monitor status', 'status', 'latest', true], ['uptime_24h', 'Uptime · last 24h', 'percent', 'latest', true],
             ['response_time_24h', 'Response time · last 24h', 'ms', 'latest', true],
         ];

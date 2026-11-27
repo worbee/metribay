@@ -12,6 +12,7 @@ use Metribay\Core\Connectors\PaddleConnector;
 use Metribay\Core\Connectors\PageSpeedUrl;
 use Metribay\Core\Connectors\PostHogClient;
 use Metribay\Core\Connectors\PostHogConnector;
+use Metribay\Core\Connectors\PrestaShopClient;
 use Metribay\Core\Connectors\ProviderRequestLimit;
 use Metribay\Core\Connectors\SocialAccount;
 use Metribay\Core\Contracts\PageSpeedCredentials;
@@ -38,6 +39,7 @@ class ProviderCatalog
             'sitemap' => ['Sitemap', [], [], ['url', 'days', 'convert_to_events'], 'UTC'],
             'uptimerobot' => ['UptimeRobot', ['api_key'], ['api_key'], ['monitor_id'], 'UTC'],
             'paddle' => ['Paddle Billing', ['api_key'], ['api_key'], ['paddle_account', 'days'], 'UTC'],
+            'prestashop' => ['PrestaShop', ['base_url', 'api_key'], ['api_key'], ['shop_id', 'days'], 'UTC'],
             'azure_devops' => ['Azure DevOps', ['organization', 'token'], ['token'], ['repository', 'days', 'environments'], 'UTC'],
             'bluesky' => ['Bluesky', [], [], ['account'], 'UTC'],
             'mastodon' => ['Mastodon', [], [], ['account'], 'UTC'],
@@ -46,6 +48,7 @@ class ProviderCatalog
         foreach ($data as $kind => [$label,$fields,$secrets,$config,$timezone]) {
             $out[$kind] = ['label' => $label, 'fields' => $fields, 'secrets' => $secrets, 'config' => $config, 'default_timezone' => $timezone, 'field_labels' => ['website_id' => 'Website UUID', 'base_url' => 'Server URL', 'service_account' => 'Service account JSON', 'site_url' => 'Site URL or Search Console property', 'private_key' => 'GitHub App private key (PEM)', 'token' => 'Personal access token', 'organization' => 'Organization', 'api_key' => 'Api Key', 'token_auth' => 'Auth token', 'project_id' => 'Project ID', 'event' => 'Event name', 'days' => 'History window (days)', 'limit' => 'History window (days)']];
         }
+        $out['prestashop']['field_labels'] = ['base_url' => 'Shop URL', 'api_key' => 'Webservice key'] + $out['prestashop']['field_labels'];
 
         return $out;
     }
@@ -87,6 +90,7 @@ class ProviderCatalog
             'azure_devops' => ['repository' => ['required', 'string', 'max:129', 'regex:~^[^/\\\\\x00-\x1F\x7F]{1,64}/[^/\\\\\x00-\x1F\x7F]{1,64}$~uD'],
                 'environments' => ['sometimes', 'array', 'list', 'max:'.self::MAX_ENVIRONMENTS], 'environments.*' => ['required', 'string', 'max:255', 'regex:/^[^\x00-\x1F\x7F,]+$/u']],
             'paddle' => ['paddle_account' => ['required', 'regex:'.PaddleConnector::ACCOUNT_PATTERN]],
+            'prestashop' => ['shop_id' => ['required', 'regex:/^[1-9][0-9]{0,9}$/']],
             'pagespeed' => ['url' => ['required', 'string', 'max:500'], 'strategy' => ['required', 'in:mobile,desktop']],
             'bluesky', 'mastodon' => ['account' => ['required', 'string', 'max:320']],
             default => throw ValidationException::withMessages(['kind' => __('Choose a supported provider.')]),
@@ -116,7 +120,7 @@ class ProviderCatalog
         if (isset($clean[$window])) {
             $clean[$window] = (int) $clean[$window];
         }
-        foreach (['property_id', 'monitor_id'] as $numericId) {
+        foreach (['property_id', 'monitor_id', 'shop_id'] as $numericId) {
             if (isset($clean[$numericId])) {
                 $clean[$numericId] = (string) $clean[$numericId];
             }
@@ -191,7 +195,7 @@ class ProviderCatalog
             }
         }
         $required = match ($kind) {
-            'umami' => ['base_url', 'username', 'password'],'plausible','posthog' => ['base_url', 'api_key'],'matomo' => ['base_url', 'token_auth'],'azure_devops' => ['organization', 'token'],'bing','uptimerobot','pagespeed','paddle' => ['api_key'],'github' => isset($values['token']) ? ['token'] : ['client_id', 'installation_id', 'private_key'],'github_releases' => ['token'],'gsc','ga4' => isset($values['service_account']) ? ['service_account'] : ['client_id', 'client_secret', 'refresh_token'],default => throw ValidationException::withMessages(['kind' => __('Choose a supported provider.')])
+            'umami' => ['base_url', 'username', 'password'],'plausible','posthog' => ['base_url', 'api_key'],'matomo' => ['base_url', 'token_auth'],'azure_devops' => ['organization', 'token'],'bing','uptimerobot','pagespeed','paddle' => ['api_key'],'prestashop' => ['base_url', 'api_key'],'github' => isset($values['token']) ? ['token'] : ['client_id', 'installation_id', 'private_key'],'github_releases' => ['token'],'gsc','ga4' => isset($values['service_account']) ? ['service_account'] : ['client_id', 'client_secret', 'refresh_token'],default => throw ValidationException::withMessages(['kind' => __('Choose a supported provider.')])
         };
         foreach ($required as $key) {
             if (empty($values[$key])) {
@@ -239,6 +243,18 @@ class ProviderCatalog
             $values[$secret] = trim($values[$secret]);
             if (str_contains((string) (parse_url($values['base_url'], PHP_URL_PATH) ?? ''), '..')) {
                 throw ValidationException::withMessages(['values.base_url' => __('Use a public HTTPS server URL on port 443.')]);
+            }
+        }
+        if ($kind === 'prestashop') {
+            try {
+                $values['base_url'] = PrestaShopClient::base($values['base_url']);
+            } catch (ConnectorException) {
+                throw ValidationException::withMessages(['values.base_url' => __('Use the public HTTPS address of the shop, without a query or fragment.')]);
+            }
+            try {
+                $values['api_key'] = PrestaShopClient::key($values['api_key']);
+            } catch (ConnectorException) {
+                throw ValidationException::withMessages(['values.api_key' => __('Use the 32-character PrestaShop webservice key.')]);
             }
         }
         if ($kind === 'posthog') {
@@ -300,7 +316,7 @@ class ProviderCatalog
         'content' => ['sitemap', 'feed'],
         'code' => ['github', 'github_releases', 'azure_devops', 'wporg'],
         'social' => ['bluesky', 'mastodon'],
-        'revenue' => ['paddle'],
+        'revenue' => ['paddle', 'prestashop'],
     ];
 
     /** Setup guide paths under {marketing_url}/{locale}/docs/integrations/. */
@@ -308,7 +324,7 @@ class ProviderCatalog
         'umami' => 'umami', 'plausible' => 'plausible', 'matomo' => 'matomo', 'posthog' => 'posthog',
         'ga4' => 'google-analytics', 'gsc' => 'search-console', 'bing' => 'bing', 'pagespeed' => 'pagespeed',
         'wporg' => 'wordpress', 'github' => 'github', 'github_releases' => 'github-releases', 'feed' => 'rss-atom',
-        'sitemap' => 'sitemap', 'uptimerobot' => 'uptimerobot', 'paddle' => 'paddle', 'azure_devops' => 'azure-devops',
+        'sitemap' => 'sitemap', 'uptimerobot' => 'uptimerobot', 'paddle' => 'paddle', 'prestashop' => 'prestashop', 'azure_devops' => 'azure-devops',
         'bluesky' => 'bluesky', 'mastodon' => 'mastodon',
     ];
 
@@ -487,7 +503,18 @@ class ProviderCatalog
     /** Providers whose dates follow the selected site or property, not a fixed offset. */
     public static function usesSiteTimezone(string $kind): bool
     {
-        return in_array($kind, ['ga4', 'plausible', 'matomo', 'posthog'], true);
+        return in_array($kind, ['ga4', 'plausible', 'matomo', 'posthog', 'prestashop'], true);
+    }
+
+    /**
+     * Providers of financial metrics. Only people who manage workspace access add, change or import them, and adding one
+     * confirms that its figures are shared with project viewers and workspace exports.
+     */
+    public const REVENUE_PROVIDERS = ['paddle', 'prestashop'];
+
+    public static function revenue(string $kind): bool
+    {
+        return in_array($kind, self::REVENUE_PROVIDERS, true);
     }
 
     public static function requiresConnection(string $kind): bool
@@ -537,6 +564,7 @@ class ProviderCatalog
 
         return match ($kind) {
             'paddle' => ['paddle_revenue', 'paddle_mrr', 'paddle_active_subscribers'],
+            'prestashop' => ['store_revenue', 'store_orders'],
             'umami' => [...self::WEBSITE_METRICS, ...self::ENGAGEMENT_METRICS],
             'plausible','matomo','ga4' => [...self::WEBSITE_METRICS, ...self::ENGAGEMENT_METRICS, 'conversions'],'gsc' => ['impressions', 'clicks'],'bing' => ['impressions', 'clicks', 'indexed_pages'],'wporg' => ['downloads'],'feed' => ['published_items'],'sitemap' => ['new_urls', 'published_urls'],'github' => ['commits', 'prs_merged', 'loc_changed', 'open_issues'],'github_releases' => ['release_downloads'],'bluesky','mastodon' => ['followers'],'uptimerobot' => ['monitor_status', 'uptime_24h', 'response_time_24h'],'azure_devops' => ['commits', 'prs_merged', 'pipeline_runs_succeeded', 'pipeline_runs_failed', 'open_issues'],'pagespeed' => ['lab_score', 'lab_lcp', 'lab_cls', 'lab_tbt', 'crux_lcp', 'crux_inp', 'crux_cls', 'crux_origin_lcp', 'crux_origin_inp', 'crux_origin_cls'],default => []
         };

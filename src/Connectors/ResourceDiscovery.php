@@ -31,6 +31,9 @@ class ResourceDiscovery extends AbstractConnector
         if ($kind === 'posthog') {
             return (new PostHogResourceDiscovery($this->http))->discover($credentials);
         }
+        if ($kind === 'prestashop') {
+            return (new PrestaShopResourceDiscovery($this->http))->discover($credentials);
+        }
         if ($kind === 'azure_devops') {
             return $this->azureDevOps($credentials);
         }
