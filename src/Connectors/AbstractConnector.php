@@ -9,6 +9,9 @@ use Illuminate\Http\Client\Response;
 
 abstract class AbstractConnector implements Connector
 {
+    /** Closed calendar months asked for per collection, newest first; older ones follow in later collections. */
+    public const PERIOD_MONTHS = 3;
+
     public function __construct(protected readonly SafeHttpClient $http) {}
 
     /** @return array<string, mixed> */
@@ -148,6 +151,17 @@ abstract class AbstractConnector implements Connector
             foreach ([0, $length] as $offset) {
                 $end = $today->subDays($offset);
                 $windows[] = [$end->subDays($length - 1), $end];
+            }
+        }
+        // Closed calendar months for the monthly report: a month's unique total is never the sum of its days.
+        foreach (array_slice(array_values(array_unique($source->periodMonths)), 0, self::PERIOD_MONTHS) as $month) {
+            if (preg_match('/^\d{4}-\d{2}$/D', $month) !== 1) {
+                continue;
+            }
+            $start = CarbonImmutable::parse($month.'-01', $source->reportingTimezone)->startOfDay();
+            $end = $start->endOfMonth()->startOfDay();
+            if ($end->lt($today)) {
+                $windows[] = [$start, $end];
             }
         }
 

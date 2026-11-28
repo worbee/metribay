@@ -28,6 +28,8 @@ Target: at 1440 × 900 every headline number and the first group fit on the firs
 
 Events are not listed on this page: their markers stay on the charts, and clicking one opens it on the project's events page (docs/EVENTS_PAGE.md).
 
+**Monthly report** is a text link in the project actions. It opens the newest saved calendar month. Rules and the snapshot: [MONTHLY_REPORTS.md](MONTHLY_REPORTS.md).
+
 ## Project Overview
 
 `?view=overview` shares the project header and reporting period with All metrics. Recent findings use the latest usable observations even when the reporting period is historical. The view shows current UptimeRobot incidents and the largest qualifying drop in Search Console clicks for one property. A click loss must be at least 25 clicks and 20% across two adjacent seven-day windows with complete final data. A query is named only when both stored rows match those dates and the query text exactly. Finding links open the relevant recent report or the project's Hidden charts settings. The Overview reads stored data.
@@ -48,7 +50,7 @@ The overview (a menu) and the project page (the segmented control) share one per
 - **Yesterday** (`?days=1`) is the last complete day, compared with the day before. The project page shows every metric as a number tile (no one-point line charts; sparklines need two points). Unique visitors use the day's daily value, which is that day's unique count.
 - **Custom range** (`?from=YYYY-MM-DD&to=YYYY-MM-DD`): calendar dates, both included, up to 731 days and ending no later than today (tomorrow in UTC is accepted for timezones ahead). The overview's **Custom range…** opens From/To fields with **Apply** and **Change dates**; the project page's **Dates…** opens the same fields as a small form. Invalid ranges get a message on the overview and HTTP 422 in the URL.
 - Every period compares with the same number of days just before it. Dates are read in each data source's reporting timezone; a custom range is the same calendar dates everywhere. Health (failed, delayed, monitor down) always reflects today, whatever period is shown.
-- Unique visitors exist only as provider totals for the last 7, 30 and 90 days (and single days); custom ranges show "period total unavailable" with the daily chart. Top queries use the stored window closest in length (7, 30 or 90 days) and say so; a custom range that is exactly an archived month opens that month.
+- Unique visitors exist only as provider totals for the last 7, 30 and 90 days, for closed calendar months (read for the monthly report) and for single days; other custom ranges show "period total unavailable" with the daily chart. Top queries use the stored window closest in length (7, 30 or 90 days) and say so; a custom range that is exactly an archived month opens that month.
 - Links between the overview, project page and breadcrumb keep the period; the events page receives the nearest of 7/30/90 days.
 
 ## Groups and default sizes

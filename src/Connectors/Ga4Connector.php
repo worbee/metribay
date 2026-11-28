@@ -176,9 +176,10 @@ final class Ga4Connector extends AbstractConnector
             });
         }
         $breakdowns = Breakdowns::collect($source->breakdownLists ? $fetchers : [], $today, self::PROVISIONAL_DAYS);
+        $months = Breakdowns::months($source->breakdownLists ? $fetchers : [], $source->breakdownMonths, $today, self::PROVISIONAL_DAYS);
 
         return new CollectionResult(daily: $daily, periods: $periods, channelDays: $channelDays, breakdowns: $breakdowns['rows'],
-            breakdownDimensions: $breakdowns['dimensions'], breakdownErrors: $errors + $breakdowns['errors']);
+            breakdownDimensions: $breakdowns['dimensions'], breakdownErrors: $errors + $breakdowns['errors'] + $months['errors'], breakdownMonths: $months['months']);
     }
 
     /**

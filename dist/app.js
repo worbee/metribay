@@ -9067,3 +9067,10 @@ function lp() {
 	});
 }
 document.addEventListener("DOMContentLoaded", lp), document.addEventListener("livewire:navigated", lp), md(), Tf(Q);
+function up() {
+	document.querySelectorAll("select[data-submit-on-change]").forEach((e) => e.form?.classList.add("is-enhanced"));
+}
+document.addEventListener("change", (e) => {
+	let t = e.target instanceof HTMLSelectElement && e.target.matches("[data-submit-on-change]") ? e.target : null;
+	t?.form && t.form.requestSubmit();
+}), document.addEventListener("DOMContentLoaded", up), document.addEventListener("livewire:navigated", up);

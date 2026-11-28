@@ -8,6 +8,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Metribay\Core\Connectors\BingConnector;
+use Metribay\Core\Connectors\Breakdowns;
 use Metribay\Core\Connectors\ConnectorException;
 use Metribay\Core\Connectors\Ga4Connector;
 use Metribay\Core\Connectors\GoogleAuthorizationExpired;
@@ -211,6 +212,61 @@ final class ProviderConnectorsTest extends FixtureTestCase
             $this->assertSame($row['date'] === '2026-10-25', $row['is_partial']);
         }
         $this->assertCount(7, $calls);
+    }
+
+    public function test_period_totals_include_the_closed_calendar_months_the_monthly_report_still_needs(): void
+    {
+        $ranges = [];
+        Http::fake(function (Request $request) use (&$ranges) {
+            $path = parse_url($request->url(), PHP_URL_PATH);
+            if (str_ends_with($path, '/login')) {
+                return Http::response(['token' => 'synthetic-bearer']);
+            }
+            if (str_ends_with($path, '/site-one')) {
+                return Http::response(['id' => 'site-one']);
+            }
+            if (str_ends_with($path, '/pageviews')) {
+                return Http::response(['pageviews' => [], 'sessions' => []]);
+            }
+            $ranges[] = CarbonImmutable::createFromTimestampMsUTC($request['startAt'])->toDateString().'/'.CarbonImmutable::createFromTimestampMsUTC($request['endAt'])->toDateString();
+
+            return Http::response(['visits' => 11, 'visitors' => 456]);
+        });
+        // October is still open on 25 October, and a month that is not asked for is not read.
+        $source = new SourceConfiguration('umami', ['base_url' => 'https://umami.example.com', 'website_id' => 'site-one', 'days' => 3, 'period_days' => [], 'breakdowns' => false],
+            'UTC', periodMonths: ['2026-09', '2026-10', '2026-11']);
+        $result = (new UmamiConnector($this->http()))->collect($source, ['username' => 'fixture', 'password' => 'secret-password'], $this->now());
+
+        $months = array_values(array_filter($result->periods, fn (array $period): bool => $period['start_date'] === '2026-09-01'));
+        $this->assertCount(1, $months);
+        $this->assertSame('2026-09-30', $months[0]['end_date']);
+        $this->assertSame(456.0, $months[0]['value']);
+        $this->assertFalse($months[0]['is_partial']);
+        $this->assertCount(1, $result->periods);
+        $this->assertNotSame([], array_filter($ranges, fn (string $range): bool => str_starts_with($range, '2026-09-01/')));
+    }
+
+    public function test_month_top_lists_are_read_once_a_month_is_final(): void
+    {
+        $asked = [];
+        $fetchers = [
+            'referrer' => Breakdowns::perWindow(function (CarbonImmutable $from, CarbonImmutable $end) use (&$asked): array {
+                $asked[] = $from->toDateString().'/'.$end->toDateString();
+
+                return [['item' => 'news.example', 'visits' => 30], ['item' => 'News.example', 'visits' => 0], ['item' => 'blog.example', 'visits' => 12]];
+            }),
+            'device' => fn (array $windows): array => throw new ConnectorException('Not available.'),
+        ];
+        // GA4 keeps three days provisional: on 2 November, October is not final yet.
+        $this->assertSame([], Breakdowns::months($fetchers, ['2026-10'], CarbonImmutable::parse('2026-11-02', 'UTC'), 3)['months']);
+        $result = Breakdowns::months($fetchers, ['2026-10', '2026-09'], CarbonImmutable::parse('2026-11-10', 'UTC'), 3);
+
+        $this->assertSame(['2026-10-01/2026-10-31'], $asked);
+        $this->assertCount(1, $result['months']);
+        $this->assertSame(['dimension' => 'referrer', 'month' => '2026-10-01', 'start_date' => '2026-10-01', 'end_date' => '2026-10-31', 'is_partial' => false],
+            array_diff_key($result['months'][0], ['rows' => true]));
+        $this->assertSame(['news.example', 'blog.example'], array_column($result['months'][0]['rows'], 'item'));
+        $this->assertArrayHasKey('month:device', $result['errors']);
     }
 
     public function test_umami_omitted_completed_dates_need_known_creation_and_explicit_valid_counts(): void

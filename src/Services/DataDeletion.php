@@ -60,10 +60,16 @@ class DataDeletion
                     DB::table('search_query_month_rows')->whereIn('search_query_month_id', $chunk)->delete();
                 }
                 DB::table('search_query_months')->where('workspace_id', $workspace->id)->whereIn('source_id', $sources)->delete();
+                $breakdowns = DB::table('breakdown_months')->where('workspace_id', $workspace->id)->whereIn('source_id', $sources)->pluck('id');
+                foreach ($breakdowns->chunk(500) as $chunk) {
+                    DB::table('breakdown_month_rows')->whereIn('breakdown_month_id', $chunk)->delete();
+                }
+                DB::table('breakdown_months')->where('workspace_id', $workspace->id)->whereIn('source_id', $sources)->delete();
                 foreach (self::SOURCE_TABLES as $table) {
                     DB::table($table)->where('workspace_id', $workspace->id)->whereIn('source_id', $sources)->delete();
                 }
             }
+            DB::table('monthly_reports')->where('workspace_id', $workspace->id)->whereIn('project_id', $projects)->delete();
             DB::table('project_events')->where('workspace_id', $workspace->id)->whereIn('project_id', $projects)->delete();
             DB::table('hidden_charts')->where('workspace_id', $workspace->id)->whereIn('project_id', $projects)->delete();
             DB::table('sources')->where('workspace_id', $workspace->id)->whereIn('project_id', $projects)->delete();

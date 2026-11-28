@@ -131,10 +131,11 @@ final class SampleSources
                         'value' => (float) $unique, 'is_partial' => $kind === 'ga4' ? $offset < 3 : $offset === 0];
                 }
             }
+            array_push($periods, ...$this->monthPeriods('visitors', $visitors, $today, $options['loyalty'], $kind === 'ga4' ? 3 : 1));
         }
 
         return $this->source($kind, $label, $config, $timezone, [new CollectionResult(daily: [...$daily, ...$audience['daily']], periods: $periods, channelDays: $audience['channel_days'],
-            breakdowns: $audience['rows'], breakdownDimensions: $audience['dimensions'])], 9);
+            breakdowns: $audience['rows'], breakdownDimensions: $audience['dimensions'], breakdownMonths: $audience['months'])], 9);
     }
 
     /**
@@ -189,12 +190,15 @@ final class SampleSources
                 }
             }
         }
+        foreach ($people as $metric => $counted) {
+            array_push($periods, ...$this->monthPeriods($metric, $counted, $today, $options['loyalty'], 1));
+        }
 
         $audience = $this->audience('posthog', $label, $timezone, $sessions, [], ['bounce' => 0.22, 'duration' => 540.0, 'channels' => ['direct' => 0.52, 'organic_search' => 0.18, 'referral' => 0.12, 'email' => 0.12, 'organic_social' => 0.04, 'ai_assistant' => 0.02],
             'landing_pages' => ['/login' => 0.34, '/dashboard' => 0.31, '/invoices' => 0.14, '/invoices/new' => 0.08, '/clients' => 0.06, '/settings/billing' => 0.04, '/signup' => 0.03]]);
 
         return $this->source('posthog', $label, $config, $timezone, [new CollectionResult(daily: [...$daily, ...$audience['daily']], periods: $periods, channelDays: $audience['channel_days'],
-            breakdowns: $audience['rows'], breakdownDimensions: $audience['dimensions'])], 14);
+            breakdowns: $audience['rows'], breakdownDimensions: $audience['dimensions'], breakdownMonths: $audience['months'])], 14);
     }
 
     /**
@@ -208,7 +212,7 @@ final class SampleSources
      * @param  array<int, int>  $visits  Human visits by days ago.
      * @param  array<int, int>  $bots  Crawler visits by days ago.
      * @param  array<string, mixed>  $options
-     * @return array{daily: list<array<string, mixed>>, channel_days: list<array<string, mixed>>|null, rows: list<array<string, mixed>>, dimensions: list<string>}
+     * @return array{daily: list<array<string, mixed>>, channel_days: list<array<string, mixed>>|null, rows: list<array<string, mixed>>, months: list<array{dimension: string, month: string, start_date: string, end_date: string, is_partial: bool, rows: list<array{item: string, visits: float|null, visitors: float|null, conversions: float|null}>}>, dimensions: list<string>}
      */
     private function audience(string $kind, string $label, string $timezone, array $visits, array $bots, array $options): array
     {
@@ -293,8 +297,88 @@ final class SampleSources
             }
         }
 
-        return ['daily' => $daily, 'channel_days' => $kind === 'umami' ? null : $channelDays, 'rows' => $rows,
+        // Closed calendar months, archived once as the connectors do after a month's days are final.
+        $months = [];
+        $monthNoise = $noise->fork('months');
+        foreach ($this->closedMonths($today, $provisional, max(array_keys($visits) ?: [0])) as [$start, $end, $agos]) {
+            $total = array_sum(array_map(fn (int $ago): int => ($visits[$ago] ?? 0) + ($bots[$ago] ?? 0), $agos));
+            $completed = array_sum(array_map(fn (int $ago): int => $conversions[$ago] ?? 0, $agos));
+            if ($total === 0) {
+                continue;
+            }
+            $base = ['month' => $start->toDateString(), 'start_date' => $start->toDateString(), 'end_date' => $end->toDateString(), 'is_partial' => false];
+            foreach ($lists as $dimension => $weights) {
+                $items = [];
+                foreach ($this->split((int) round($total * $coverage[$dimension]), $weights, $monthNoise) as $item => $count) {
+                    if ($count > 0) {
+                        $people = (float) max(1, (int) round($count / 1.22));
+                        $items[] = ['item' => (string) $item] + match (true) {
+                            $kind === 'umami' => ['visits' => null, 'visitors' => $people],
+                            $kind === 'matomo' || ($kind === 'posthog' && ! in_array($dimension, ['country', 'device'], true)) => ['visits' => (float) $count, 'visitors' => null],
+                            default => ['visits' => (float) $count, 'visitors' => $people],
+                        } + ['conversions' => null];
+                    }
+                }
+                $months[] = $base + ['dimension' => $dimension, 'rows' => $items];
+            }
+            if ($kind !== 'posthog') {
+                $events = $kind === 'umami' ? (int) round($total * 0.03) : $completed;
+                $items = [];
+                foreach ($this->split($events, $goals, $monthNoise) as $goal => $count) {
+                    if ($count > 0) {
+                        $items[] = ['item' => (string) $goal, 'visits' => null, 'visitors' => $kind === 'matomo' ? null : (float) max(1, (int) round($count * 0.9)), 'conversions' => (float) $count];
+                    }
+                }
+                $months[] = $base + ['dimension' => 'goal', 'rows' => $items];
+            }
+        }
+
+        return ['daily' => $daily, 'channel_days' => $kind === 'umami' ? null : $channelDays, 'rows' => $rows, 'months' => $months,
             'dimensions' => [...array_keys($lists), ...($kind === 'posthog' ? [] : ['goal'])]];
+    }
+
+    /**
+     * Calendar months that ended before today, as far back as the data goes: start, end and their days ago.
+     *
+     * @return list<array{0: CarbonImmutable, 1: CarbonImmutable, 2: list<int>}>
+     */
+    private function closedMonths(CarbonImmutable $today, int $provisional, int $first): array
+    {
+        $months = [];
+        for ($start = $today->startOfMonth()->subMonthNoOverflow(); ; $start = $start->subMonthNoOverflow()) {
+            $end = $start->endOfMonth()->startOfDay();
+            $endAgo = (int) round($end->diffInDays($today));
+            $startAgo = (int) round($start->diffInDays($today));
+            if ($endAgo > $first) {
+                break;
+            }
+            if ($endAgo >= $provisional) {
+                $months[] = [$start, $end, range($endAgo, min($startAgo, $first))];
+            }
+        }
+
+        return $months;
+    }
+
+    /**
+     * Unique people per closed calendar month: fewer than the sum of the days, at least the busiest day.
+     *
+     * @param  array<int, int>  $byAgo
+     * @return list<array{metric: string, start_date: string, end_date: string, value: float, is_partial: bool}>
+     */
+    private function monthPeriods(string $metric, array $byAgo, CarbonImmutable $today, float $loyalty, int $provisional): array
+    {
+        $periods = [];
+        foreach ($this->closedMonths($today, 0, max(array_keys($byAgo) ?: [0])) as [$start, $end, $agos]) {
+            $window = array_intersect_key($byAgo, array_flip($agos));
+            if ($window === []) {
+                continue;
+            }
+            $unique = max(max($window), (int) round(array_sum($window) / (1 + $loyalty * log($start->daysInMonth))));
+            $periods[] = ['metric' => $metric, 'start_date' => $start->toDateString(), 'end_date' => $end->toDateString(), 'value' => (float) $unique, 'is_partial' => $agos[0] < $provisional];
+        }
+
+        return $periods;
     }
 
     /**

@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Metribay\Core\Http\Controllers\DashboardController;
 use Metribay\Core\Http\Controllers\HiddenChartController;
 use Metribay\Core\Http\Controllers\LocaleController;
+use Metribay\Core\Http\Controllers\MonthlyReportController;
 use Metribay\Core\Http\Controllers\ProjectController;
 use Metribay\Core\Http\Controllers\ProjectEventController;
 use Metribay\Core\Http\Controllers\ProjectFaviconController;
@@ -22,6 +23,7 @@ Route::middleware(['web', 'auth', 'auth.session', 'verified'])->group(function (
         Route::get('/', [DashboardController::class, 'index'])->name('metribay.dashboard');
         Route::get('/projects/new', [ProjectController::class, 'create'])->name('metribay.projects.create');
         Route::get('/projects/{project}', [DashboardController::class, 'project'])->name('metribay.projects.show');
+        Route::get('/projects/{project}/reports/{month?}', [MonthlyReportController::class, 'show'])->where('month', '[0-9]{4}-[0-9]{2}')->name('metribay.projects.report');
         Route::get('/projects/{project}/favicon', ProjectFaviconController::class)->name('metribay.projects.favicon');
         Route::get('/projects/{project}/settings', [ProjectController::class, 'edit'])->name('metribay.projects.edit');
         Route::get('/sources/google', [SourceSetupController::class, 'google'])->name('metribay.sources.google');

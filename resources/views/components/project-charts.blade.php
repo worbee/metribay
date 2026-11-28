@@ -49,6 +49,7 @@
         @endif
     </div>
     <div class="project-actions">
+        <a class="text-link" href="{{ route('metribay.projects.report', $routeParams) }}">{{ __('Monthly report') }}</a>
         @include('metribay::partials/project-view-switch')
         <nav class="period-switch" aria-label="{{ __('Reporting period') }}"><a href="{{ $periodUrl(['days' => 1]) }}" @if($period->isYesterday()) aria-current="page" @endif>{{ __('Yesterday') }}</a>@foreach(\Metribay\Core\Metrics\Period::PRESETS as $option)<a href="{{ $periodUrl(['days' => $option]) }}" @if($period->isPreset() && $days === $option) aria-current="page" @endif>{{ __(':days days', ['days' => $option]) }}</a>@endforeach
             <details class="range-picker" wire:ignore.self><summary @if($period->isCustom()) aria-current="page" @endif>{{ $period->isCustom() ? $period->label() : __('Dates…') }}</summary>

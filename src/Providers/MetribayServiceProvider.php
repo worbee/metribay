@@ -19,11 +19,14 @@ use Livewire\Livewire;
 use Metribay\Core\Actions;
 use Metribay\Core\Console\DemoCommand;
 use Metribay\Core\Console\InstallCommand;
+use Metribay\Core\Console\MonthlyReportsCommand;
 use Metribay\Core\Console\SyncCommand;
 use Metribay\Core\Contracts\ConnectionCredentials;
 use Metribay\Core\Contracts\Entitlements;
 use Metribay\Core\Contracts\GoogleAuthorization;
 use Metribay\Core\Contracts\ManagedSources;
+use Metribay\Core\Contracts\MonthlyReportContributions;
+use Metribay\Core\Contracts\MonthlyReportNarrative;
 use Metribay\Core\Contracts\PageSpeedCredentials;
 use Metribay\Core\Contracts\ProviderRequests;
 use Metribay\Core\Contracts\WorkspaceAccess;
@@ -34,6 +37,8 @@ use Metribay\Core\Http\Middleware\UseWorkspace;
 use Metribay\Core\Livewire\Dashboard;
 use Metribay\Core\Livewire\ProjectCharts;
 use Metribay\Core\Services\NoManagedSources;
+use Metribay\Core\Services\NoReportContributions;
+use Metribay\Core\Services\NoReportNarrative;
 use Metribay\Core\Services\OwnConnectionCredentials;
 use Metribay\Core\Services\OwnGoogleAuthorization;
 use Metribay\Core\Services\OwnPageSpeedCredentials;
@@ -56,6 +61,8 @@ class MetribayServiceProvider extends ServiceProvider
         $this->app->bindIf(ProviderRequests::class, UnrestrictedProviderRequests::class);
         $this->app->bindIf(PageSpeedCredentials::class, OwnPageSpeedCredentials::class);
         $this->app->bindIf(ManagedSources::class, NoManagedSources::class);
+        $this->app->bindIf(MonthlyReportContributions::class, NoReportContributions::class);
+        $this->app->bindIf(MonthlyReportNarrative::class, NoReportNarrative::class);
     }
 
     public function boot(): void
@@ -122,7 +129,7 @@ class MetribayServiceProvider extends ServiceProvider
             $view->with(['workspace' => $workspace, 'canEdit' => $user && $workspace ? $access->allows($user, $workspace, 'edit') : false, 'canManageConnections' => $user && $workspace ? $access->allows($user, $workspace, 'manage_connections') : false, 'canManageAccess' => $user && $workspace ? $access->allows($user, $workspace, 'manage_access') : false, 'marketingUrl' => config('metribay.marketing_url'), 'edition' => config('metribay.edition')]);
         });
         if ($this->app->runningInConsole()) {
-            $this->commands([InstallCommand::class, SyncCommand::class, DemoCommand::class]);
+            $this->commands([InstallCommand::class, SyncCommand::class, DemoCommand::class, MonthlyReportsCommand::class]);
         }
     }
 }

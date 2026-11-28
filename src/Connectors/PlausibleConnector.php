@@ -136,9 +136,10 @@ final class PlausibleConnector extends AbstractConnector
             });
         }
         $breakdowns = Breakdowns::collect($source->breakdownLists ? $fetchers : [], $today);
+        $months = Breakdowns::months($source->breakdownLists ? $fetchers : [], $source->breakdownMonths, $today);
 
         return new CollectionResult(daily: $daily, periods: $periods, channelDays: $channelDays, breakdowns: $breakdowns['rows'],
-            breakdownDimensions: $breakdowns['dimensions'], breakdownErrors: $errors + $breakdowns['errors']);
+            breakdownDimensions: $breakdowns['dimensions'], breakdownErrors: $errors + $breakdowns['errors'] + $months['errors'], breakdownMonths: $months['months']);
     }
 
     /**

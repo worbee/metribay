@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 1.11.0 — 2026-11-28
+
+- **Monthly report.** After a calendar month closes, Metribay saves one report per project and opens it from the project page. At the top: at most three sentences and up to six key figures, outcomes first (revenue, sign-ups, conversions), then audience. The headline is the largest material move; the next sentence says why it is likely (last month was the exception, an event whose week after moved the figure, one channel or page, or the season) and then comes a collection or uptime problem or a second figure. At most three actions name what to check: a failing or paused source, downtime, the query that lost most clicks, a slower page with the event that lines up with it. Below: listed events, and per data source thirteen months of bars and a compact table against the month before, the same month last year and the 3-month average. Unknown stays unknown, visitors come from the provider's month total, months of different length or with missing days are compared per day, and partial comparison months are marked. Health, outages and events are read from the month itself. `metribay:monthly-reports` refreshes the closed month on the 1st through the 4th UTC, seals it from the 5th and catches up a missed run. Hosts can freeze extra items (`MonthlyReportContributions`) and reorder the rule-based points (`MonthlyReportNarrative::rank()`) without writing text.
+- **Calendar months from analytics providers.** GA4, Plausible, Umami and PostHog also read the unique total of each closed calendar month the report needs (three months per collection, up to 14 back), and every analytics connector archives its top lists for closed, final months (`breakdown_months`). A project page range that is exactly a closed month now shows its visitor total.
+- The sample portfolio covers 460 days, stores month totals and month lists like the connectors, and seals a report for every closed month.
+- New strings in all twelve languages. Additive migration.
+
 ## 1.10.0 — 2026-11-28
 
 - The all-projects overview counts host-managed data sources (`ManagedSources`) with each project's own: the project status dot, its "needs attention" note, the workspace attention count and the data-source summary of a project that has only managed sources. The first-dashboard checklist still follows connected sources only.

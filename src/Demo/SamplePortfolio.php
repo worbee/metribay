@@ -16,7 +16,8 @@ final class SamplePortfolio
 {
     public const SEED = 2026;
 
-    public const DAYS = 400;
+    /** About fifteen months: the newest closed month then has the same month a year ago and the month before it, which the monthly report compares. */
+    public const DAYS = 460;
 
     private readonly CarbonImmutable $now;
 

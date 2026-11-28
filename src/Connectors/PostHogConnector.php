@@ -85,6 +85,7 @@ final class PostHogConnector extends AbstractConnector
         $errors = [];
         $channelDays = null;
         $breakdowns = ['rows' => [], 'dimensions' => [], 'errors' => []];
+        $months = ['months' => [], 'errors' => []];
         if ($event === null && ($source->config['breakdowns'] ?? true) !== false) {
             try {
                 // Sessions with a page view: channel, bounce and length, by the day the session started.
@@ -112,7 +113,9 @@ final class PostHogConnector extends AbstractConnector
             } catch (ConnectorException $exception) {
                 $errors['channel_days'] = $exception->getMessage();
             }
-            $breakdowns = Breakdowns::collect($source->breakdownLists ? $this->breakdownFetchers($client, $base, $key, $id, $source->reportingTimezone, $today) : [], $today);
+            $fetchers = $source->breakdownLists ? $this->breakdownFetchers($client, $base, $key, $id, $source->reportingTimezone, $today) : [];
+            $breakdowns = Breakdowns::collect($fetchers, $today);
+            $months = Breakdowns::months($fetchers, $source->breakdownMonths, $today);
         }
         $rows = [];
         foreach ($dates as $date => $values) {
@@ -122,7 +125,7 @@ final class PostHogConnector extends AbstractConnector
         }
 
         return new CollectionResult(daily: $rows, periods: $periods, channelDays: $channelDays, breakdowns: $breakdowns['rows'],
-            breakdownDimensions: $breakdowns['dimensions'], breakdownErrors: $errors + $breakdowns['errors']);
+            breakdownDimensions: $breakdowns['dimensions'], breakdownErrors: $errors + $breakdowns['errors'] + $months['errors'], breakdownMonths: $months['months']);
     }
 
     /**

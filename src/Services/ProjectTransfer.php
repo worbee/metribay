@@ -17,7 +17,7 @@ use Metribay\Core\Models\Workspace;
 class ProjectTransfer
 {
     /** Tables whose rows belong to exactly one data source. */
-    private const SOURCE_TABLES = ['daily_metrics', 'period_metrics', 'sitemap_urls', 'search_queries', 'search_query_months', 'channel_days', 'breakdown_rows', 'sync_runs'];
+    private const SOURCE_TABLES = ['daily_metrics', 'period_metrics', 'sitemap_urls', 'search_queries', 'search_query_months', 'channel_days', 'breakdown_rows', 'breakdown_months', 'sync_runs'];
 
     /**
      * Connected accounts used only by this project move along when $moveAccounts is true. Accounts shared
@@ -62,6 +62,7 @@ class ProjectTransfer
                 }
             }
             DB::table('project_events')->where('workspace_id', $from->id)->where('project_id', $projectId)->whereNull('source_id')->update(['workspace_id' => $to->id, 'project_id' => $newProjectId]);
+            DB::table('monthly_reports')->where('workspace_id', $from->id)->where('project_id', $projectId)->update(['workspace_id' => $to->id, 'project_id' => $newProjectId]);
             DB::table('sources')->whereIn('id', $sources->pluck('id'))->delete();
             DB::table('projects')->where('id', $projectId)->delete();
 

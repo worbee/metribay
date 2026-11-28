@@ -44,7 +44,8 @@ class Collector
             $archived = in_array($source->kind, ProviderCatalog::QUERY_PROVIDERS, true)
                 ? SearchQueryMonth::query()->where('source_id', $source->id)->pluck('month')->map(fn (CarbonImmutable $month): string => $month->format('Y-m'))->all() : [];
             $lists = $full || $this->listsDue($source, $now);
-            $result = ProviderCatalog::withoutConvertedEvents($source->kind, $source->config ?? [], $this->connectors->for($source->kind)->collect(new SourceConfiguration($source->kind, $source->config ?? [], $source->reporting_timezone, $from, $archived, $lists), $credentials, $now));
+            [$periodMonths, $breakdownMonths] = app(ReportMonths::class)->toRead($source, $now, $lists);
+            $result = ProviderCatalog::withoutConvertedEvents($source->kind, $source->config ?? [], $this->connectors->for($source->kind)->collect(new SourceConfiguration($source->kind, $source->config ?? [], $source->reporting_timezone, $from, $archived, $lists, $periodMonths, $breakdownMonths), $credentials, $now));
             if ($result->breakdownErrors !== []) {
                 // Breakdowns are optional: the metrics are saved and the stored breakdowns of these dimensions stay.
                 Log::warning('Metribay could not update audience breakdowns.', ['source_id' => $source->id, 'kind' => $source->kind, 'errors' => $result->breakdownErrors]);

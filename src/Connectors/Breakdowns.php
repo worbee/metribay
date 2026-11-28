@@ -29,6 +29,9 @@ final class Breakdowns
     /** Items kept per dimension and window. */
     public const LIMIT = 100;
 
+    /** Closed months whose top lists are read in one collection; each costs one request per dimension. */
+    public const MONTHS_PER_COLLECTION = 1;
+
     /** Provider names, lower case without spaces or punctuation, and the Metribay channel they mean. */
     private const CHANNEL_NAMES = [
         'direct' => 'direct', 'directentry' => 'direct', 'none' => 'direct',
@@ -138,6 +141,43 @@ final class Breakdowns
                 $out['dimensions'][] = $dimension;
             } catch (ConnectorException $exception) {
                 $out['errors'][$dimension] = $exception->getMessage();
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Top lists for closed calendar months, archived once (breakdown_months). Only a month whose days are all final
+     * is read, so the archive never keeps provisional figures. A dimension that fails is left out of that month.
+     *
+     * @param  array<string, Closure(list<array{days: int, previous: bool, from: CarbonImmutable, end: CarbonImmutable}>): array<int, list<array<string, mixed>>>>  $fetchers
+     * @param  list<string>  $months  Months (Y-m) not archived yet.
+     * @return array{months: list<array{dimension: string, month: string, start_date: string, end_date: string, is_partial: bool, rows: list<array{item: string, visits: float|null, visitors: float|null, conversions: float|null}>}>, errors: array<string, string>}
+     */
+    public static function months(array $fetchers, array $months, CarbonImmutable $today, int $provisionalDays = 1): array
+    {
+        $out = ['months' => [], 'errors' => []];
+        $final = $today->subDays($provisionalDays);
+        foreach (array_slice(array_values(array_unique($months)), 0, self::MONTHS_PER_COLLECTION) as $month) {
+            if (preg_match('/^\d{4}-\d{2}$/D', $month) !== 1) {
+                continue;
+            }
+            $from = CarbonImmutable::parse($month.'-01', $today->getTimezone())->startOfDay();
+            $end = $from->endOfMonth()->startOfDay();
+            if ($end->gte($final)) {
+                continue;
+            }
+            $window = [['days' => $from->daysInMonth, 'previous' => false, 'from' => $from, 'end' => $end]];
+            foreach ($fetchers as $dimension => $fetch) {
+                try {
+                    $rows = self::top($dimension, $fetch($window)[0] ?? []);
+                } catch (ConnectorException $exception) {
+                    $out['errors']['month:'.$dimension] = $exception->getMessage();
+
+                    continue;
+                }
+                $out['months'][] = ['dimension' => $dimension, 'month' => $from->toDateString(), 'start_date' => $from->toDateString(), 'end_date' => $end->toDateString(), 'is_partial' => false, 'rows' => $rows];
             }
         }
 

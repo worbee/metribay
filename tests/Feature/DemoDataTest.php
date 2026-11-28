@@ -7,6 +7,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
 use Metribay\Core\Models\DailyMetric;
+use Metribay\Core\Models\MonthlyReport;
 use Metribay\Core\Models\PeriodMetric;
 use Metribay\Core\Models\Project;
 use Metribay\Core\Models\ProjectEvent;
@@ -110,6 +111,21 @@ class DemoDataTest extends TestCase
             $overview = app(DashboardData::class)->projects(30);
             $this->assertCount(7, $overview);
             $this->assertNotNull(collect($overview)->firstWhere('slug', 'sample-switchback-journal')['summary']['traffic']['change']);
+
+            $tallybird = Project::query()->where('slug', 'sample-tallybird')->firstOrFail();
+            $report = MonthlyReport::query()->where('project_id', $tallybird->id)->whereNotNull('sealed_at')->orderByDesc('month')->first();
+            $this->assertNotNull($report);
+            $this->assertNull(MonthlyReport::query()->where('project_id', $tallybird->id)->whereDate('month', $today->startOfMonth()->toDateString())->whereNotNull('sealed_at')->first());
+            $withFigures = collect($report->payload['sources'])->filter(fn (array $source): bool => collect($source['metrics'])->contains(fn (array $metric): bool => $metric['value'] !== null));
+            $this->assertGreaterThanOrEqual(4, $withFigures->count());
+            // Analytics samples store a provider total per calendar month, as the connectors do, so visitors are known.
+            $ga4 = collect($report->payload['sources'])->firstWhere('kind', 'ga4');
+            $this->assertNotNull(collect($ga4['metrics'])->firstWhere('key', 'visitors')['value']);
+            $this->assertNotNull($ga4['chart']);
+            $this->assertCount(13, $ga4['chart']['months']);
+            $this->assertNotSame([], collect($ga4['breakdowns'])->where('dimension', 'referrer')->all());
+            $matomo = Source::query()->where('kind', 'matomo')->firstOrFail();
+            $this->assertSame(0, PeriodMetric::query()->where('source_id', $matomo->id)->count());
         });
 
         // Replacement needs overlapping sample identities, not another full history.

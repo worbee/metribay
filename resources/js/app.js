@@ -737,3 +737,14 @@ document.addEventListener('livewire:navigated', setupSourceForms);
 
 setupHourlyRefresh();
 setupPasskeys(t);
+
+// A select that opens its choice at once, such as the monthly report's month. Its button stays for browsers without scripts.
+function setupSubmitOnChange() {
+    document.querySelectorAll('select[data-submit-on-change]').forEach(select => select.form?.classList.add('is-enhanced'));
+}
+document.addEventListener('change', event => {
+    const select = event.target instanceof HTMLSelectElement && event.target.matches('[data-submit-on-change]') ? event.target : null;
+    if (select?.form) select.form.requestSubmit();
+});
+document.addEventListener('DOMContentLoaded', setupSubmitOnChange);
+document.addEventListener('livewire:navigated', setupSubmitOnChange);

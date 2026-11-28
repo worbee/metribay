@@ -24,6 +24,7 @@ final readonly class CollectionResult
      * @param  list<array{dimension: string, days: int, previous: bool, start_date: string, end_date: string, item: string, visits: float|null, visitors: float|null, conversions: float|null, is_partial: bool}>  $breakdowns
      * @param  list<string>  $breakdownDimensions  Dimensions read completely: their stored rows are replaced by $breakdowns. Other dimensions stay as they are.
      * @param  array<string, string>  $breakdownErrors  Safe messages of dimensions or channel days that could not be read, for the log.
+     * @param  list<array{dimension: string, month: string, start_date: string, end_date: string, is_partial: bool, rows: list<array{item: string, visits: float|null, visitors: float|null, conversions: float|null}>}>  $breakdownMonths  Complete calendar months to archive once.
      */
     public function __construct(
         public array $daily = [],
@@ -38,5 +39,6 @@ final readonly class CollectionResult
         public array $breakdowns = [],
         public array $breakdownDimensions = [],
         public array $breakdownErrors = [],
+        public array $breakdownMonths = [],
     ) {}
 }

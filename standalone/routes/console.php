@@ -6,3 +6,4 @@ Schedule::command('metribay:sync --except=uptimerobot')->cron('0 */4 * * *')->wi
 Schedule::command('metribay:sync --kind=uptimerobot')->hourlyAt(5)->withoutOverlapping(60);
 Schedule::command('queue:prune-failed --hours=168')->daily();
 Schedule::command('metribay:sync --full --except=uptimerobot')->weeklyOn(0, '22:10')->withoutOverlapping(240);
+Schedule::command('metribay:monthly-reports')->dailyAt('06:10')->withoutOverlapping(120);

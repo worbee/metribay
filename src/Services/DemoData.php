@@ -7,6 +7,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Metribay\Core\Demo\SamplePortfolio;
+use Metribay\Core\Models\DailyMetric;
 use Metribay\Core\Models\Project;
 use Metribay\Core\Models\ProjectEvent;
 use Metribay\Core\Models\Source;
@@ -78,11 +79,11 @@ class DemoData
         $active = ! config('metribay.collection.enabled', true);
         $store = app(MetricStore::class);
 
-        return app(WorkspaceContext::class)->run($workspace, function () use ($samples, $labelled, $active, $store): int {
+        return app(WorkspaceContext::class)->run($workspace, function () use ($samples, $labelled, $active, $store, $workspace, $now): int {
             $slugs = array_map(fn ($sample): string => ($labelled ? 'sample-' : '').$sample->slug, $samples);
             Project::query()->whereIn('slug', $slugs)->where('domain', 'like', '%.example')->get()->each(fn (Project $project) => $project->delete());
             foreach ($samples as $sample) {
-                DB::transaction(function () use ($sample, $labelled, $active, $store): void {
+                DB::transaction(function () use ($sample, $labelled, $active, $store, $workspace, $now): void {
                     $project = Project::query()->create(['name' => $sample->name.($labelled ? ' · Sample' : ''), 'slug' => ($labelled ? 'sample-' : '').$sample->slug, 'domain' => $sample->domain]);
                     foreach ($sample->sources as $definition) {
                         $source = Source::query()->create(['project_id' => $project->id, 'kind' => $definition->kind, 'label' => $definition->label, 'config' => $definition->config,
@@ -98,10 +99,27 @@ class DemoData
                     foreach ($sample->events as $event) {
                         ProjectEvent::query()->create(['project_id' => $project->id, 'origin' => 'manual'] + $event);
                     }
+                    $this->reports($workspace, $project, $now);
                 });
             }
 
             return count($samples);
         });
+    }
+
+    /** One sealed report for every closed month the project has daily figures for. The current month stays open. */
+    private function reports(Workspace $workspace, Project $project, CarbonImmutable $now): void
+    {
+        $earliest = DailyMetric::query()->whereIn('source_id', $project->sources()->pluck('id'))->min('date');
+        if ($earliest === null) {
+            return;
+        }
+        $cursor = CarbonImmutable::parse(substr((string) $earliest, 0, 7).'-01', 'UTC')->startOfMonth();
+        $closed = $now->startOfMonth()->subMonth()->startOfMonth();
+        $snapshots = app(MonthlySnapshot::class);
+        while ($cursor->lte($closed)) {
+            $snapshots->store($workspace, $project, $cursor->format('Y-m'), true, $now);
+            $cursor = $cursor->addMonth();
+        }
     }
 }

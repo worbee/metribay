@@ -20,7 +20,7 @@ class DataDeletionTest extends TestCase
 {
     use RefreshDatabase;
 
-    private const HISTORY_TABLES = ['daily_metrics', 'period_metrics', 'sitemap_urls', 'search_queries', 'search_query_months', 'sync_runs', 'project_events', 'hidden_charts'];
+    private const HISTORY_TABLES = ['daily_metrics', 'period_metrics', 'sitemap_urls', 'search_queries', 'search_query_months', 'sync_runs', 'project_events', 'hidden_charts', 'monthly_reports', 'breakdown_months'];
 
     private User $owner;
 
@@ -65,6 +65,9 @@ class DataDeletionTest extends TestCase
             DB::table('search_query_month_rows')->insert(['search_query_month_id' => $month, 'query' => 'fixture', 'clicks' => 3, 'impressions' => 40]);
             DB::table('sitemap_urls')->insert($row + ['url_hash' => hash('sha256', 'https://example.com/page'), 'url' => 'https://example.com/page', 'first_seen_at' => now(), 'last_seen_at' => now(), 'is_baseline' => true]);
             DB::table('sync_runs')->insert($row + ['started_at' => now(), 'status' => 'success']);
+            $breakdown = DB::table('breakdown_months')->insertGetId($row + ['dimension' => 'referrer', 'month' => '2026-09-01', 'start_date' => '2026-09-01', 'end_date' => '2026-09-30', 'item_count' => 1, 'collected_at' => now()]);
+            DB::table('breakdown_month_rows')->insert(['breakdown_month_id' => $breakdown, 'item' => 'example.test', 'visits' => 4]);
+            DB::table('monthly_reports')->insert(['workspace_id' => $workspace->id, 'project_id' => $project->id, 'month' => '2026-09-01', 'payload' => '{}', 'has_data' => false, 'created_at' => now(), 'updated_at' => now()]);
             ProjectEvent::create(['project_id' => $project->id, 'date' => '2026-10-02', 'title' => 'Launch']);
             HiddenChart::create(['project_id' => $project->id, 'source_id' => $source->id, 'metric_key' => 'visitors']);
 
@@ -93,6 +96,7 @@ class DataDeletionTest extends TestCase
             $this->assertSame($table === 'daily_metrics' ? 2 : 1, $this->rows($table, $this->workspace), $table);
         }
         $this->assertSame(1, DB::table('search_query_month_rows')->count());
+        $this->assertSame(1, DB::table('breakdown_month_rows')->count());
         $this->assertDatabaseHas('connections', ['id' => $connection->id]);
         $this->assertDatabaseHas('projects', ['id' => $blog->id]);
     }
@@ -135,6 +139,7 @@ class DataDeletionTest extends TestCase
             $this->assertSame(0, $this->rows($table, $this->workspace), $table);
         }
         $this->assertSame(1, DB::table('search_query_month_rows')->count());
+        $this->assertSame(1, DB::table('breakdown_month_rows')->count());
         $this->assertSame(2, $this->rows('daily_metrics', $other));
         $this->assertSame(1, $this->rows('connections', $other));
     }

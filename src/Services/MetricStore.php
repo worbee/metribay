@@ -8,6 +8,8 @@ use InvalidArgumentException;
 use Metribay\Core\Connectors\Breakdowns;
 use Metribay\Core\Connectors\CollectionResult;
 use Metribay\Core\Metrics\MetricRegistry;
+use Metribay\Core\Models\BreakdownMonth;
+use Metribay\Core\Models\BreakdownMonthRow;
 use Metribay\Core\Models\BreakdownRow;
 use Metribay\Core\Models\ChannelDay;
 use Metribay\Core\Models\DailyMetric;
@@ -71,6 +73,40 @@ class MetricStore
         }
         if ($row['position'] !== null && ((! is_int($row['position']) && ! is_float($row['position'])) || ! is_finite((float) $row['position']) || $row['position'] <= 0)) {
             throw new InvalidArgumentException('Invalid search query position.');
+        }
+    }
+
+    /** @param list<array<string, mixed>> $months */
+    private function breakdownMonths(Source $source, array $months): void
+    {
+        if ($months !== [] && ! ProviderCatalog::hasBreakdowns($source->kind, $source->config ?? [])) {
+            throw new InvalidArgumentException('This provider does not report audience breakdowns.');
+        }
+        $seen = [];
+        foreach ($months as $month) {
+            foreach (['month', 'start_date', 'end_date'] as $field) {
+                $this->date(is_string($month[$field] ?? null) ? $month[$field] : '');
+            }
+            $dimension = $month['dimension'] ?? null;
+            if (! is_string($dimension) || ! in_array($dimension, Breakdowns::DIMENSIONS, true) || substr($month['month'], 8) !== '01'
+                || isset($seen[$dimension.$month['month']]) || $month['start_date'] > $month['end_date'] || substr($month['start_date'], 0, 7) !== substr($month['month'], 0, 7)
+                || substr($month['end_date'], 0, 7) !== substr($month['month'], 0, 7) || ! is_bool($month['is_partial'] ?? null) || ! is_array($month['rows'] ?? null) || ! array_is_list($month['rows'])) {
+                throw new InvalidArgumentException('Invalid breakdown month.');
+            }
+            $seen[$dimension.$month['month']] = true;
+            $items = [];
+            foreach ($month['rows'] as $row) {
+                if (! is_array($row) || ! is_string($row['item'] ?? null) || $row['item'] === '' || isset($items[$row['item']])) {
+                    throw new InvalidArgumentException('Invalid breakdown month.');
+                }
+                foreach (['visits', 'visitors', 'conversions'] as $field) {
+                    $value = $row[$field] ?? null;
+                    if ($value !== null && ((! is_int($value) && ! is_float($value)) || ! is_finite((float) $value) || $value < 0)) {
+                        throw new InvalidArgumentException('Invalid breakdown month.');
+                    }
+                }
+                $items[$row['item']] = true;
+            }
         }
     }
 
@@ -239,6 +275,7 @@ class MetricStore
         }
         $this->queryMonths($source, $result->queryMonths);
         $this->breakdowns($source, $result);
+        $this->breakdownMonths($source, $result->breakdownMonths);
 
         return DB::transaction(function () use ($source, $result, $now) {
             $daily = $result->daily;
@@ -307,6 +344,17 @@ class MetricStore
                     SearchQuery::query()->insert(array_map(fn (array $row): array => ['workspace_id' => $source->workspace_id, 'source_id' => $source->id, 'days' => $row['days'], 'previous' => $row['previous'],
                         'start_date' => $row['start_date'], 'end_date' => $row['end_date'], 'query' => $row['query'], 'clicks' => $row['clicks'], 'impressions' => $row['impressions'],
                         'position' => $row['position'], 'is_partial' => $row['is_partial'], 'collected_at' => $now], $chunk));
+                }
+            }
+            foreach ($result->breakdownMonths as $month) {
+                if (BreakdownMonth::query()->where('source_id', $source->id)->where('dimension', $month['dimension'])->whereDate('month', $month['month'])->exists()) {
+                    continue;
+                }
+                $archive = BreakdownMonth::query()->create(['source_id' => $source->id, 'dimension' => $month['dimension'], 'month' => $month['month'],
+                    'start_date' => $month['start_date'], 'end_date' => $month['end_date'], 'item_count' => count($month['rows']), 'is_partial' => $month['is_partial'], 'collected_at' => $now]);
+                foreach (array_chunk($month['rows'], 200) as $chunk) {
+                    BreakdownMonthRow::query()->insert(array_map(fn (array $row): array => ['breakdown_month_id' => $archive->id, 'item' => $row['item'],
+                        'visits' => $row['visits'], 'visitors' => $row['visitors'], 'conversions' => $row['conversions']], $chunk));
                 }
             }
             foreach ($result->queryMonths as $month) {
